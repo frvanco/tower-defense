@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { createGame, tick, Bot, TICK_RATE, type Command, type GameState, type SimEvent } from '@tower-defense/sim';
-import { buildableTowers, lanes, towers, rules } from '@tower-defense/data';
+import { buildableTowers, lanes, towers, rules, nearestSlot } from '@tower-defense/data';
 import { MAX_RADIUS } from '@tower-defense/renderer';
 import { createScene3D, resizeScene3D, type Scene3D } from './scene3d.js';
-import { computeFrame, worldToScene, isInBuildZone, type Frame3D } from './world3d.js';
+import { computeFrame, worldToScene, type Frame3D } from './world3d.js';
 import { pickGroundWorld, pickTowerEid } from './pick3d.js';
 import { TowerEntities, CreepEntities } from './entities3d.js';
+import { createSlotMarkers } from './slots3d.js';
 import { laneColor } from './colors.js';
 import {
   buildBuildPanel,
@@ -75,8 +76,12 @@ const s3d: Scene3D = createScene3D(canvas, lane0, frame);
 const towerEntities = new TowerEntities(s3d.towerLayer, frame, TEAM_COLOR);
 const creepEntities = new CreepEntities(s3d.creepLayer, frame, laneColorByPlayer);
 
-// Fantome de placement : suit le pointeur pendant qu'une tour est armee.
-// Vert = dans la zone constructible, rouge = hors zone. Taille = MAX_RADIUS
+const slotMarkers = createSlotMarkers(frame);
+s3d.scene.add(slotMarkers.group);
+
+// Fantome de placement : positionne exactement sur l'emplacement survole
+// (jamais sur la position brute du curseur) pendant qu'une tour est armee.
+// Vert = libre, rouge = deja occupe. Taille = MAX_RADIUS
 // (packages/renderer/src/footprint.ts) pour que le joueur voie l'emprise
 // reelle avant de poser.
 const ghost = new THREE.Mesh(
@@ -205,13 +210,12 @@ canvas.addEventListener('click', (ev) => {
 
   if (armedBuildDefId) {
     const world = pickGroundWorld(s3d, frame, ndcX, ndcY);
-    if (!world) return;
-    const [wx, wy] = world;
-    if (!isInBuildZone(lane0, wx, wy)) {
-      toast('Outside the build zone', 'warn');
+    const slot = world && nearestSlot(0, world[0], world[1]);
+    if (!slot) {
+      toast('No slot here', 'warn');
       return;
     }
-    pendingHuman.push({ type: 'buildTower', player: 0, defId: armedBuildDefId, x: wx, y: wy });
+    pendingHuman.push({ type: 'buildTower', player: 0, defId: armedBuildDefId, x: slot.x, y: slot.y });
     armedBuildDefId = null;
     return;
   }
@@ -283,27 +287,30 @@ function frame3d(now: number): void {
   const animDt = (rawDt / 1000) * speed;
 
   const arena0 = state.arenas[0];
+  const hoveredSlot = mouseWorld ? nearestSlot(0, mouseWorld[0], mouseWorld[1]) : null;
+
   if (arena0) {
     towerEntities.sync(arena0);
     creepEntities.sync(arena0);
     towerEntities.update(arena0, animDt, selectedTowerEid, hoveredTowerEid);
+    slotMarkers.update(arena0, hoveredSlot?.id ?? null);
 
     updateTopbar(topbarRefs, state);
     updateBuildPanel(buildButtons, arena0, armedBuildDefId);
     updateShopPanel(shopRows, state, arena0);
     updateSelectedPanel(selectedRefs, arena0, selectedTowerEid);
+
+    if (armedBuildDefId && hoveredSlot) {
+      const occupied = !!arena0.occupied[hoveredSlot.id];
+      const [gx, gz] = worldToScene(frame, hoveredSlot.x, hoveredSlot.y);
+      ghost.position.set(gx, 0.03, gz);
+      (ghost.material as THREE.MeshBasicMaterial).color.set(occupied ? 0xd0503c : 0x4a9e5c);
+      ghost.visible = true;
+    } else {
+      ghost.visible = false;
+    }
   }
   updateArenasPanel(arenaRows, state);
-
-  if (armedBuildDefId && mouseWorld) {
-    const inside = isInBuildZone(lane0, mouseWorld[0], mouseWorld[1]);
-    const [gx, gz] = worldToScene(frame, mouseWorld[0], mouseWorld[1]);
-    ghost.position.set(gx, 0.03, gz);
-    (ghost.material as THREE.MeshBasicMaterial).color.set(inside ? 0x4a9e5c : 0xd0503c);
-    ghost.visible = true;
-  } else {
-    ghost.visible = false;
-  }
 
   s3d.controls.update();
   s3d.renderer.render(s3d.scene, s3d.camera);

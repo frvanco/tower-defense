@@ -64,8 +64,3 @@ export function worldToScene(frame: Frame3D, x: number, y: number): [number, num
 export function sceneToWorld(frame: Frame3D, sx: number, sz: number): [number, number] {
   return [sx / frame.scale + frame.centerX, sz / frame.scale + frame.centerY];
 }
-
-export function isInBuildZone(lane: Lane, x: number, y: number): boolean {
-  const z = lane.buildZone;
-  return x >= z.left && x <= z.right && y >= z.bottom && y <= z.top;
-}
