@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Tower Defense — branche Cannon v2</title>
+<style>
+  :root { --bg:#1a1d24; --panel:#22262f; --line:#333945; --text:#e6e8ec; --dim:#8b93a3; --accent:#2f6fb8; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,sans-serif; overflow:hidden; }
+  #app { position:fixed; inset:0; }
+  #hud { position:fixed; top:0; left:0; right:0; padding:12px 16px; display:flex; gap:8px; align-items:center;
+         flex-wrap:wrap; background:linear-gradient(var(--bg),transparent); pointer-events:none; }
+  #hud > * { pointer-events:auto; }
+  button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px;
+           padding:6px 12px; font:inherit; cursor:pointer; }
+  button:hover { border-color:#4a5364; }
+  button.on { background:var(--accent); border-color:var(--accent); }
+  .sep { width:1px; height:24px; background:var(--line); margin:0 4px; }
+  #info { position:fixed; left:16px; bottom:16px; background:var(--panel); border:1px solid var(--line);
+          border-radius:8px; padding:12px 14px; min-width:260px; }
+  #info h2 { margin:0 0 6px; font-size:15px; }
+  #info dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:2px 12px; font-size:13px; }
+  #info dt { color:var(--dim); }
+  #info dd { margin:0; }
+  #hint { position:fixed; right:16px; bottom:16px; color:var(--dim); font-size:12px; text-align:right; }
+  label { color:var(--dim); font-size:13px; }
+  input[type=range] { width:110px; vertical-align:middle; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud">
+  <button id="btn-build">Construire</button>
+  <button id="btn-attack">Tirer</button>
+  <div class="sep"></div>
+  <button id="btn-game" class="on">Vue de jeu</button>
+  <button id="btn-close">Vue rapprochée</button>
+  <div class="sep"></div>
+  <button id="btn-track" class="on">Suivi de cible</button>
+  <button id="btn-spin">Rotation libre</button>
+  <button id="btn-idle">Figé</button>
+  <button id="btn-range">Portée</button>
+  <button id="btn-foot" class="on">Emprise</button>
+  <button id="btn-wire">Fil de fer</button>
+  <div class="sep"></div>
+  <label>Durée build</label><input id="dur" type="range" min="0.5" max="5" step="0.5" value="2"><span id="dur-v">2.0s</span>
+  <span style="flex:1"></span>
+  <label>Équipe</label>
+  <input id="team" type="color" value="#c0392b" style="width:38px;height:30px;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer">
+</div>
+<div id="info"><h2>—</h2><dl id="stats"></dl></div>
+<div id="hint">clic = sélectionner · double-clic = rejouer la construction<br>la cible rouge s'arrête régulièrement : les tourelles gardent leur orientation</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script>
+// Toute erreur du module est affichee dans la page. Sans ca, une simple
+// ReferenceError donne un ecran vide et des boutons morts, sans indice visible.
+addEventListener('error', (e) => {
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;inset:auto 16px 16px 16px;z-index:99;background:#4a1f1f;border:1px solid #8a3a3a;border-radius:8px;padding:12px 14px;font:13px/1.5 ui-monospace,monospace;color:#ffd9d9;white-space:pre-wrap';
+  box.textContent = 'Erreur JS : ' + (e.message || e.error) + '\n' + (e.filename || '') + ':' + (e.lineno || '');
+  document.body.appendChild(box);
+});
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------------------------------------------------------------------------
+// Donnees reelles extraites de la map. La geometrie est derivee de ces chiffres
+// et non decidee a la main : portee -> hauteur, degats -> calibre,
+// prix -> blindage. Rebalancer les stats reforme les tours automatiquement.
+// ---------------------------------------------------------------------------
+const BRANCH = [
+  { id:'h000', name:'Arrow Tower',        gold:10,    dmg:19,   cd:0.7,  range:700,  aoe:0,   air:true  },
+  { id:'h003', name:'Cannon Tower',       gold:30,    dmg:59,   cd:1.0,  range:800,  aoe:45,  air:false },
+  { id:'h004', name:'Super Cannon Tower', gold:120,   dmg:129,  cd:0.95, range:900,  aoe:0,   air:false },
+  { id:'h002', name:'Bazooka Tower',      gold:340,   dmg:279,  cd:0.9,  range:1000, aoe:60,  air:false },
+  { id:'h012', name:'Ultra Cannon Tower', gold:3000,  dmg:600,  cd:0.7,  range:1500, aoe:80,  air:false },
+  { id:'h010', name:'Mega Cannon Tower',  gold:20000, dmg:1200, cd:0.5,  range:1500, aoe:100, air:false },
+];
+
+// Tourelle agrandie de 15% par rapport a la v1. Le 35% de la v2 etait trop :
+// combine a la longueur des canons, le rayon BALAYE pendant la rotation
+// depassait la case. Une tourelle qui pivote occupe un cercle, pas une boite.
+const TURRET_SCALE = 1.15;
+
+// Accent chaud par palier. La geometrie seule ne suffit plus a distinguer
+// les paliers 4/5/6 vus de dessus : la couleur prend le relais.
+const TIER_ACCENT = [0x9a7b4f, 0xb08040, 0xc07a33, 0xd06a28, 0xe0561f, 0xf03c14];
+
+const MAT = {
+  stone:  new THREE.MeshLambertMaterial({ color:0x8a8f9c }),
+  stone2: new THREE.MeshLambertMaterial({ color:0x6f7480 }),
+  metal:  new THREE.MeshLambertMaterial({ color:0x3c4149 }),
+  metal2: new THREE.MeshLambertMaterial({ color:0x272b31 }),
+  wood:   new THREE.MeshLambertMaterial({ color:0x7a5b3a }),
+  scaff:  new THREE.MeshLambertMaterial({ color:0x8a6a42 }),
+  team:   new THREE.MeshLambertMaterial({ color:0xc0392b }),
+  hot:    new THREE.MeshBasicMaterial({ color:0xffb04a }),
+  dust:   new THREE.MeshBasicMaterial({ color:0x9aa0ac, transparent:true, opacity:0.55 }),
+};
+
+function mesh(geo, mat, x=0, y=0, z=0) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+/**
+ * ADN commun aux 6 paliers, pour que la branche reste reconnaissable de loin :
+ *   socle octogonal etage -> fut de pierre -> plateforme crenelee -> canon(s)
+ * Varient avec le palier : echelle, nombre de canons, blindage, accent chaud.
+ */
+function makeCannonTower(tier) {
+  const d = BRANCH[tier];
+  const g = new THREE.Group();
+
+  // ORDRE IMPORTANT : armor est lu par height et width, il doit etre declare
+  // en premier. Une const lue avant sa declaration leve une ReferenceError
+  // qui stoppe tout le module (c'est ce qui cassait la v4 initiale).
+  const armor   = Math.min(1, Math.log10(Math.max(10, d.gold)) / 4.3);
+  // La hauteur reprend a son compte l'impression de puissance perdue au sol :
+  // elle suit la portee ET le prix, sans contrainte d'emprise.
+  const height  = 1.55 + (d.range - 700) / 800 * 1.0 + armor * 0.55;
+  // Calibre et longueur de canon sont contraints par le RAYON BALAYE : une
+  // tourelle qui pivote balaie un cercle de rayon hypot(ecartement, longueur).
+  // Ces coefficients sont le maximum qui tienne dans MAX_RADIUS aux 6 paliers.
+  const caliber = 0.105 + Math.sqrt(d.dmg) / 34 * 0.075;
+  const barrels = [0, 1, 1, 2, 3, 4][tier];
+  // Le socle sature vite : la montee en puissance passe par la HAUTEUR, la
+  // tourelle et le nombre de canons, jamais par l'etalement au sol.
+  const width   = Math.min(0.72, 0.60 + armor * 0.20);
+  const accent  = new THREE.MeshLambertMaterial({ color: TIER_ACCENT[tier] });
+
+  // Tout le corps vit dans un sous-Group : l'animation de construction le met
+  // a l'echelle sans toucher aux echafaudages ni aux effets au sol.
+  const body = new THREE.Group();
+  body.name = 'body';
+  g.add(body);
+
+  // --- Socle
+  body.add(mesh(new THREE.CylinderGeometry(width, width * 1.12, 0.26, 8), MAT.stone2, 0, 0.13, 0));
+  body.add(mesh(new THREE.CylinderGeometry(width * 0.86, width * 0.94, 0.20, 8), MAT.stone, 0, 0.36, 0));
+
+  // --- Fut. Il s'epaissit avec le palier au lieu de s'affiner : un canon lourd
+  // doit paraitre lourd. C'est l'inverse de la v1, qui rendait les tours
+  // avancees elancees et donc visuellement plus faibles.
+  const taper = 0.55 + tier * 0.035;
+  const shaftH = height * 0.52;
+  body.add(mesh(new THREE.CylinderGeometry(width * taper, width * 0.80, shaftH, 8), MAT.stone, 0, 0.46 + shaftH / 2, 0));
+
+  // Bandes de renfort a partir du palier 3.
+  // NOTE : g.add() renvoie le Group, pas le mesh. En v1 j'enchainais
+  // .rotation.x dessus, ce qui couchait la tour entiere. Le mesh est
+  // desormais garde dans une variable avant d'etre oriente.
+  if (tier >= 2) {
+    for (let i = 0; i < tier - 1; i++) {
+      const y = 0.62 + (shaftH - 0.2) * (i / Math.max(1, tier - 1));
+      const band = mesh(new THREE.TorusGeometry(width * (taper + 0.09), 0.04, 6, 8), MAT.metal, 0, y, 0);
+      band.rotation.x = Math.PI / 2;
+      body.add(band);
+    }
+  }
+
+  // --- Plateforme
+  const platY = 0.46 + shaftH;
+  const platR = width * (0.74 + armor * 0.20);
+  body.add(mesh(new THREE.CylinderGeometry(platR, platR * 0.88, 0.14, 8), MAT.stone2, 0, platY + 0.07, 0));
+
+  const merlons = 4 + tier;
+  for (let i = 0; i < merlons; i++) {
+    const a = (i / merlons) * Math.PI * 2;
+    body.add(mesh(new THREE.BoxGeometry(0.12, 0.14, 0.12), MAT.stone,
+      Math.cos(a) * platR * 0.86, platY + 0.20, Math.sin(a) * platR * 0.86));
+  }
+
+  // --- Tourelle
+  const turret = new THREE.Group();
+  turret.position.y = platY + 0.16;
+  turret.scale.setScalar(TURRET_SCALE);
+  turret.name = 'turret';
+  body.add(turret);
+
+  if (tier === 0) {
+    // Seule tour anti-air de la branche : toit de bois + arbalete, aucun canon.
+    // La difference de role doit se lire instantanement.
+    turret.add(mesh(new THREE.ConeGeometry(platR * 0.95, 0.44, 8), MAT.wood, 0, 0.30, 0));
+    turret.add(mesh(new THREE.BoxGeometry(0.07, 0.07, 0.48), MAT.wood, 0, 0.12, 0.21));
+    turret.add(mesh(new THREE.BoxGeometry(0.36, 0.05, 0.05), MAT.wood, 0, 0.12, 0.31));
+    // Fleche pointee vers le haut : marqueur anti-air. A generaliser a toutes
+    // les tours anti-air des autres branches pour en faire un langage commun.
+    const up = mesh(new THREE.ConeGeometry(0.05, 0.16, 6), accent, 0, 0.50, 0);
+    turret.add(up);
+    const muzzle = new THREE.Object3D();
+    muzzle.position.set(0, 0.12, 0.46);
+    muzzle.name = 'muzzle';
+    turret.add(muzzle);
+  } else {
+    const breechR = caliber * 2.0;
+    turret.add(mesh(new THREE.CylinderGeometry(breechR, breechR, breechR * 1.6, 8), MAT.metal, 0, breechR * 0.8, 0));
+    // Anneau d'accent sur la culasse : lisible meme quand la geometrie ne l'est plus.
+    const ring = mesh(new THREE.TorusGeometry(breechR * 1.05, 0.028, 6, 10), accent, 0, breechR * 0.8, 0);
+    ring.rotation.x = Math.PI / 2;
+    turret.add(ring);
+
+    // Canons courts et epais plutot que longs et fins : a diametre egal, la
+    // longueur coute beaucoup plus cher en rayon balaye que le calibre.
+    const len = 0.28 + caliber * 1.0;
+    // Canons groupes AUTOUR DE L'AXE plutot qu'etales en largeur.
+    // L'eventail horizontal de la v2 faisait deborder les hauts paliers hors
+    // de leur case et se toucher entre voisins. Un barillet compact garde
+    // l'impression de puissance sans elargir l'empreinte au sol.
+    const cluster = barrels <= 1 ? 0 : caliber * 1.00;
+    const axisY = breechR * 0.95;
+    for (let i = 0; i < barrels; i++) {
+      let ox = 0, oy = axisY;
+      if (barrels === 2) { ox = (i - 0.5) * cluster * 2; }
+      else if (barrels > 2) {
+        // Disposition en couronne : lecture "gatling", tres compacte de face.
+        const a = (i / barrels) * Math.PI * 2 - Math.PI / 2;
+        ox = Math.cos(a) * cluster;
+        oy = axisY + Math.sin(a) * cluster;
+      }
+      const b = mesh(new THREE.CylinderGeometry(caliber * 0.8, caliber, len, 10), MAT.metal2, ox, oy, len / 2);
+      b.rotation.x = Math.PI / 2;
+      turret.add(b);
+      const m = mesh(new THREE.CylinderGeometry(caliber * 1.2, caliber * 0.85, caliber * 0.75, 10), MAT.metal, ox, oy, len);
+      m.rotation.x = Math.PI / 2;
+      turret.add(m);
+    }
+    // Collier de maintien : lie les canons entre eux, indispensable pour que
+    // le barillet ne ressemble pas a des tubes qui flottent cote a cote.
+    if (barrels > 1) {
+      const collar = mesh(new THREE.TorusGeometry(cluster + caliber * 0.9, caliber * 0.22, 6, 12), MAT.metal, 0, axisY, len * 0.62);
+      turret.add(collar);
+    }
+    const muzzle = new THREE.Object3D();
+    muzzle.position.set(0, axisY, len + 0.06);
+    muzzle.name = 'muzzle';
+    turret.add(muzzle);
+
+    // Blindage plaque contre la culasse au lieu de depasser sur les cotes.
+    if (tier >= 4) {
+      for (const s of [-1, 1]) {
+        turret.add(mesh(new THREE.BoxGeometry(0.05, breechR * 1.7, breechR * 1.9), MAT.metal,
+          s * (cluster + caliber * 1.35), axisY, breechR * 0.5));
+      }
+    }
+  }
+
+  // --- Fanion d'equipe : sa hauteur suit le prix. Reperer un joueur riche
+  // d'un coup d'oeil est une information de jeu, pas de la decoration.
+  const poleH = 0.3 + armor * 0.55;
+  // Le mat reste a l'interieur du diametre du socle : un fanion qui deborde
+  // rend la case illisible et se chevauche avec le voisin.
+  const fx = platR * 0.52, fz = -platR * 0.52;
+  body.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, poleH, 5), MAT.metal, fx, platY + poleH / 2, fz));
+  const flag = mesh(new THREE.BoxGeometry(0.20, 0.13, 0.015), MAT.team, fx + 0.11, platY + poleH - 0.085, fz);
+  flag.name = 'flag';
+  body.add(flag);
+
+  // --- Echafaudages : montres uniquement pendant la construction.
+  const scaffold = makeScaffold(width, platY + 0.3);
+  scaffold.visible = false;
+  scaffold.name = 'scaffold';
+  g.add(scaffold);
+
+  // --- Anneau de portee, converti a l'echelle de la scene (100 unites monde = 0.28).
+  const ringGeo = new THREE.RingGeometry(d.range * 0.0028 - 0.02, d.range * 0.0028, 64);
+  const rangeRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+    color: TIER_ACCENT[tier], transparent: true, opacity: 0.35, side: THREE.DoubleSide,
+  }));
+  rangeRing.rotation.x = -Math.PI / 2;
+  rangeRing.position.y = 0.02;
+  rangeRing.visible = false;
+  rangeRing.name = 'rangeRing';
+  g.add(rangeRing);
+
+  // --- Anneau de progression de construction
+  const prog = new THREE.Mesh(
+    new THREE.RingGeometry(width * 1.15, width * 1.32, 48, 1, -Math.PI / 2, 0.001),
+    new THREE.MeshBasicMaterial({ color: 0x6ec1ff, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
+  );
+  prog.rotation.x = -Math.PI / 2;
+  prog.position.y = 0.03;
+  prog.visible = false;
+  prog.name = 'progress';
+  g.add(prog);
+
+  // --- Contour d'emprise. Vert = la tour tient dans sa case, rouge = elle
+  // deborde. Comme je ne peux pas voir le rendu, cette verification est faite
+  // par le code plutot que par l'oeil.
+  const foot = new THREE.Mesh(
+    new THREE.RingGeometry(MAX_RADIUS - 0.02, MAX_RADIUS, 8),
+    new THREE.MeshBasicMaterial({ color: 0x4a9e5c, transparent: true, opacity: 0.45, side: THREE.DoubleSide }),
+  );
+  foot.rotation.x = -Math.PI / 2;
+  foot.rotation.z = Math.PI / 8;
+  foot.position.y = 0.015;
+  foot.name = 'footprint';
+  g.add(foot);
+
+  g.userData = { tier, data: d, turret, body, build: null, recoil: 0 };
+
+  // Mesure du RAYON BALAYE, pas de la boite au repos. La tourelle pivote :
+  // son empreinte reelle est le cercle decrit par son point le plus eloigne
+  // de l'axe. C'est l'erreur de la v4 initiale, qui ne mesurait que X.
+  let radius = 0;
+  body.updateMatrixWorld(true);
+  body.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    const pos = o.geometry.attributes.position;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).sub(g.position);
+      radius = Math.max(radius, Math.hypot(v.x, v.z));
+    }
+  });
+  g.userData.radius = radius;
+  if (radius > MAX_RADIUS) {
+    foot.material.color.set(0xd0503c);
+    console.warn(`[emprise] ${d.name} deborde : rayon ${radius.toFixed(3)} > ${MAX_RADIUS.toFixed(3)}`);
+  }
+  return g;
+}
+
+/** Echafaudage generique. Un seul modele sert a la construction ET a tous les upgrades. */
+function makeScaffold(width, top) {
+  const s = new THREE.Group();
+  const r = width * 1.15;
+  const posts = 4;
+  for (let i = 0; i < posts; i++) {
+    const a = (i / posts) * Math.PI * 2 + Math.PI / 4;
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    s.add(mesh(new THREE.CylinderGeometry(0.035, 0.035, top, 5), MAT.scaff, x, top / 2, z));
+  }
+  // Traverses a trois hauteurs
+  for (const h of [0.30, 0.58, 0.86]) {
+    for (let i = 0; i < posts; i++) {
+      const a1 = (i / posts) * Math.PI * 2 + Math.PI / 4;
+      const a2 = ((i + 1) / posts) * Math.PI * 2 + Math.PI / 4;
+      const p1 = new THREE.Vector3(Math.cos(a1) * r, top * h, Math.sin(a1) * r);
+      const p2 = new THREE.Vector3(Math.cos(a2) * r, top * h, Math.sin(a2) * r);
+      const mid = p1.clone().lerp(p2, 0.5);
+      const beam = mesh(new THREE.BoxGeometry(p1.distanceTo(p2), 0.045, 0.045), MAT.scaff, mid.x, mid.y, mid.z);
+      beam.rotation.y = -Math.atan2(p2.z - p1.z, p2.x - p1.x);
+      s.add(beam);
+    }
+  }
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// Scene
+// ---------------------------------------------------------------------------
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1d24);
+scene.fog = new THREE.Fog(0x1a1d24, 14, 30);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+// Deux presets. La "vue de jeu" reproduit l'angle bas et la distance du jeu d'origine :
+// c'est la SEULE vue qui compte pour juger un asset. Inspecter de pres donne
+// une fausse confiance sur des details que personne ne verra jamais.
+function setView(kind) {
+  if (kind === 'game') { camera.position.set(0, 7.4, 9.0); controls.target.set(0, 0.8, 0); }
+  else { camera.position.set(0, 2.6, 5.2); controls.target.set(0, 1.2, 0); }
+  controls.update();
+}
+setView('game');
+
+scene.add(new THREE.AmbientLight(0x5a6478, 1.5));
+const key = new THREE.DirectionalLight(0xfff0dd, 2.1);
+key.position.set(5, 9, 4);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -10; key.shadow.camera.right = 10;
+key.shadow.camera.top = 10; key.shadow.camera.bottom = -10;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x6f9fd8, 0.8);
+rim.position.set(-6, 3, -5);
+scene.add(rim);
+
+const ground = mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshLambertMaterial({ color:0x2b3038 }));
+ground.rotation.x = -Math.PI / 2;
+ground.castShadow = false;
+scene.add(ground);
+const grid = new THREE.GridHelper(30, 30, 0x3a4150, 0x30363f);
+grid.position.y = 0.001;
+scene.add(grid);
+
+// Vitesse de rotation de tourelle, en radians/seconde. Volontairement lente :
+// une tourelle qui se cale instantanement ne donne aucune impression de masse.
+const TURN_RATE = 2.6;
+let mode = 'track';   // 'track' | 'spin' | 'idle'
+
+// ---------------------------------------------------------------------------
+// EMPRISE AU SOL. La sim impose TOWER_FOOTPRINT = 64 unites monde entre deux
+// tours (packages/sim/src/sim.ts). A l'echelle de cette scene, 64 unites monde
+// = 2.0 unites de scene. Aucune tour ne doit depasser ce rayon, sinon elle
+// chevauche sa voisine EN JEU, pas seulement dans cette galerie.
+// ---------------------------------------------------------------------------
+const CELL = 2.0;                    // 64 unites monde
+const MAX_RADIUS = CELL * 0.42;      // laisse un vide net entre deux tours voisines
+
+const towers = [];
+const SPACING = CELL;
+BRANCH.forEach((_, i) => {
+  const t = makeCannonTower(i);
+  t.position.x = (i - (BRANCH.length - 1) / 2) * SPACING;
+  scene.add(t);
+  towers.push(t);
+});
+
+// Cible mobile : sert a montrer le comportement reel de visee.
+const targetMarker = new THREE.Mesh(
+  new THREE.SphereGeometry(0.16, 12, 10),
+  new THREE.MeshBasicMaterial({ color: 0xff5a4a }),
+);
+targetMarker.position.set(0, 0.4, 3.5);
+scene.add(targetMarker);
+const targetRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.24, 0.30, 24),
+  new THREE.MeshBasicMaterial({ color: 0xff5a4a, transparent: true, opacity: 0.6, side: THREE.DoubleSide }),
+);
+targetRing.rotation.x = -Math.PI / 2;
+scene.add(targetRing);
+
+// ---------------------------------------------------------------------------
+// Construction : un seul systeme pour le build initial ET tous les upgrades.
+// Duree parametrable, l'anim se cale dessus quelle que soit la valeur.
+// ---------------------------------------------------------------------------
+let BUILD_DURATION = 2.0;
+
+function beginBuild(tower) {
+  tower.userData.build = { t: 0 };
+  tower.getObjectByName('scaffold').visible = true;
+  tower.getObjectByName('progress').visible = true;
+  spawnDust(tower, 14);
+}
+
+const dusts = [];
+function spawnDust(tower, n) {
+  const base = tower.position;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 0.5 + Math.random() * 0.5;
+    const p = new THREE.Mesh(new THREE.SphereGeometry(0.05 + Math.random() * 0.06, 6, 5), MAT.dust.clone());
+    p.position.set(base.x + Math.cos(a) * r, 0.05, base.z + Math.sin(a) * r);
+    scene.add(p);
+    dusts.push({ mesh: p, vy: 0.4 + Math.random() * 0.5, vx: Math.cos(a) * 0.35, vz: Math.sin(a) * 0.35, life: 1 });
+  }
+}
+
+function updateBuild(tower, dt) {
+  const b = tower.userData.build;
+  if (!b) return;
+  b.t += dt / BUILD_DURATION;
+  const body = tower.userData.body;
+  const scaffold = tower.getObjectByName('scaffold');
+  const prog = tower.getObjectByName('progress');
+
+  if (b.t >= 1) {
+    // Petit rebond a l'achevement : signale la fin sans son ni texte.
+    tower.userData.build = null;
+    tower.userData.pop = 1;
+    body.scale.set(1, 1, 1);
+    scaffold.visible = false;
+    prog.visible = false;
+    spawnDust(tower, 10);
+    return;
+  }
+
+  // La tour pousse par le bas avec un leger ecrasement horizontal :
+  // une mise a l'echelle uniforme donne un effet "ballon" peu convaincant.
+  const e = b.t < 0.85 ? b.t / 0.85 : 1;
+  const ease = e * e * (3 - 2 * e);
+  body.scale.set(0.85 + ease * 0.15, 0.06 + ease * 0.94, 0.85 + ease * 0.15);
+
+  // Echafaudage : tremblement leger, disparait sur les 15 derniers pourcents.
+  scaffold.scale.setScalar(1);
+  scaffold.position.y = Math.sin(b.t * 40) * 0.006;
+  scaffold.visible = b.t < 0.9;
+
+  // Anneau de progression
+  prog.geometry.dispose();
+  prog.geometry = new THREE.RingGeometry(
+    0.72, 0.86, 48, 1, -Math.PI / 2, Math.max(0.001, b.t * Math.PI * 2),
+  );
+
+  if (Math.random() < dt * 8) spawnDust(tower, 1);
+}
+
+// ---------------------------------------------------------------------------
+const shots = [];
+function fire(tower) {
+  if (tower.userData.build) return;
+  const turret = tower.userData.turret;
+  const muzzle = turret.getObjectByName('muzzle');
+  if (!muzzle) return;
+  const from = muzzle.getWorldPosition(new THREE.Vector3());
+  const to = from.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, -from.y + 0.1, 3.8));
+  const size = 0.05 + tower.userData.tier * 0.015;
+  const p = mesh(new THREE.SphereGeometry(size, 8, 6), MAT.hot);
+  p.position.copy(from);
+  scene.add(p);
+  shots.push({ mesh: p, from, to, t: 0, arc: 0.9 });
+
+  const flash = mesh(new THREE.SphereGeometry(size * 3.2, 8, 6), MAT.hot);
+  flash.position.copy(from);
+  scene.add(flash);
+  setTimeout(() => scene.remove(flash), 70);
+  tower.userData.recoil = 1;
+}
+
+// ---------------------------------------------------------------------------
+const ray = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let selected = 0;
+let showRange = false;
+
+function pickTower(e) {
+  pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(pointer, camera);
+  const hit = ray.intersectObjects(towers, true)[0];
+  if (!hit) return null;
+  let o = hit.object;
+  while (o.parent && !o.userData.data) o = o.parent;
+  return o.userData.data ? o : null;
+}
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  const t = pickTower(e);
+  if (t) { selected = t.userData.tier; showInfo(); }
+});
+renderer.domElement.addEventListener('dblclick', (e) => {
+  const t = pickTower(e);
+  if (t) beginBuild(t);
+});
+
+function showInfo() {
+  const d = BRANCH[selected];
+  document.querySelector('#info h2').textContent = `${d.name}  ·  palier ${selected + 1}/6`;
+  document.getElementById('stats').innerHTML = `
+    <dt>Or</dt><dd>${d.gold.toLocaleString('fr-FR')}</dd>
+    <dt>Dégâts</dt><dd>${d.dmg}</dd>
+    <dt>Cadence</dt><dd>${d.cd}s</dd>
+    <dt>Portée</dt><dd>${d.range}</dd>
+    <dt>Zone</dt><dd>${d.aoe || 'mono-cible'}</dd>
+    <dt>Cibles</dt><dd>${d.air ? 'air + sol' : 'sol'}</dd>
+    <dt>Emprise</dt><dd>${towers[selected] ? towers[selected].userData.radius.toFixed(2) : '?'} / ${MAX_RADIUS.toFixed(2)}</dd>`;
+}
+showInfo();
+
+const $ = (id) => document.getElementById(id);
+function setMode(m) {
+  mode = m;
+  targetMarker.visible = (m === 'track');
+  for (const b of ['btn-track', 'btn-spin', 'btn-idle']) $(b).classList.remove('on');
+  $({ track: 'btn-track', spin: 'btn-spin', idle: 'btn-idle' }[m]).classList.add('on');
+}
+$('btn-track').onclick = () => setMode('track');
+$('btn-spin').onclick = () => setMode('spin');
+$('btn-idle').onclick = () => setMode('idle');
+$('btn-attack').onclick = () => towers.forEach((t, i) => setTimeout(() => fire(t), i * 90));
+$('btn-build').onclick = () => towers.forEach((t, i) => setTimeout(() => beginBuild(t), i * 140));
+$('btn-game').onclick = (e) => { setView('game'); e.target.classList.add('on'); $('btn-close').classList.remove('on'); };
+$('btn-close').onclick = (e) => { setView('close'); e.target.classList.add('on'); $('btn-game').classList.remove('on'); };
+$('btn-range').onclick = (e) => { showRange = !showRange; e.target.classList.toggle('on', showRange); };
+let showFoot = true;
+$('btn-foot').onclick = (e) => { showFoot = !showFoot; e.target.classList.toggle('on', showFoot); };
+$('btn-wire').onclick = (e) => {
+  const on = !MAT.stone.wireframe;
+  Object.values(MAT).forEach((m) => { if ('wireframe' in m) m.wireframe = on; });
+  e.target.classList.toggle('on', on);
+};
+$('team').oninput = (e) => MAT.team.color.set(e.target.value);
+$('dur').oninput = (e) => { BUILD_DURATION = +e.target.value; $('dur-v').textContent = BUILD_DURATION.toFixed(1) + 's'; };
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+const clock = new THREE.Clock();
+function loop() {
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const time = clock.getElapsedTime();
+
+  // La cible parcourt un couloir devant les tours, s'arrete quelques secondes,
+  // repart : c'est ce qui permet de verifier que les tourelles se FIGENT
+  // une fois la cible perdue au lieu de revenir a une position neutre.
+  const cycle = (time * 0.28) % 1;
+  const paused = cycle > 0.42 && cycle < 0.58;
+  targetMarker.position.x = Math.sin(time * 0.55) * 5.2;
+  targetMarker.position.z = 3.2 + Math.cos(time * 0.4) * 0.9;
+  targetMarker.visible = mode === 'track' && !paused;
+  targetRing.visible = targetMarker.visible;
+  targetRing.position.set(targetMarker.position.x, 0.02, targetMarker.position.z);
+
+  towers.forEach((t, i) => {
+    updateBuild(t, dt);
+    const building = !!t.userData.build;
+    const turret = t.userData.turret;
+
+    // Comportement de jeu : la tourelle pivote vers la cible a vitesse limitee,
+    // puis GARDE son orientation quand il n'y a plus rien a viser.
+    if (!building) {
+      if (mode === 'track' && targetMarker.visible) {
+        const dx = targetMarker.position.x - t.position.x;
+        const dz = targetMarker.position.z - t.position.z;
+        const want = Math.atan2(dx, dz);
+        let diff = want - turret.rotation.y;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const maxStep = TURN_RATE * dt;
+        turret.rotation.y += Math.max(-maxStep, Math.min(maxStep, diff));
+        t.userData.aimed = Math.abs(diff) < 0.06;
+      } else if (mode === 'spin') {
+        turret.rotation.y = time * 0.55 + i * 0.4;
+      }
+    }
+
+    const r = t.userData.recoil;
+    if (r > 0) { turret.position.z = -r * 0.18; t.userData.recoil = Math.max(0, r - dt * 4.5); }
+    else turret.position.z = 0;
+
+    const pop = t.userData.pop ?? 0;
+    if (pop > 0) {
+      const k = 1 + Math.sin(pop * Math.PI) * 0.10;
+      t.userData.body.scale.set(k, 2 - k, k);
+      t.userData.pop = Math.max(0, pop - dt * 3.2);
+      if (t.userData.pop === 0) t.userData.body.scale.set(1, 1, 1);
+    }
+
+    const flag = t.getObjectByName('flag');
+    if (flag) flag.rotation.y = Math.sin(time * 2.4 + i) * 0.22;
+
+    t.getObjectByName('rangeRing').visible = showRange && i === selected && !building;
+    t.getObjectByName('footprint').visible = showFoot;
+    t.position.y = i === selected && !building ? Math.sin(time * 2) * 0.03 + 0.05 : 0;
+  });
+
+  for (let i = shots.length - 1; i >= 0; i--) {
+    const s = shots[i];
+    s.t += dt * 1.5;
+    if (s.t >= 1) { scene.remove(s.mesh); shots.splice(i, 1); continue; }
+    s.mesh.position.lerpVectors(s.from, s.to, s.t);
+    s.mesh.position.y += Math.sin(s.t * Math.PI) * s.arc;
+  }
+
+  for (let i = dusts.length - 1; i >= 0; i--) {
+    const p = dusts[i];
+    p.life -= dt * 1.4;
+    if (p.life <= 0) { scene.remove(p.mesh); dusts.splice(i, 1); continue; }
+    p.mesh.position.x += p.vx * dt;
+    p.mesh.position.y += p.vy * dt;
+    p.mesh.position.z += p.vz * dt;
+    p.vy -= dt * 0.7;
+    p.mesh.material.opacity = p.life * 0.55;
+    p.mesh.scale.setScalar(1 + (1 - p.life) * 0.8);
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+loop();
+</script>
+</body>
+</html>

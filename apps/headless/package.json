@@ -1,0 +1,11 @@
+{
+  "name": "@tower-defense/headless",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/main.ts",
+  "dependencies": {
+    "@tower-defense/data": "workspace:*",
+    "@tower-defense/sim": "workspace:*"
+  }
+}

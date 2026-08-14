@@ -1,0 +1,1286 @@
+{
+  "towers": [
+    {
+      "id": "h000",
+      "baseId": "hgtw",
+      "name": "Arrow Tower",
+      "goldCost": 10,
+      "pointValue": 7,
+      "atk1DamageBase": 19,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.699999988079071,
+      "atk1Targets": "air,ground",
+      "upgradesTo": "n001,h003",
+      "requires": "",
+      "abilities": ""
+    },
+    {
+      "id": "h002",
+      "baseId": "hctw",
+      "name": "Bazooka Tower",
+      "goldCost": 340,
+      "pointValue": 266,
+      "atk1DamageBase": 279,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.8999999761581421,
+      "atk1Range": 1000,
+      "acquisitionRange": 1000.0,
+      "atk1Targets": "ground",
+      "atk1AoeFull": 60,
+      "atk1AoeMedium": 120,
+      "atk1AoeSmall": 140,
+      "upgradesTo": "n004,h012",
+      "requires": "",
+      "abilities": ""
+    },
+    {
+      "id": "h003",
+      "baseId": "hctw",
+      "goldCost": 30,
+      "pointValue": 21,
+      "atk1DamageBase": 59,
+      "atk1Sides": 1,
+      "atk1Cooldown": 1.0,
+      "atk1Targets": "ground",
+      "atk1AoeFull": 45,
+      "atk1AoeMedium": 90,
+      "atk1AoeSmall": 110,
+      "upgradesTo": "n002,h004",
+      "requires": "",
+      "abilities": ""
+    },
+    {
+      "id": "h004",
+      "baseId": "hctw",
+      "name": "Super Cannon Tower",
+      "goldCost": 120,
+      "pointValue": 91,
+      "atk1DamageBase": 129,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.949999988079071,
+      "atk1Range": 900,
+      "acquisitionRange": 1500.0,
+      "atk1Targets": "ground",
+      "upgradesTo": "n003,h002",
+      "requires": "",
+      "abilities": ""
+    },
+    {
+      "id": "h005",
+      "baseId": "hgtw",
+      "name": "Lightning Tower",
+      "pointValue": 56,
+      "atk1DamageBase": 149,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.5,
+      "atk1Range": 800,
+      "acquisitionRange": 800.0,
+      "atk1Targets": "air",
+      "atk1AoeFull": 45,
+      "atk1AoeMedium": 90,
+      "atk1AoeSmall": 110,
+      "upgradesTo": "n005,h006",
+      "requires": "",
+      "abilities": "Alit"
+    },
+    {
+      "id": "h006",
+      "baseId": "hgtw",
+      "name": "Super Lightning Tower",
+      "goldCost": 250,
+      "pointValue": 182,
+      "atk1DamageBase": 299,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.4000000059604645,
+      "atk1Range": 900,
+      "acquisitionRange": 900.0,
+      "atk1Targets": "air",
+      "atk1AoeFull": 50,
+      "atk1AoeMedium": 100,
+      "atk1AoeSmall": 125,
+      "upgradesTo": "n006,h007",
+      "requires": "",
+      "abilities": "Alit"
+    },
+    {
+      "id": "h007",
+      "baseId": "hgtw",
+      "name": "Shock Tower",
+      "goldCost": 500,
+      "pointValue": 427,
+      "atk1DamageBase": 599,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.30000001192092896,
+      "atk1Range": 1000,
+      "acquisitionRange": 1000.0,
+      "atk1Targets": "air",
+      "atk1AoeFull": 60,
+      "atk1AoeMedium": 120,
+      "atk1AoeSmall": 140,
+      "upgradesTo": "h011,n007",
+      "requires": "",
+      "abilities": "Alit"
+    },
+    {
+      "id": "h008",
+      "baseId": "hgtw",
+      "name": "Nuclear Tower",
+      "goldCost": 50000,
+      "pointValue": 630,
+      "atk1DamageBase": 9999,
+      "atk1Sides": 1,
+      "atk1Cooldown": 6.0,
+      "atk1Range": 1600,
+      "acquisitionRange": 1600.0,
+      "atk1AttackType": "siege",
+      "atk1Targets": "ground",
+      "atk1AoeFull": 100,
+      "atk1AoeMedium": 180,
+      "atk1AoeSmall": 200,
+      "upgradesTo": "n008,h00T",
+      "requires": "h002,o000,o005,h007,hcas",
+      "abilities": "ACbh,ACct"
+    },
+    {
+      "id": "h00T",
+      "baseId": "hgtw",
+      "name": "Hydrogen Fusion Tower",
+      "goldCost": 100000,
+      "pointValue": 1470,
+      "atk1DamageBase": 9999,
+      "atk1Sides": 1,
+      "atk1Cooldown": 2.0,
+      "atk1Range": 2000,
+      "acquisitionRange": 1600.0,
+      "atk1AttackType": "siege",
+      "atk1Targets": "ground",
+      "atk1AoeFull": 100,
+      "atk1AoeMedium": 180,
+      "atk1AoeSmall": 200,
+      "upgradesTo": "n009",
+      "requires": "h002,o000,o005,h007,hcas",
+      "abilities": "ACbh,ACct"
+    },
+    {
+      "id": "h010",
+      "baseId": "hctw",
+      "name": "Mega Cannon Tower",
+      "goldCost": 20000,
+      "pointValue": 500,
+      "atk1DamageBase": 1200,
+      "atk1Cooldown": 0.5,
+      "atk1Range": 1500,
+      "atk1Targets": "ground",
+      "atk1AoeFull": 100,
+      "atk1AoeMedium": 120,
+      "atk1AoeSmall": 150,
+      "upgradesTo": "n00F",
+      "requires": "",
+      "abilities": ""
+    },
+    {
+      "id": "h011",
+      "baseId": "hgtw",
+      "name": "Ultra Shock Tower",
+      "goldCost": 8000,
+      "pointValue": 427,
+      "atk1DamageBase": 1200,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.10000000149011612,
+      "atk1Range": 1000,
+      "acquisitionRange": 1000.0,
+      "atk1Targets": "air",
+      "atk1AoeFull": 60,
+      "atk1AoeMedium": 120,
+      "atk1AoeSmall": 140,
+      "upgradesTo": "n007",
+      "requires": "",
+      "abilities": "Alit"
+    },
+    {
+      "id": "h012",
+      "baseId": "hctw",
+      "name": "Ultra Cannon Tower",
+      "goldCost": 3000,
+      "pointValue": 500,
+      "atk1DamageBase": 600,
+      "atk1Cooldown": 0.699999988079071,
+      "atk1Range": 1500,
+      "atk1Targets": "ground",
+      "atk1AoeFull": 80,
+      "atk1AoeMedium": 120,
+      "atk1AoeSmall": 150,
+      "upgradesTo": "h010,n00F",
+      "requires": "",
+      "abilities": ""
+    },
+    {
+      "id": "o000",
+      "baseId": "owtw",
+      "name": "Disease Tower",
+      "goldCost": 250,
+      "pointValue": 266,
+      "atk1DamageBase": 100,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.10000000149011612,
+      "atk1Range": 1000,
+      "acquisitionRange": 1000.0,
+      "atk1Targets": "air,ground",
+      "upgradesTo": "o006,n00E",
+      "requires": "",
+      "abilities": "Aspo"
+    },
+    {
+      "id": "o001",
+      "baseId": "owtw",
+      "name": "Poison Tower",
+      "goldCost": 30,
+      "pointValue": 21,
+      "atk1DamageBase": 14,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.4000000059604645,
+      "acquisitionRange": 800.0,
+      "atk1Targets": "air,ground",
+      "upgradesTo": "n00C,o002",
+      "requires": "",
+      "abilities": "Aspo"
+    },
+    {
+      "id": "o002",
+      "baseId": "owtw",
+      "name": "Super Poison Tower",
+      "goldCost": 100,
+      "pointValue": 91,
+      "atk1DamageBase": 29,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.30000001192092896,
+      "atk1Range": 900,
+      "atk1Targets": "air,ground",
+      "upgradesTo": "n00D,o000",
+      "requires": "",
+      "abilities": "Aspo"
+    },
+    {
+      "id": "o003",
+      "baseId": "owtw",
+      "name": "Ice Tower",
+      "goldCost": 60,
+      "pointValue": 56,
+      "atk1DamageBase": 19,
+      "atk1Sides": 1,
+      "atk1Cooldown": 1.0,
+      "acquisitionRange": 800.0,
+      "atk1Targets": "air,ground",
+      "atk1AoeFull": 50,
+      "atk1AoeMedium": 100,
+      "atk1AoeSmall": 125,
+      "upgradesTo": "n005,o004",
+      "requires": "",
+      "abilities": "Afrb"
+    },
+    {
+      "id": "o004",
+      "baseId": "owtw",
+      "name": "Super Ice Tower",
+      "goldCost": 100,
+      "pointValue": 182,
+      "atk1DamageBase": 39,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.949999988079071,
+      "atk1Range": 900,
+      "atk1Targets": "air,ground",
+      "atk1AoeFull": 50,
+      "atk1AoeMedium": 100,
+      "atk1AoeSmall": 125,
+      "upgradesTo": "n00A,o005",
+      "requires": "",
+      "abilities": "Afrb"
+    },
+    {
+      "id": "o005",
+      "baseId": "owtw",
+      "name": "Freeze Tower",
+      "goldCost": 200,
+      "pointValue": 427,
+      "atk1DamageBase": 79,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.8999999761581421,
+      "atk1Range": 1500,
+      "atk1Targets": "air,ground",
+      "atk1AoeFull": 60,
+      "atk1AoeMedium": 120,
+      "atk1AoeSmall": 150,
+      "upgradesTo": "o007,n00B",
+      "requires": "",
+      "abilities": "Afrb"
+    },
+    {
+      "id": "o006",
+      "baseId": "owtw",
+      "name": "Ultra Disease Tower",
+      "goldCost": 1000,
+      "pointValue": 266,
+      "atk1DamageBase": 300,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.05000000074505806,
+      "atk1Range": 1500,
+      "acquisitionRange": 1000.0,
+      "atk1Targets": "air,ground",
+      "atk1AoeFull": 10,
+      "atk1AoeMedium": 20,
+      "atk1AoeSmall": 30,
+      "upgradesTo": "n00E",
+      "requires": "",
+      "abilities": "Aspo"
+    },
+    {
+      "id": "o007",
+      "baseId": "owtw",
+      "name": "Ultra Freeze Tower",
+      "goldCost": 300,
+      "pointValue": 427,
+      "atk1DamageBase": 300,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.699999988079071,
+      "atk1Range": 1500,
+      "atk1Targets": "air,ground",
+      "atk1AoeFull": 10,
+      "atk1AoeMedium": 140,
+      "atk1AoeSmall": 180,
+      "upgradesTo": "n00B",
+      "requires": "",
+      "abilities": "Afrb"
+    },
+    {
+      "id": "o008",
+      "baseId": "owtw",
+      "name": "Water Soaker Tower",
+      "goldCost": 60,
+      "pointValue": 42,
+      "atk1DamageBase": 39,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.009999999776482582,
+      "acquisitionRange": 800.0,
+      "atk1AttackType": "normal",
+      "atk1Targets": "air,enemies,ground",
+      "upgradesTo": "n00J,o009",
+      "requires": ""
+    },
+    {
+      "id": "o009",
+      "baseId": "owtw",
+      "name": "Super Soaker Tower",
+      "goldCost": 200,
+      "pointValue": 126,
+      "atk1DamageBase": 150,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.009999999776482582,
+      "atk1Range": 1200,
+      "acquisitionRange": 800.0,
+      "atk1AttackType": "normal",
+      "atk1Targets": "air,enemies,ground",
+      "upgradesTo": "o00A,n00K",
+      "requires": ""
+    },
+    {
+      "id": "o00A",
+      "baseId": "owtw",
+      "name": "Aqua Nexus Tower",
+      "goldCost": 400,
+      "pointValue": 280,
+      "atk1DamageBase": 500,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.009999999776482582,
+      "atk1Range": 2000,
+      "acquisitionRange": 1200.0,
+      "atk1AttackType": "normal",
+      "atk1Targets": "air,enemies,ground",
+      "upgradesTo": "o00B,n00L",
+      "requires": ""
+    },
+    {
+      "id": "o00B",
+      "baseId": "owtw",
+      "name": "Poseidon",
+      "goldCost": 1500,
+      "pointValue": 1100,
+      "atk1DamageBase": 3000,
+      "atk1Sides": 1,
+      "atk1Cooldown": 0.009999999776482582,
+      "atk1Range": 2000,
+      "acquisitionRange": 1200.0,
+      "atk1AttackType": "normal",
+      "atk1Targets": "air,enemies,ground",
+      "upgradesTo": "n00M",
+      "requires": ""
+    }
+  ],
+  "creeps": [
+    {
+      "id": "h001",
+      "baseId": "hhdl",
+      "name": "Running horse",
+      "goldCost": 10,
+      "pointValue": 2,
+      "hitPoints": 130,
+      "armorType": "small",
+      "moveSpeed": 230,
+      "stockStartDelaySec": 40,
+      "stockReplenishIntervalSec": 8,
+      "stockMaximum": 4
+    },
+    {
+      "id": "h009",
+      "baseId": "hhdl",
+      "name": "Wolfman",
+      "goldCost": 20,
+      "pointValue": 4,
+      "hitPoints": 600,
+      "armorType": "normal",
+      "moveSpeed": 300,
+      "stockStartDelaySec": 60,
+      "stockReplenishIntervalSec": 8,
+      "stockMaximum": 6
+    },
+    {
+      "id": "h00A",
+      "baseId": "hhdl",
+      "name": "Sentry",
+      "goldCost": 30,
+      "pointValue": 6,
+      "hitPoints": 900,
+      "armorType": "normal",
+      "moveSpeed": 280,
+      "moveType": "foot",
+      "stockStartDelaySec": 80,
+      "stockReplenishIntervalSec": 8,
+      "stockMaximum": 8
+    },
+    {
+      "id": "h00B",
+      "baseId": "hhdl",
+      "name": "Shaman",
+      "goldCost": 50,
+      "pointValue": 10,
+      "hitPoints": 1100,
+      "armorType": "normal",
+      "moveSpeed": 300,
+      "moveType": "foot",
+      "stockStartDelaySec": 100,
+      "stockReplenishIntervalSec": 6,
+      "stockMaximum": 10
+    },
+    {
+      "id": "h00C",
+      "baseId": "hhdl",
+      "name": "Skeleton",
+      "goldCost": 80,
+      "pointValue": 16,
+      "hitPoints": 900,
+      "armorType": "normal",
+      "moveSpeed": 522,
+      "moveType": "foot",
+      "stockStartDelaySec": 120,
+      "stockReplenishIntervalSec": 3,
+      "stockMaximum": 32
+    },
+    {
+      "id": "h00D",
+      "baseId": "hhdl",
+      "name": "Tauren",
+      "goldCost": 120,
+      "pointValue": 24,
+      "hitPoints": 2000,
+      "armorType": "normal",
+      "moveSpeed": 300,
+      "moveType": "foot",
+      "stockStartDelaySec": 140,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 14
+    },
+    {
+      "id": "h00E",
+      "baseId": "hhdl",
+      "name": "little whispy",
+      "goldCost": 50,
+      "pointValue": 10,
+      "hitPoints": 500,
+      "armorType": "small",
+      "moveSpeed": 460,
+      "moveType": "foot",
+      "stockStartDelaySec": 200,
+      "stockReplenishIntervalSec": 1,
+      "stockMaximum": 32
+    },
+    {
+      "id": "h00F",
+      "baseId": "hhdl",
+      "name": "Magma Elemental",
+      "goldCost": 250,
+      "pointValue": 50,
+      "hitPoints": 10000,
+      "armorType": "fort",
+      "moveSpeed": 280,
+      "moveType": "foot",
+      "stockStartDelaySec": 220,
+      "stockReplenishIntervalSec": 90,
+      "stockMaximum": 1
+    },
+    {
+      "id": "h00G",
+      "baseId": "hhdl",
+      "name": "Treant",
+      "goldCost": 300,
+      "pointValue": 60,
+      "hitPoints": 4000,
+      "armorType": "normal",
+      "moveSpeed": 300,
+      "moveType": "foot",
+      "stockStartDelaySec": 240,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00H",
+      "baseId": "hhdl",
+      "name": "High Elf",
+      "goldCost": 360,
+      "pointValue": 72,
+      "hitPoints": 3200,
+      "armorType": "normal",
+      "moveType": "foot",
+      "stockStartDelaySec": 20,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00I",
+      "baseId": "hhdl",
+      "name": "Spider",
+      "goldCost": 500,
+      "hitPoints": 6000,
+      "armorType": "normal",
+      "moveType": "foot",
+      "stockStartDelaySec": 60,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00J",
+      "baseId": "hhdl",
+      "name": "Captain",
+      "goldCost": 620,
+      "pointValue": 124,
+      "hitPoints": 5200,
+      "armorType": "normal",
+      "moveType": "foot",
+      "stockStartDelaySec": 80,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00K",
+      "baseId": "hhdl",
+      "name": "Warden",
+      "goldCost": 1000,
+      "pointValue": 200,
+      "hitPoints": 25000,
+      "armorType": "fort",
+      "moveType": "foot",
+      "stockStartDelaySec": 120,
+      "stockReplenishIntervalSec": 90,
+      "stockMaximum": 1
+    },
+    {
+      "id": "h00L",
+      "baseId": "hhdl",
+      "name": "Centaur",
+      "goldCost": 2000,
+      "pointValue": 400,
+      "hitPoints": 18000,
+      "armorType": "fort",
+      "moveSpeed": 522,
+      "moveType": "foot",
+      "stockStartDelaySec": 160,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00M",
+      "baseId": "hhdl",
+      "name": "Demolisher",
+      "goldCost": 4000,
+      "pointValue": 680,
+      "hitPoints": 28000,
+      "armorType": "fort",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 180,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00N",
+      "baseId": "hhdl",
+      "name": "Sasquatch",
+      "goldCost": 7500,
+      "pointValue": 1500,
+      "hitPoints": 40000,
+      "armorType": "fort",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 220,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00O",
+      "baseId": "hhdl",
+      "name": "Thing",
+      "goldCost": 10000,
+      "pointValue": 2000,
+      "hitPoints": 50000,
+      "armorType": "fort",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 240,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00P",
+      "baseId": "hhdl",
+      "name": "War Golem",
+      "goldCost": 15000,
+      "pointValue": 3000,
+      "hitPoints": 30000,
+      "armorType": "fort",
+      "moveSpeed": 522,
+      "moveType": "foot",
+      "stockStartDelaySec": 40,
+      "stockReplenishIntervalSec": 3,
+      "stockMaximum": 32
+    },
+    {
+      "id": "h00Q",
+      "baseId": "hhdl",
+      "name": "Salamander",
+      "goldCost": 18000,
+      "pointValue": 3600,
+      "hitPoints": 50000,
+      "armorType": "fort",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 60,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00R",
+      "baseId": "hhdl",
+      "name": "Space Orc",
+      "goldCost": 24000,
+      "pointValue": 4800,
+      "hitPoints": 60000,
+      "armorType": "fort",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 100,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00S",
+      "baseId": "hhdl",
+      "name": "Burning legion",
+      "goldCost": 100000,
+      "pointValue": 0,
+      "hitPoints": 200000,
+      "armorType": "divine",
+      "moveSpeed": 450,
+      "moveType": "foot",
+      "stockStartDelaySec": 500,
+      "stockReplenishIntervalSec": 120,
+      "stockMaximum": 1
+    },
+    {
+      "id": "h00U",
+      "baseId": "hhdl",
+      "name": "Tauren Chieftain",
+      "goldCost": 30000,
+      "pointValue": 6000,
+      "hitPoints": 45000,
+      "armorType": "divine",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 500,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00V",
+      "baseId": "hhdl",
+      "name": "Keeper of the Grove",
+      "goldCost": 40000,
+      "pointValue": 8000,
+      "hitPoints": 50000,
+      "armorType": "divine",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 500,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00W",
+      "baseId": "hhdl",
+      "name": "Demon Hunter",
+      "goldCost": 65000,
+      "pointValue": 13000,
+      "hitPoints": 60000,
+      "armorType": "divine",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 500,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "h00X",
+      "baseId": "hhdl",
+      "name": "Blade Master",
+      "goldCost": 40000,
+      "pointValue": 8000,
+      "hitPoints": 100000,
+      "armorType": "divine",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 500,
+      "stockReplenishIntervalSec": 90,
+      "stockMaximum": 1
+    },
+    {
+      "id": "h00Y",
+      "baseId": "hhdl",
+      "name": "Demon Hunter",
+      "hitPoints": 8000,
+      "armorType": "divine",
+      "moveSpeed": 360,
+      "moveType": "foot"
+    },
+    {
+      "id": "h00Z",
+      "baseId": "hhdl",
+      "name": "Mountain King",
+      "goldCost": 100000,
+      "pointValue": 20000,
+      "hitPoints": 75000,
+      "armorType": "divine",
+      "moveSpeed": 340,
+      "moveType": "foot",
+      "stockStartDelaySec": 500,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "n000",
+      "baseId": "nvil",
+      "name": "Runner",
+      "goldCost": 5,
+      "pointValue": 1,
+      "moveSpeed": 200,
+      "stockStartDelaySec": 20,
+      "stockReplenishIntervalSec": 8,
+      "stockMaximum": 2
+    },
+    {
+      "id": "u000",
+      "baseId": "ugar",
+      "goldCost": 160,
+      "pointValue": 32,
+      "hitPoints": 4000,
+      "armorType": "normal",
+      "moveSpeed": 300,
+      "stockStartDelaySec": 160,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "u001",
+      "baseId": "ugar",
+      "name": "Hippogryph",
+      "goldCost": 200,
+      "pointValue": 40,
+      "hitPoints": 3800,
+      "armorType": "normal",
+      "moveSpeed": 320,
+      "stockStartDelaySec": 180,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "u002",
+      "baseId": "ugar",
+      "name": "Wyvern",
+      "goldCost": 400,
+      "pointValue": 80,
+      "hitPoints": 6500,
+      "armorType": "normal",
+      "moveSpeed": 340,
+      "stockStartDelaySec": 40,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "u003",
+      "baseId": "ugar",
+      "name": "Vulture",
+      "goldCost": 800,
+      "pointValue": 160,
+      "hitPoints": 9000,
+      "armorType": "normal",
+      "moveSpeed": 320,
+      "stockStartDelaySec": 100,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "u004",
+      "baseId": "ugar",
+      "name": "Owl",
+      "goldCost": 1200,
+      "pointValue": 240,
+      "hitPoints": 16000,
+      "armorType": "normal",
+      "moveSpeed": 340,
+      "stockStartDelaySec": 140,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "u005",
+      "baseId": "ugar",
+      "name": "Chimaera",
+      "goldCost": 4500,
+      "pointValue": 900,
+      "hitPoints": 20000,
+      "armorType": "normal",
+      "stockStartDelaySec": 200,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "u006",
+      "baseId": "ugar",
+      "name": "Frost Wyrm",
+      "goldCost": 12000,
+      "pointValue": 2400,
+      "hitPoints": 30000,
+      "armorType": "normal",
+      "stockStartDelaySec": 20,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "u007",
+      "baseId": "ugar",
+      "name": "Bronze Dragon",
+      "goldCost": 10000,
+      "pointValue": 2000,
+      "hitPoints": 60000,
+      "armorType": "fort",
+      "stockStartDelaySec": 80,
+      "stockReplenishIntervalSec": 90,
+      "stockMaximum": 1
+    },
+    {
+      "id": "u008",
+      "baseId": "ugar",
+      "name": "Green Dragon",
+      "goldCost": 50000,
+      "pointValue": 10000,
+      "hitPoints": 40000,
+      "armorType": "normal",
+      "stockStartDelaySec": 160,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "u00A",
+      "baseId": "ugar",
+      "name": "Gryphon Rider",
+      "goldCost": 80000,
+      "pointValue": 16000,
+      "hitPoints": 50000,
+      "armorType": "normal",
+      "stockStartDelaySec": 200,
+      "stockReplenishIntervalSec": 4,
+      "stockMaximum": 16
+    },
+    {
+      "id": "u00B",
+      "baseId": "ugar",
+      "name": "Goblin Zeppelin",
+      "goldCost": 80000,
+      "pointValue": 0,
+      "hitPoints": 80000,
+      "armorType": "normal",
+      "stockStartDelaySec": 1100,
+      "stockReplenishIntervalSec": 90,
+      "stockMaximum": 2
+    }
+  ],
+  "shops": [
+    {
+      "id": "htow",
+      "name": "Hall",
+      "goldCost": 40,
+      "requires": "",
+      "sells": [
+        {
+          "id": "n000"
+        },
+        {
+          "id": "h001"
+        },
+        {
+          "id": "h009"
+        },
+        {
+          "id": "h00A"
+        },
+        {
+          "id": "h00B"
+        },
+        {
+          "id": "h00C"
+        },
+        {
+          "id": "h00D"
+        },
+        {
+          "id": "u000"
+        },
+        {
+          "id": "u001"
+        },
+        {
+          "id": "h00E"
+        },
+        {
+          "id": "h00F"
+        },
+        {
+          "id": "h00G"
+        }
+      ]
+    },
+    {
+      "id": "hkee",
+      "name": "Keep",
+      "goldCost": 2000,
+      "requires": "h006",
+      "sells": [
+        {
+          "id": "h00H"
+        },
+        {
+          "id": "u002"
+        },
+        {
+          "id": "h00I"
+        },
+        {
+          "id": "h00J"
+        },
+        {
+          "id": "u003"
+        },
+        {
+          "id": "h00K"
+        },
+        {
+          "id": "u004"
+        },
+        {
+          "id": "h00L"
+        },
+        {
+          "id": "h00M"
+        },
+        {
+          "id": "u005"
+        },
+        {
+          "id": "h00N"
+        },
+        {
+          "id": "h00O"
+        }
+      ]
+    },
+    {
+      "id": "hcas",
+      "name": "Castle",
+      "goldCost": 20000,
+      "requires": "hkee,h002,h007,o005,o000",
+      "sells": [
+        {
+          "id": "u006"
+        },
+        {
+          "id": "h00P"
+        },
+        {
+          "id": "h00Q"
+        },
+        {
+          "id": "u007"
+        },
+        {
+          "id": "h00R"
+        },
+        {
+          "id": "h00U"
+        },
+        {
+          "id": "h00V"
+        },
+        {
+          "id": "u008"
+        },
+        {
+          "id": "h00W"
+        },
+        {
+          "id": "u00A"
+        },
+        {
+          "id": "h00X"
+        },
+        {
+          "id": "h00Z"
+        }
+      ]
+    }
+  ],
+  "lanes": [
+    {
+      "player": 0,
+      "color": "red",
+      "spawn": [
+        -4736.0,
+        4800.0
+      ],
+      "waypoint1": [
+        -4720.0,
+        2032.0
+      ],
+      "waypoint2": [
+        -3568.0,
+        2064.0
+      ],
+      "end": [
+        -3568.0,
+        4848.0
+      ],
+      "buildZone": {
+        "left": -5408,
+        "bottom": 480,
+        "right": -2976,
+        "top": 5152
+      }
+    },
+    {
+      "player": 1,
+      "color": "blue",
+      "spawn": [
+        -1936.0,
+        4784.0
+      ],
+      "waypoint1": [
+        -1888.0,
+        2032.0
+      ],
+      "waypoint2": [
+        -752.0,
+        2064.0
+      ],
+      "end": [
+        -752.0,
+        4832.0
+      ],
+      "buildZone": {
+        "left": -2624,
+        "bottom": 480,
+        "right": -128,
+        "top": 5152
+      }
+    },
+    {
+      "player": 2,
+      "color": "teal",
+      "spawn": [
+        784.0,
+        4816.0
+      ],
+      "waypoint1": [
+        800.0,
+        2032.0
+      ],
+      "waypoint2": [
+        1936.0,
+        2080.0
+      ],
+      "end": [
+        1936.0,
+        4784.0
+      ],
+      "buildZone": {
+        "left": 96,
+        "bottom": 480,
+        "right": 2592,
+        "top": 5152
+      }
+    },
+    {
+      "player": 3,
+      "color": "purple",
+      "spawn": [
+        3584.0,
+        4768.0
+      ],
+      "waypoint1": [
+        3616.0,
+        2032.0
+      ],
+      "waypoint2": [
+        4752.0,
+        2064.0
+      ],
+      "end": [
+        4736.0,
+        4784.0
+      ],
+      "buildZone": {
+        "left": 2912,
+        "bottom": 480,
+        "right": 5376,
+        "top": 5152
+      }
+    },
+    {
+      "player": 4,
+      "color": "yellow",
+      "spawn": [
+        -4736.0,
+        -112.0
+      ],
+      "waypoint1": [
+        -4752.0,
+        -2832.0
+      ],
+      "waypoint2": [
+        -3568.0,
+        -2800.0
+      ],
+      "end": [
+        -3568.0,
+        -64.0
+      ],
+      "buildZone": {
+        "left": -5376,
+        "bottom": -4480,
+        "right": -2944,
+        "top": 224
+      }
+    },
+    {
+      "player": 5,
+      "color": "orange",
+      "spawn": [
+        -1920.0,
+        -112.0
+      ],
+      "waypoint1": [
+        -1920.0,
+        -2832.0
+      ],
+      "waypoint2": [
+        -752.0,
+        -2800.0
+      ],
+      "end": [
+        -752.0,
+        -112.0
+      ],
+      "buildZone": {
+        "left": -2592,
+        "bottom": -4480,
+        "right": -96,
+        "top": 224
+      }
+    },
+    {
+      "player": 6,
+      "color": "green",
+      "spawn": [
+        768.0,
+        -96.0
+      ],
+      "waypoint1": [
+        768.0,
+        -2832.0
+      ],
+      "waypoint2": [
+        1936.0,
+        -2800.0
+      ],
+      "end": [
+        1920.0,
+        -80.0
+      ],
+      "buildZone": {
+        "left": 96,
+        "bottom": -4480,
+        "right": 2592,
+        "top": 224
+      }
+    },
+    {
+      "player": 7,
+      "color": "pink",
+      "spawn": [
+        3584.0,
+        -80.0
+      ],
+      "waypoint1": [
+        3584.0,
+        -2832.0
+      ],
+      "waypoint2": [
+        4752.0,
+        -2800.0
+      ],
+      "end": [
+        4752.0,
+        -64.0
+      ],
+      "buildZone": {
+        "left": 2944,
+        "bottom": -4480,
+        "right": 5376,
+        "top": 256
+      }
+    }
+  ],
+  "rules": {
+    "startLives": 30,
+    "startIncome": 40,
+    "roundIntervalSec": 30,
+    "firstRoundDelaySec": 2
+  },
+  "map": {
+    "maxPlayers": 8
+  }
+}

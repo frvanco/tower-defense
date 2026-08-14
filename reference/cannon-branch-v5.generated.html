@@ -1,0 +1,2115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Tower Defense — branche Cannon (regenere depuis @tower-defense/renderer)</title>
+<style>
+  :root { --bg:#1a1d24; --panel:#22262f; --line:#333945; --text:#e6e8ec; --dim:#8b93a3; --accent:#2f6fb8; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,sans-serif; overflow:hidden; }
+  #app { position:fixed; inset:0; }
+  #hud { position:fixed; top:0; left:0; right:0; padding:12px 16px; display:flex; gap:8px; align-items:center;
+         flex-wrap:wrap; background:linear-gradient(var(--bg),transparent); pointer-events:none; }
+  #hud > * { pointer-events:auto; }
+  button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px;
+           padding:6px 12px; font:inherit; cursor:pointer; }
+  button:hover { border-color:#4a5364; }
+  button.on { background:var(--accent); border-color:var(--accent); }
+  .sep { width:1px; height:24px; background:var(--line); margin:0 4px; }
+  #info { position:fixed; left:16px; bottom:16px; background:var(--panel); border:1px solid var(--line);
+          border-radius:8px; padding:12px 14px; min-width:260px; }
+  #info h2 { margin:0 0 6px; font-size:15px; }
+  #info dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:2px 12px; font-size:13px; }
+  #info dt { color:var(--dim); }
+  #info dd { margin:0; }
+  #hint { position:fixed; right:16px; bottom:16px; color:var(--dim); font-size:12px; text-align:right; }
+  #banner { position:fixed; left:16px; top:70px; color:#6ec1ff; font-size:12px; max-width:360px; }
+  label { color:var(--dim); font-size:13px; }
+  input[type=range] { width:110px; vertical-align:middle; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud">
+  <button id="btn-build">Construire</button>
+  <button id="btn-attack">Tirer</button>
+  <div class="sep"></div>
+  <button id="btn-game" class="on">Vue de jeu</button>
+  <button id="btn-close">Vue rapprochée</button>
+  <div class="sep"></div>
+  <button id="btn-track" class="on">Suivi de cible</button>
+  <button id="btn-spin">Rotation libre</button>
+  <button id="btn-idle">Figé</button>
+  <button id="btn-range">Portée</button>
+  <button id="btn-foot" class="on">Emprise</button>
+  <button id="btn-wire">Fil de fer</button>
+  <div class="sep"></div>
+  <label>Durée build</label><input id="dur" type="range" min="0.5" max="5" step="0.5" value="2"><span id="dur-v">2.0s</span>
+  <span style="flex:1"></span>
+  <label>Équipe</label>
+  <input id="team" type="color" value="#c0392b" style="width:38px;height:30px;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer">
+</div>
+<div id="banner">Régénéré depuis packages/renderer via scripts/regenerate-reference.ts — geometrie et comportement viennent entierement du package, rien n'est recopie a la main ici.</div>
+<div id="info"><h2>—</h2><dl id="stats"></dl></div>
+<div id="hint">clic = sélectionner · double-clic = rejouer la construction<br>la cible rouge s'arrête régulièrement : les tourelles gardent leur orientation</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script>
+addEventListener('error', (e) => {
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;inset:auto 16px 16px 16px;z-index:99;background:#4a1f1f;border:1px solid #8a3a3a;border-radius:8px;padding:12px 14px;font:13px/1.5 ui-monospace,monospace;color:#ffd9d9;white-space:pre-wrap';
+  box.textContent = 'Erreur JS : ' + (e.message || e.error) + '\n' + (e.filename || '') + ':' + (e.lineno || '');
+  document.body.appendChild(box);
+});
+</script>
+<script type="module">
+// demo/scene.ts
+import * as THREE6 from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+// src/materials.ts
+import * as THREE from "three";
+var MAT = {
+  stone: new THREE.MeshLambertMaterial({ color: 9080732 }),
+  stone2: new THREE.MeshLambertMaterial({ color: 7304320 }),
+  metal: new THREE.MeshLambertMaterial({ color: 3948873 }),
+  metal2: new THREE.MeshLambertMaterial({ color: 2566961 }),
+  wood: new THREE.MeshLambertMaterial({ color: 8018746 }),
+  scaff: new THREE.MeshLambertMaterial({ color: 9071170 }),
+  hot: new THREE.MeshBasicMaterial({ color: 16756810 }),
+  dust: new THREE.MeshBasicMaterial({ color: 10133676, transparent: true, opacity: 0.55 })
+};
+var TIER_ACCENT = [
+  10124111,
+  11567168,
+  12614195,
+  13658664,
+  14702111,
+  15744020
+];
+function tierAccentColor(tier) {
+  return TIER_ACCENT[Math.min(tier, TIER_ACCENT.length - 1)] ?? TIER_ACCENT[TIER_ACCENT.length - 1];
+}
+var teamMaterialCache = /* @__PURE__ */ new Map();
+function teamMaterial(color) {
+  let m = teamMaterialCache.get(color);
+  if (!m) {
+    m = new THREE.MeshLambertMaterial({ color });
+    teamMaterialCache.set(color, m);
+  }
+  return m;
+}
+
+// src/footprint.ts
+import * as THREE2 from "three";
+var CELL = 2;
+var MAX_RADIUS = CELL * 0.42;
+function measureSweptRadius(group) {
+  group.updateMatrixWorld(true);
+  const origin = group.getWorldPosition(new THREE2.Vector3());
+  let radius = 0;
+  const v = new THREE2.Vector3();
+  group.traverse((obj) => {
+    const m = obj;
+    if (!m.isMesh || !m.geometry) return;
+    const pos = m.geometry.attributes.position;
+    if (!pos) return;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld).sub(origin);
+      const r = Math.hypot(v.x, v.z);
+      if (r > radius) radius = r;
+    }
+  });
+  return radius;
+}
+
+// ../data/src/map_data.json
+var map_data_default = {
+  towers: [
+    {
+      id: "h000",
+      baseId: "hgtw",
+      name: "Arrow Tower",
+      goldCost: 10,
+      pointValue: 7,
+      atk1DamageBase: 19,
+      atk1Sides: 1,
+      atk1Cooldown: 0.699999988079071,
+      atk1Targets: "air,ground",
+      upgradesTo: "n001,h003",
+      requires: "",
+      abilities: ""
+    },
+    {
+      id: "h002",
+      baseId: "hctw",
+      name: "Bazooka Tower",
+      goldCost: 340,
+      pointValue: 266,
+      atk1DamageBase: 279,
+      atk1Sides: 1,
+      atk1Cooldown: 0.8999999761581421,
+      atk1Range: 1e3,
+      acquisitionRange: 1e3,
+      atk1Targets: "ground",
+      atk1AoeFull: 60,
+      atk1AoeMedium: 120,
+      atk1AoeSmall: 140,
+      upgradesTo: "n004,h012",
+      requires: "",
+      abilities: ""
+    },
+    {
+      id: "h003",
+      baseId: "hctw",
+      goldCost: 30,
+      pointValue: 21,
+      atk1DamageBase: 59,
+      atk1Sides: 1,
+      atk1Cooldown: 1,
+      atk1Targets: "ground",
+      atk1AoeFull: 45,
+      atk1AoeMedium: 90,
+      atk1AoeSmall: 110,
+      upgradesTo: "n002,h004",
+      requires: "",
+      abilities: ""
+    },
+    {
+      id: "h004",
+      baseId: "hctw",
+      name: "Super Cannon Tower",
+      goldCost: 120,
+      pointValue: 91,
+      atk1DamageBase: 129,
+      atk1Sides: 1,
+      atk1Cooldown: 0.949999988079071,
+      atk1Range: 900,
+      acquisitionRange: 1500,
+      atk1Targets: "ground",
+      upgradesTo: "n003,h002",
+      requires: "",
+      abilities: ""
+    },
+    {
+      id: "h005",
+      baseId: "hgtw",
+      name: "Lightning Tower",
+      pointValue: 56,
+      atk1DamageBase: 149,
+      atk1Sides: 1,
+      atk1Cooldown: 0.5,
+      atk1Range: 800,
+      acquisitionRange: 800,
+      atk1Targets: "air",
+      atk1AoeFull: 45,
+      atk1AoeMedium: 90,
+      atk1AoeSmall: 110,
+      upgradesTo: "n005,h006",
+      requires: "",
+      abilities: "Alit"
+    },
+    {
+      id: "h006",
+      baseId: "hgtw",
+      name: "Super Lightning Tower",
+      goldCost: 250,
+      pointValue: 182,
+      atk1DamageBase: 299,
+      atk1Sides: 1,
+      atk1Cooldown: 0.4000000059604645,
+      atk1Range: 900,
+      acquisitionRange: 900,
+      atk1Targets: "air",
+      atk1AoeFull: 50,
+      atk1AoeMedium: 100,
+      atk1AoeSmall: 125,
+      upgradesTo: "n006,h007",
+      requires: "",
+      abilities: "Alit"
+    },
+    {
+      id: "h007",
+      baseId: "hgtw",
+      name: "Shock Tower",
+      goldCost: 500,
+      pointValue: 427,
+      atk1DamageBase: 599,
+      atk1Sides: 1,
+      atk1Cooldown: 0.30000001192092896,
+      atk1Range: 1e3,
+      acquisitionRange: 1e3,
+      atk1Targets: "air",
+      atk1AoeFull: 60,
+      atk1AoeMedium: 120,
+      atk1AoeSmall: 140,
+      upgradesTo: "h011,n007",
+      requires: "",
+      abilities: "Alit"
+    },
+    {
+      id: "h008",
+      baseId: "hgtw",
+      name: "Nuclear Tower",
+      goldCost: 5e4,
+      pointValue: 630,
+      atk1DamageBase: 9999,
+      atk1Sides: 1,
+      atk1Cooldown: 6,
+      atk1Range: 1600,
+      acquisitionRange: 1600,
+      atk1AttackType: "siege",
+      atk1Targets: "ground",
+      atk1AoeFull: 100,
+      atk1AoeMedium: 180,
+      atk1AoeSmall: 200,
+      upgradesTo: "n008,h00T",
+      requires: "h002,o000,o005,h007,hcas",
+      abilities: "ACbh,ACct"
+    },
+    {
+      id: "h00T",
+      baseId: "hgtw",
+      name: "Hydrogen Fusion Tower",
+      goldCost: 1e5,
+      pointValue: 1470,
+      atk1DamageBase: 9999,
+      atk1Sides: 1,
+      atk1Cooldown: 2,
+      atk1Range: 2e3,
+      acquisitionRange: 1600,
+      atk1AttackType: "siege",
+      atk1Targets: "ground",
+      atk1AoeFull: 100,
+      atk1AoeMedium: 180,
+      atk1AoeSmall: 200,
+      upgradesTo: "n009",
+      requires: "h002,o000,o005,h007,hcas",
+      abilities: "ACbh,ACct"
+    },
+    {
+      id: "h010",
+      baseId: "hctw",
+      name: "Mega Cannon Tower",
+      goldCost: 2e4,
+      pointValue: 500,
+      atk1DamageBase: 1200,
+      atk1Cooldown: 0.5,
+      atk1Range: 1500,
+      atk1Targets: "ground",
+      atk1AoeFull: 100,
+      atk1AoeMedium: 120,
+      atk1AoeSmall: 150,
+      upgradesTo: "n00F",
+      requires: "",
+      abilities: ""
+    },
+    {
+      id: "h011",
+      baseId: "hgtw",
+      name: "Ultra Shock Tower",
+      goldCost: 8e3,
+      pointValue: 427,
+      atk1DamageBase: 1200,
+      atk1Sides: 1,
+      atk1Cooldown: 0.10000000149011612,
+      atk1Range: 1e3,
+      acquisitionRange: 1e3,
+      atk1Targets: "air",
+      atk1AoeFull: 60,
+      atk1AoeMedium: 120,
+      atk1AoeSmall: 140,
+      upgradesTo: "n007",
+      requires: "",
+      abilities: "Alit"
+    },
+    {
+      id: "h012",
+      baseId: "hctw",
+      name: "Ultra Cannon Tower",
+      goldCost: 3e3,
+      pointValue: 500,
+      atk1DamageBase: 600,
+      atk1Cooldown: 0.699999988079071,
+      atk1Range: 1500,
+      atk1Targets: "ground",
+      atk1AoeFull: 80,
+      atk1AoeMedium: 120,
+      atk1AoeSmall: 150,
+      upgradesTo: "h010,n00F",
+      requires: "",
+      abilities: ""
+    },
+    {
+      id: "o000",
+      baseId: "owtw",
+      name: "Disease Tower",
+      goldCost: 250,
+      pointValue: 266,
+      atk1DamageBase: 100,
+      atk1Sides: 1,
+      atk1Cooldown: 0.10000000149011612,
+      atk1Range: 1e3,
+      acquisitionRange: 1e3,
+      atk1Targets: "air,ground",
+      upgradesTo: "o006,n00E",
+      requires: "",
+      abilities: "Aspo"
+    },
+    {
+      id: "o001",
+      baseId: "owtw",
+      name: "Poison Tower",
+      goldCost: 30,
+      pointValue: 21,
+      atk1DamageBase: 14,
+      atk1Sides: 1,
+      atk1Cooldown: 0.4000000059604645,
+      acquisitionRange: 800,
+      atk1Targets: "air,ground",
+      upgradesTo: "n00C,o002",
+      requires: "",
+      abilities: "Aspo"
+    },
+    {
+      id: "o002",
+      baseId: "owtw",
+      name: "Super Poison Tower",
+      goldCost: 100,
+      pointValue: 91,
+      atk1DamageBase: 29,
+      atk1Sides: 1,
+      atk1Cooldown: 0.30000001192092896,
+      atk1Range: 900,
+      atk1Targets: "air,ground",
+      upgradesTo: "n00D,o000",
+      requires: "",
+      abilities: "Aspo"
+    },
+    {
+      id: "o003",
+      baseId: "owtw",
+      name: "Ice Tower",
+      goldCost: 60,
+      pointValue: 56,
+      atk1DamageBase: 19,
+      atk1Sides: 1,
+      atk1Cooldown: 1,
+      acquisitionRange: 800,
+      atk1Targets: "air,ground",
+      atk1AoeFull: 50,
+      atk1AoeMedium: 100,
+      atk1AoeSmall: 125,
+      upgradesTo: "n005,o004",
+      requires: "",
+      abilities: "Afrb"
+    },
+    {
+      id: "o004",
+      baseId: "owtw",
+      name: "Super Ice Tower",
+      goldCost: 100,
+      pointValue: 182,
+      atk1DamageBase: 39,
+      atk1Sides: 1,
+      atk1Cooldown: 0.949999988079071,
+      atk1Range: 900,
+      atk1Targets: "air,ground",
+      atk1AoeFull: 50,
+      atk1AoeMedium: 100,
+      atk1AoeSmall: 125,
+      upgradesTo: "n00A,o005",
+      requires: "",
+      abilities: "Afrb"
+    },
+    {
+      id: "o005",
+      baseId: "owtw",
+      name: "Freeze Tower",
+      goldCost: 200,
+      pointValue: 427,
+      atk1DamageBase: 79,
+      atk1Sides: 1,
+      atk1Cooldown: 0.8999999761581421,
+      atk1Range: 1500,
+      atk1Targets: "air,ground",
+      atk1AoeFull: 60,
+      atk1AoeMedium: 120,
+      atk1AoeSmall: 150,
+      upgradesTo: "o007,n00B",
+      requires: "",
+      abilities: "Afrb"
+    },
+    {
+      id: "o006",
+      baseId: "owtw",
+      name: "Ultra Disease Tower",
+      goldCost: 1e3,
+      pointValue: 266,
+      atk1DamageBase: 300,
+      atk1Sides: 1,
+      atk1Cooldown: 0.05000000074505806,
+      atk1Range: 1500,
+      acquisitionRange: 1e3,
+      atk1Targets: "air,ground",
+      atk1AoeFull: 10,
+      atk1AoeMedium: 20,
+      atk1AoeSmall: 30,
+      upgradesTo: "n00E",
+      requires: "",
+      abilities: "Aspo"
+    },
+    {
+      id: "o007",
+      baseId: "owtw",
+      name: "Ultra Freeze Tower",
+      goldCost: 300,
+      pointValue: 427,
+      atk1DamageBase: 300,
+      atk1Sides: 1,
+      atk1Cooldown: 0.699999988079071,
+      atk1Range: 1500,
+      atk1Targets: "air,ground",
+      atk1AoeFull: 10,
+      atk1AoeMedium: 140,
+      atk1AoeSmall: 180,
+      upgradesTo: "n00B",
+      requires: "",
+      abilities: "Afrb"
+    },
+    {
+      id: "o008",
+      baseId: "owtw",
+      name: "Water Soaker Tower",
+      goldCost: 60,
+      pointValue: 42,
+      atk1DamageBase: 39,
+      atk1Sides: 1,
+      atk1Cooldown: 0.009999999776482582,
+      acquisitionRange: 800,
+      atk1AttackType: "normal",
+      atk1Targets: "air,enemies,ground",
+      upgradesTo: "n00J,o009",
+      requires: ""
+    },
+    {
+      id: "o009",
+      baseId: "owtw",
+      name: "Super Soaker Tower",
+      goldCost: 200,
+      pointValue: 126,
+      atk1DamageBase: 150,
+      atk1Sides: 1,
+      atk1Cooldown: 0.009999999776482582,
+      atk1Range: 1200,
+      acquisitionRange: 800,
+      atk1AttackType: "normal",
+      atk1Targets: "air,enemies,ground",
+      upgradesTo: "o00A,n00K",
+      requires: ""
+    },
+    {
+      id: "o00A",
+      baseId: "owtw",
+      name: "Aqua Nexus Tower",
+      goldCost: 400,
+      pointValue: 280,
+      atk1DamageBase: 500,
+      atk1Sides: 1,
+      atk1Cooldown: 0.009999999776482582,
+      atk1Range: 2e3,
+      acquisitionRange: 1200,
+      atk1AttackType: "normal",
+      atk1Targets: "air,enemies,ground",
+      upgradesTo: "o00B,n00L",
+      requires: ""
+    },
+    {
+      id: "o00B",
+      baseId: "owtw",
+      name: "Poseidon",
+      goldCost: 1500,
+      pointValue: 1100,
+      atk1DamageBase: 3e3,
+      atk1Sides: 1,
+      atk1Cooldown: 0.009999999776482582,
+      atk1Range: 2e3,
+      acquisitionRange: 1200,
+      atk1AttackType: "normal",
+      atk1Targets: "air,enemies,ground",
+      upgradesTo: "n00M",
+      requires: ""
+    }
+  ],
+  creeps: [
+    {
+      id: "h001",
+      baseId: "hhdl",
+      name: "Running horse",
+      goldCost: 10,
+      pointValue: 2,
+      hitPoints: 130,
+      armorType: "small",
+      moveSpeed: 230,
+      stockStartDelaySec: 40,
+      stockReplenishIntervalSec: 8,
+      stockMaximum: 4
+    },
+    {
+      id: "h009",
+      baseId: "hhdl",
+      name: "Wolfman",
+      goldCost: 20,
+      pointValue: 4,
+      hitPoints: 600,
+      armorType: "normal",
+      moveSpeed: 300,
+      stockStartDelaySec: 60,
+      stockReplenishIntervalSec: 8,
+      stockMaximum: 6
+    },
+    {
+      id: "h00A",
+      baseId: "hhdl",
+      name: "Sentry",
+      goldCost: 30,
+      pointValue: 6,
+      hitPoints: 900,
+      armorType: "normal",
+      moveSpeed: 280,
+      moveType: "foot",
+      stockStartDelaySec: 80,
+      stockReplenishIntervalSec: 8,
+      stockMaximum: 8
+    },
+    {
+      id: "h00B",
+      baseId: "hhdl",
+      name: "Shaman",
+      goldCost: 50,
+      pointValue: 10,
+      hitPoints: 1100,
+      armorType: "normal",
+      moveSpeed: 300,
+      moveType: "foot",
+      stockStartDelaySec: 100,
+      stockReplenishIntervalSec: 6,
+      stockMaximum: 10
+    },
+    {
+      id: "h00C",
+      baseId: "hhdl",
+      name: "Skeleton",
+      goldCost: 80,
+      pointValue: 16,
+      hitPoints: 900,
+      armorType: "normal",
+      moveSpeed: 522,
+      moveType: "foot",
+      stockStartDelaySec: 120,
+      stockReplenishIntervalSec: 3,
+      stockMaximum: 32
+    },
+    {
+      id: "h00D",
+      baseId: "hhdl",
+      name: "Tauren",
+      goldCost: 120,
+      pointValue: 24,
+      hitPoints: 2e3,
+      armorType: "normal",
+      moveSpeed: 300,
+      moveType: "foot",
+      stockStartDelaySec: 140,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 14
+    },
+    {
+      id: "h00E",
+      baseId: "hhdl",
+      name: "little whispy",
+      goldCost: 50,
+      pointValue: 10,
+      hitPoints: 500,
+      armorType: "small",
+      moveSpeed: 460,
+      moveType: "foot",
+      stockStartDelaySec: 200,
+      stockReplenishIntervalSec: 1,
+      stockMaximum: 32
+    },
+    {
+      id: "h00F",
+      baseId: "hhdl",
+      name: "Magma Elemental",
+      goldCost: 250,
+      pointValue: 50,
+      hitPoints: 1e4,
+      armorType: "fort",
+      moveSpeed: 280,
+      moveType: "foot",
+      stockStartDelaySec: 220,
+      stockReplenishIntervalSec: 90,
+      stockMaximum: 1
+    },
+    {
+      id: "h00G",
+      baseId: "hhdl",
+      name: "Treant",
+      goldCost: 300,
+      pointValue: 60,
+      hitPoints: 4e3,
+      armorType: "normal",
+      moveSpeed: 300,
+      moveType: "foot",
+      stockStartDelaySec: 240,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00H",
+      baseId: "hhdl",
+      name: "High Elf",
+      goldCost: 360,
+      pointValue: 72,
+      hitPoints: 3200,
+      armorType: "normal",
+      moveType: "foot",
+      stockStartDelaySec: 20,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00I",
+      baseId: "hhdl",
+      name: "Spider",
+      goldCost: 500,
+      hitPoints: 6e3,
+      armorType: "normal",
+      moveType: "foot",
+      stockStartDelaySec: 60,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00J",
+      baseId: "hhdl",
+      name: "Captain",
+      goldCost: 620,
+      pointValue: 124,
+      hitPoints: 5200,
+      armorType: "normal",
+      moveType: "foot",
+      stockStartDelaySec: 80,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00K",
+      baseId: "hhdl",
+      name: "Warden",
+      goldCost: 1e3,
+      pointValue: 200,
+      hitPoints: 25e3,
+      armorType: "fort",
+      moveType: "foot",
+      stockStartDelaySec: 120,
+      stockReplenishIntervalSec: 90,
+      stockMaximum: 1
+    },
+    {
+      id: "h00L",
+      baseId: "hhdl",
+      name: "Centaur",
+      goldCost: 2e3,
+      pointValue: 400,
+      hitPoints: 18e3,
+      armorType: "fort",
+      moveSpeed: 522,
+      moveType: "foot",
+      stockStartDelaySec: 160,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00M",
+      baseId: "hhdl",
+      name: "Demolisher",
+      goldCost: 4e3,
+      pointValue: 680,
+      hitPoints: 28e3,
+      armorType: "fort",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 180,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00N",
+      baseId: "hhdl",
+      name: "Sasquatch",
+      goldCost: 7500,
+      pointValue: 1500,
+      hitPoints: 4e4,
+      armorType: "fort",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 220,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00O",
+      baseId: "hhdl",
+      name: "Thing",
+      goldCost: 1e4,
+      pointValue: 2e3,
+      hitPoints: 5e4,
+      armorType: "fort",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 240,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00P",
+      baseId: "hhdl",
+      name: "War Golem",
+      goldCost: 15e3,
+      pointValue: 3e3,
+      hitPoints: 3e4,
+      armorType: "fort",
+      moveSpeed: 522,
+      moveType: "foot",
+      stockStartDelaySec: 40,
+      stockReplenishIntervalSec: 3,
+      stockMaximum: 32
+    },
+    {
+      id: "h00Q",
+      baseId: "hhdl",
+      name: "Salamander",
+      goldCost: 18e3,
+      pointValue: 3600,
+      hitPoints: 5e4,
+      armorType: "fort",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 60,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00R",
+      baseId: "hhdl",
+      name: "Space Orc",
+      goldCost: 24e3,
+      pointValue: 4800,
+      hitPoints: 6e4,
+      armorType: "fort",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 100,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00S",
+      baseId: "hhdl",
+      name: "Burning legion",
+      goldCost: 1e5,
+      pointValue: 0,
+      hitPoints: 2e5,
+      armorType: "divine",
+      moveSpeed: 450,
+      moveType: "foot",
+      stockStartDelaySec: 500,
+      stockReplenishIntervalSec: 120,
+      stockMaximum: 1
+    },
+    {
+      id: "h00U",
+      baseId: "hhdl",
+      name: "Tauren Chieftain",
+      goldCost: 3e4,
+      pointValue: 6e3,
+      hitPoints: 45e3,
+      armorType: "divine",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 500,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00V",
+      baseId: "hhdl",
+      name: "Keeper of the Grove",
+      goldCost: 4e4,
+      pointValue: 8e3,
+      hitPoints: 5e4,
+      armorType: "divine",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 500,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00W",
+      baseId: "hhdl",
+      name: "Demon Hunter",
+      goldCost: 65e3,
+      pointValue: 13e3,
+      hitPoints: 6e4,
+      armorType: "divine",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 500,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "h00X",
+      baseId: "hhdl",
+      name: "Blade Master",
+      goldCost: 4e4,
+      pointValue: 8e3,
+      hitPoints: 1e5,
+      armorType: "divine",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 500,
+      stockReplenishIntervalSec: 90,
+      stockMaximum: 1
+    },
+    {
+      id: "h00Y",
+      baseId: "hhdl",
+      name: "Demon Hunter",
+      hitPoints: 8e3,
+      armorType: "divine",
+      moveSpeed: 360,
+      moveType: "foot"
+    },
+    {
+      id: "h00Z",
+      baseId: "hhdl",
+      name: "Mountain King",
+      goldCost: 1e5,
+      pointValue: 2e4,
+      hitPoints: 75e3,
+      armorType: "divine",
+      moveSpeed: 340,
+      moveType: "foot",
+      stockStartDelaySec: 500,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "n000",
+      baseId: "nvil",
+      name: "Runner",
+      goldCost: 5,
+      pointValue: 1,
+      moveSpeed: 200,
+      stockStartDelaySec: 20,
+      stockReplenishIntervalSec: 8,
+      stockMaximum: 2
+    },
+    {
+      id: "u000",
+      baseId: "ugar",
+      goldCost: 160,
+      pointValue: 32,
+      hitPoints: 4e3,
+      armorType: "normal",
+      moveSpeed: 300,
+      stockStartDelaySec: 160,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "u001",
+      baseId: "ugar",
+      name: "Hippogryph",
+      goldCost: 200,
+      pointValue: 40,
+      hitPoints: 3800,
+      armorType: "normal",
+      moveSpeed: 320,
+      stockStartDelaySec: 180,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "u002",
+      baseId: "ugar",
+      name: "Wyvern",
+      goldCost: 400,
+      pointValue: 80,
+      hitPoints: 6500,
+      armorType: "normal",
+      moveSpeed: 340,
+      stockStartDelaySec: 40,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "u003",
+      baseId: "ugar",
+      name: "Vulture",
+      goldCost: 800,
+      pointValue: 160,
+      hitPoints: 9e3,
+      armorType: "normal",
+      moveSpeed: 320,
+      stockStartDelaySec: 100,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "u004",
+      baseId: "ugar",
+      name: "Owl",
+      goldCost: 1200,
+      pointValue: 240,
+      hitPoints: 16e3,
+      armorType: "normal",
+      moveSpeed: 340,
+      stockStartDelaySec: 140,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "u005",
+      baseId: "ugar",
+      name: "Chimaera",
+      goldCost: 4500,
+      pointValue: 900,
+      hitPoints: 2e4,
+      armorType: "normal",
+      stockStartDelaySec: 200,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "u006",
+      baseId: "ugar",
+      name: "Frost Wyrm",
+      goldCost: 12e3,
+      pointValue: 2400,
+      hitPoints: 3e4,
+      armorType: "normal",
+      stockStartDelaySec: 20,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "u007",
+      baseId: "ugar",
+      name: "Bronze Dragon",
+      goldCost: 1e4,
+      pointValue: 2e3,
+      hitPoints: 6e4,
+      armorType: "fort",
+      stockStartDelaySec: 80,
+      stockReplenishIntervalSec: 90,
+      stockMaximum: 1
+    },
+    {
+      id: "u008",
+      baseId: "ugar",
+      name: "Green Dragon",
+      goldCost: 5e4,
+      pointValue: 1e4,
+      hitPoints: 4e4,
+      armorType: "normal",
+      stockStartDelaySec: 160,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "u00A",
+      baseId: "ugar",
+      name: "Gryphon Rider",
+      goldCost: 8e4,
+      pointValue: 16e3,
+      hitPoints: 5e4,
+      armorType: "normal",
+      stockStartDelaySec: 200,
+      stockReplenishIntervalSec: 4,
+      stockMaximum: 16
+    },
+    {
+      id: "u00B",
+      baseId: "ugar",
+      name: "Goblin Zeppelin",
+      goldCost: 8e4,
+      pointValue: 0,
+      hitPoints: 8e4,
+      armorType: "normal",
+      stockStartDelaySec: 1100,
+      stockReplenishIntervalSec: 90,
+      stockMaximum: 2
+    }
+  ],
+  shops: [
+    {
+      id: "htow",
+      name: "Hall",
+      goldCost: 40,
+      requires: "",
+      sells: [
+        {
+          id: "n000"
+        },
+        {
+          id: "h001"
+        },
+        {
+          id: "h009"
+        },
+        {
+          id: "h00A"
+        },
+        {
+          id: "h00B"
+        },
+        {
+          id: "h00C"
+        },
+        {
+          id: "h00D"
+        },
+        {
+          id: "u000"
+        },
+        {
+          id: "u001"
+        },
+        {
+          id: "h00E"
+        },
+        {
+          id: "h00F"
+        },
+        {
+          id: "h00G"
+        }
+      ]
+    },
+    {
+      id: "hkee",
+      name: "Keep",
+      goldCost: 2e3,
+      requires: "h006",
+      sells: [
+        {
+          id: "h00H"
+        },
+        {
+          id: "u002"
+        },
+        {
+          id: "h00I"
+        },
+        {
+          id: "h00J"
+        },
+        {
+          id: "u003"
+        },
+        {
+          id: "h00K"
+        },
+        {
+          id: "u004"
+        },
+        {
+          id: "h00L"
+        },
+        {
+          id: "h00M"
+        },
+        {
+          id: "u005"
+        },
+        {
+          id: "h00N"
+        },
+        {
+          id: "h00O"
+        }
+      ]
+    },
+    {
+      id: "hcas",
+      name: "Castle",
+      goldCost: 2e4,
+      requires: "hkee,h002,h007,o005,o000",
+      sells: [
+        {
+          id: "u006"
+        },
+        {
+          id: "h00P"
+        },
+        {
+          id: "h00Q"
+        },
+        {
+          id: "u007"
+        },
+        {
+          id: "h00R"
+        },
+        {
+          id: "h00U"
+        },
+        {
+          id: "h00V"
+        },
+        {
+          id: "u008"
+        },
+        {
+          id: "h00W"
+        },
+        {
+          id: "u00A"
+        },
+        {
+          id: "h00X"
+        },
+        {
+          id: "h00Z"
+        }
+      ]
+    }
+  ],
+  lanes: [
+    {
+      player: 0,
+      color: "red",
+      spawn: [
+        -4736,
+        4800
+      ],
+      waypoint1: [
+        -4720,
+        2032
+      ],
+      waypoint2: [
+        -3568,
+        2064
+      ],
+      end: [
+        -3568,
+        4848
+      ],
+      buildZone: {
+        left: -5408,
+        bottom: 480,
+        right: -2976,
+        top: 5152
+      }
+    },
+    {
+      player: 1,
+      color: "blue",
+      spawn: [
+        -1936,
+        4784
+      ],
+      waypoint1: [
+        -1888,
+        2032
+      ],
+      waypoint2: [
+        -752,
+        2064
+      ],
+      end: [
+        -752,
+        4832
+      ],
+      buildZone: {
+        left: -2624,
+        bottom: 480,
+        right: -128,
+        top: 5152
+      }
+    },
+    {
+      player: 2,
+      color: "teal",
+      spawn: [
+        784,
+        4816
+      ],
+      waypoint1: [
+        800,
+        2032
+      ],
+      waypoint2: [
+        1936,
+        2080
+      ],
+      end: [
+        1936,
+        4784
+      ],
+      buildZone: {
+        left: 96,
+        bottom: 480,
+        right: 2592,
+        top: 5152
+      }
+    },
+    {
+      player: 3,
+      color: "purple",
+      spawn: [
+        3584,
+        4768
+      ],
+      waypoint1: [
+        3616,
+        2032
+      ],
+      waypoint2: [
+        4752,
+        2064
+      ],
+      end: [
+        4736,
+        4784
+      ],
+      buildZone: {
+        left: 2912,
+        bottom: 480,
+        right: 5376,
+        top: 5152
+      }
+    },
+    {
+      player: 4,
+      color: "yellow",
+      spawn: [
+        -4736,
+        -112
+      ],
+      waypoint1: [
+        -4752,
+        -2832
+      ],
+      waypoint2: [
+        -3568,
+        -2800
+      ],
+      end: [
+        -3568,
+        -64
+      ],
+      buildZone: {
+        left: -5376,
+        bottom: -4480,
+        right: -2944,
+        top: 224
+      }
+    },
+    {
+      player: 5,
+      color: "orange",
+      spawn: [
+        -1920,
+        -112
+      ],
+      waypoint1: [
+        -1920,
+        -2832
+      ],
+      waypoint2: [
+        -752,
+        -2800
+      ],
+      end: [
+        -752,
+        -112
+      ],
+      buildZone: {
+        left: -2592,
+        bottom: -4480,
+        right: -96,
+        top: 224
+      }
+    },
+    {
+      player: 6,
+      color: "green",
+      spawn: [
+        768,
+        -96
+      ],
+      waypoint1: [
+        768,
+        -2832
+      ],
+      waypoint2: [
+        1936,
+        -2800
+      ],
+      end: [
+        1920,
+        -80
+      ],
+      buildZone: {
+        left: 96,
+        bottom: -4480,
+        right: 2592,
+        top: 224
+      }
+    },
+    {
+      player: 7,
+      color: "pink",
+      spawn: [
+        3584,
+        -80
+      ],
+      waypoint1: [
+        3584,
+        -2832
+      ],
+      waypoint2: [
+        4752,
+        -2800
+      ],
+      end: [
+        4752,
+        -64
+      ],
+      buildZone: {
+        left: 2944,
+        bottom: -4480,
+        right: 5376,
+        top: 256
+      }
+    }
+  ],
+  rules: {
+    startLives: 30,
+    startIncome: 40,
+    roundIntervalSec: 30,
+    firstRoundDelaySec: 2
+  },
+  map: {
+    maxPlayers: 8
+  }
+};
+
+// ../data/src/balance.json
+var balance_default = {
+  towers: {},
+  creeps: {},
+  rules: {}
+};
+
+// ../data/src/index.ts
+var BASE_DEFAULTS = {
+  hgtw: { range: 700, acquisitionRange: 800, attackType: "pierce" },
+  hctw: { range: 800, acquisitionRange: 900, attackType: "siege" },
+  owtw: { range: 600, acquisitionRange: 700, attackType: "pierce" },
+  hhdl: { moveSpeed: 270, armorType: "medium", hitPoints: 500 },
+  ugar: { moveSpeed: 270, armorType: "medium", hitPoints: 500 },
+  nvil: { moveSpeed: 270, armorType: "medium", hitPoints: 500 }
+};
+var defaultsUsed = [];
+function pick(id, base, field, value, fallbackKey) {
+  if (value !== void 0 && value !== null && value !== "") return value;
+  const d = BASE_DEFAULTS[base]?.[fallbackKey];
+  defaultsUsed.push({ id, field });
+  return d;
+}
+function splitList(s) {
+  if (typeof s !== "string" || s === "") return [];
+  return s.split(",").map((x) => x.trim()).filter(Boolean);
+}
+var rawTowers = map_data_default.towers;
+var rawCreeps = map_data_default.creeps;
+function buildTower(t) {
+  const id = t.id;
+  const base = t.baseId;
+  const targets = splitList(t.atk1Targets).filter((x) => x === "air" || x === "ground");
+  return {
+    id,
+    name: t.name ?? id,
+    goldCost: t.goldCost ?? 0,
+    refund: t.pointValue ?? 0,
+    damageBase: t.atk1DamageBase ?? 0,
+    dice: t.atk1Dice ?? 0,
+    sides: t.atk1Sides ?? 0,
+    cooldown: t.atk1Cooldown ?? 1,
+    range: pick(id, base, "range", t.atk1Range, "range"),
+    acquisitionRange: t.acquisitionRange ?? pick(id, base, "acquisitionRange", void 0, "acquisitionRange"),
+    attackType: pick(id, base, "attackType", t.atk1AttackType, "attackType"),
+    targets: targets.length ? targets : ["ground"],
+    aoeFull: t.atk1AoeFull ?? 0,
+    aoeMedium: t.atk1AoeMedium ?? 0,
+    aoeSmall: t.atk1AoeSmall ?? 0,
+    upgradesTo: splitList(t.upgradesTo).filter((x) => !x.startsWith("n")),
+    requires: splitList(t.requires),
+    abilities: splitList(t.abilities)
+  };
+}
+function buildCreep(c) {
+  const id = c.id;
+  const base = c.baseId;
+  return {
+    id,
+    name: c.name ?? id,
+    goldCost: c.goldCost ?? 0,
+    pointValue: c.pointValue ?? 0,
+    hitPoints: pick(id, base, "hitPoints", c.hitPoints, "hitPoints"),
+    armor: c.armor ?? 0,
+    armorType: pick(id, base, "armorType", c.armorType, "armorType"),
+    moveSpeed: pick(id, base, "moveSpeed", c.moveSpeed, "moveSpeed"),
+    isAir: c.moveType === "fly",
+    stockStartDelay: c.stockStartDelaySec ?? 0,
+    stockReplenishInterval: c.stockReplenishIntervalSec ?? 8,
+    stockMaximum: Math.max(1, Math.round(c.stockMaximum ?? 1)),
+    spawnsOnDeath: id === "u00B" ? { id: "h00Y", count: 4 } : null
+  };
+}
+function applyOverrides(defs, over) {
+  for (const [id, patch] of Object.entries(over)) {
+    const d = defs.get(id);
+    if (d) Object.assign(d, patch);
+  }
+}
+var towers = new Map(rawTowers.map((t) => [t.id, buildTower(t)]));
+var creeps = new Map(rawCreeps.map((c) => [c.id, buildCreep(c)]));
+applyOverrides(towers, balance_default.towers ?? {});
+applyOverrides(creeps, balance_default.creeps ?? {});
+var shops = map_data_default.shops.map((s) => ({
+  id: s.id,
+  name: s.name,
+  goldCost: s.goldCost ?? 0,
+  sells: s.sells.map((x) => x.id)
+}));
+var lanes = map_data_default.lanes.map((l) => ({
+  player: l.player,
+  color: l.color,
+  spawn: l.spawn,
+  waypoints: [l.waypoint1, l.waypoint2, l.end],
+  buildZone: l.buildZone
+}));
+var rawRules = map_data_default.rules;
+var rules = {
+  startLives: rawRules.startLives ?? 30,
+  startIncome: rawRules.startIncome ?? 40,
+  roundIntervalSec: rawRules.roundIntervalSec ?? 30,
+  firstRoundDelaySec: rawRules.firstRoundDelaySec ?? 2,
+  maxPlayers: map_data_default.map.maxPlayers ?? 8,
+  ...balance_default.rules ?? {}
+};
+
+// src/towers/types.ts
+function getBranchChain(rootId) {
+  const chain2 = [];
+  let current = towers.get(rootId);
+  while (current) {
+    chain2.push(current);
+    const nextId = current.upgradesTo[0];
+    current = nextId ? towers.get(nextId) : void 0;
+  }
+  return chain2;
+}
+function effectiveDamage(def) {
+  return def.damageBase + def.dice * ((def.sides + 1) / 2);
+}
+var BARRELS_BY_TIER = [0, 1, 1, 2, 3, 4];
+function deriveTowerVisual(def, tier) {
+  const armor = Math.min(1, Math.log10(Math.max(10, def.goldCost)) / 4.3);
+  const height = 1.55 + (def.range - 700) / 800 * 1 + armor * 0.55;
+  const dmg = effectiveDamage(def);
+  const caliber = 0.105 + Math.sqrt(dmg) / 34 * 0.075;
+  const barrels = BARRELS_BY_TIER[Math.min(tier, BARRELS_BY_TIER.length - 1)] ?? 0;
+  const width = Math.min(0.72, 0.6 + armor * 0.2);
+  const accentColor = tierAccentColor(tier);
+  const isAntiAir = def.targets.includes("air");
+  return { tier, def, armor, height, caliber, barrels, width, accentColor, isAntiAir };
+}
+
+// src/towers/cannon.ts
+import * as THREE3 from "three";
+var CANNON_ROOT = "h000";
+var TURRET_SCALE = 1.15;
+var DEFAULT_TEAM_COLOR = 12597547;
+function mesh(geo, mat, x = 0, y = 0, z = 0) {
+  const m = new THREE3.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+function makeCannonTower(tier, teamColor2 = DEFAULT_TEAM_COLOR) {
+  const chain2 = getBranchChain(CANNON_ROOT);
+  const def = chain2[tier];
+  if (!def) {
+    throw new Error(`palier ${tier} inexistant sur la branche Cannon (${chain2.length} paliers connus)`);
+  }
+  const visual = deriveTowerVisual(def, tier);
+  return buildCannonTower(visual, teamColor2);
+}
+function buildCannonTower(visual, teamColor2) {
+  const { def, tier, armor, height, caliber, barrels, width, accentColor, isAntiAir } = visual;
+  const g = new THREE3.Group();
+  const accent = new THREE3.MeshLambertMaterial({ color: accentColor });
+  const body = new THREE3.Group();
+  body.name = "body";
+  g.add(body);
+  body.add(mesh(new THREE3.CylinderGeometry(width, width * 1.12, 0.26, 8), MAT.stone2, 0, 0.13, 0));
+  body.add(mesh(new THREE3.CylinderGeometry(width * 0.86, width * 0.94, 0.2, 8), MAT.stone, 0, 0.36, 0));
+  const taper = 0.55 + tier * 0.035;
+  const shaftH = height * 0.52;
+  body.add(
+    mesh(new THREE3.CylinderGeometry(width * taper, width * 0.8, shaftH, 8), MAT.stone, 0, 0.46 + shaftH / 2, 0)
+  );
+  if (tier >= 2) {
+    for (let i = 0; i < tier - 1; i++) {
+      const y = 0.62 + (shaftH - 0.2) * (i / Math.max(1, tier - 1));
+      const band = mesh(new THREE3.TorusGeometry(width * (taper + 0.09), 0.04, 6, 8), MAT.metal, 0, y, 0);
+      band.rotation.x = Math.PI / 2;
+      body.add(band);
+    }
+  }
+  const platY = 0.46 + shaftH;
+  const platR = width * (0.74 + armor * 0.2);
+  body.add(mesh(new THREE3.CylinderGeometry(platR, platR * 0.88, 0.14, 8), MAT.stone2, 0, platY + 0.07, 0));
+  const merlons = 4 + tier;
+  for (let i = 0; i < merlons; i++) {
+    const a = i / merlons * Math.PI * 2;
+    body.add(
+      mesh(
+        new THREE3.BoxGeometry(0.12, 0.14, 0.12),
+        MAT.stone,
+        Math.cos(a) * platR * 0.86,
+        platY + 0.2,
+        Math.sin(a) * platR * 0.86
+      )
+    );
+  }
+  const turret = new THREE3.Group();
+  turret.position.y = platY + 0.16;
+  turret.scale.setScalar(TURRET_SCALE);
+  turret.name = "turret";
+  body.add(turret);
+  if (isAntiAir) {
+    turret.add(mesh(new THREE3.ConeGeometry(platR * 0.95, 0.44, 8), MAT.wood, 0, 0.3, 0));
+    turret.add(mesh(new THREE3.BoxGeometry(0.07, 0.07, 0.48), MAT.wood, 0, 0.12, 0.21));
+    turret.add(mesh(new THREE3.BoxGeometry(0.36, 0.05, 0.05), MAT.wood, 0, 0.12, 0.31));
+    turret.add(mesh(new THREE3.ConeGeometry(0.05, 0.16, 6), accent, 0, 0.5, 0));
+    const muzzle = new THREE3.Object3D();
+    muzzle.position.set(0, 0.12, 0.46);
+    muzzle.name = "muzzle";
+    turret.add(muzzle);
+  } else {
+    const breechR = caliber * 2;
+    turret.add(mesh(new THREE3.CylinderGeometry(breechR, breechR, breechR * 1.6, 8), MAT.metal, 0, breechR * 0.8, 0));
+    const ring = mesh(new THREE3.TorusGeometry(breechR * 1.05, 0.028, 6, 10), accent, 0, breechR * 0.8, 0);
+    ring.rotation.x = Math.PI / 2;
+    turret.add(ring);
+    const len = 0.28 + caliber * 1;
+    const cluster = barrels <= 1 ? 0 : caliber * 1;
+    const axisY = breechR * 0.95;
+    for (let i = 0; i < barrels; i++) {
+      let ox = 0;
+      let oy = axisY;
+      if (barrels === 2) {
+        ox = (i - 0.5) * cluster * 2;
+      } else if (barrels > 2) {
+        const a = i / barrels * Math.PI * 2 - Math.PI / 2;
+        ox = Math.cos(a) * cluster;
+        oy = axisY + Math.sin(a) * cluster;
+      }
+      const b = mesh(new THREE3.CylinderGeometry(caliber * 0.8, caliber, len, 10), MAT.metal2, ox, oy, len / 2);
+      b.rotation.x = Math.PI / 2;
+      turret.add(b);
+      const m = mesh(new THREE3.CylinderGeometry(caliber * 1.2, caliber * 0.85, caliber * 0.75, 10), MAT.metal, ox, oy, len);
+      m.rotation.x = Math.PI / 2;
+      turret.add(m);
+    }
+    if (barrels > 1) {
+      const collar = mesh(
+        new THREE3.TorusGeometry(cluster + caliber * 0.9, caliber * 0.22, 6, 12),
+        MAT.metal,
+        0,
+        axisY,
+        len * 0.62
+      );
+      turret.add(collar);
+    }
+    const muzzle = new THREE3.Object3D();
+    muzzle.position.set(0, axisY, len + 0.06);
+    muzzle.name = "muzzle";
+    turret.add(muzzle);
+    if (tier >= 4) {
+      for (const s of [-1, 1]) {
+        turret.add(
+          mesh(
+            new THREE3.BoxGeometry(0.05, breechR * 1.7, breechR * 1.9),
+            MAT.metal,
+            s * (cluster + caliber * 1.35),
+            axisY,
+            breechR * 0.5
+          )
+        );
+      }
+    }
+  }
+  const poleH = 0.3 + armor * 0.55;
+  const fx = platR * 0.52;
+  const fz = -platR * 0.52;
+  body.add(mesh(new THREE3.CylinderGeometry(0.018, 0.018, poleH, 5), MAT.metal, fx, platY + poleH / 2, fz));
+  const flag = mesh(new THREE3.BoxGeometry(0.2, 0.13, 0.015), teamMaterial(teamColor2), fx + 0.11, platY + poleH - 0.085, fz);
+  flag.name = "flag";
+  body.add(flag);
+  const scaffold = makeScaffold(width, platY + 0.3);
+  scaffold.visible = false;
+  scaffold.name = "scaffold";
+  g.add(scaffold);
+  const ringGeo = new THREE3.RingGeometry(def.range * 28e-4 - 0.02, def.range * 28e-4, 64);
+  const rangeRing = new THREE3.Mesh(
+    ringGeo,
+    new THREE3.MeshBasicMaterial({ color: accentColor, transparent: true, opacity: 0.35, side: THREE3.DoubleSide })
+  );
+  rangeRing.rotation.x = -Math.PI / 2;
+  rangeRing.position.y = 0.02;
+  rangeRing.visible = false;
+  rangeRing.name = "rangeRing";
+  g.add(rangeRing);
+  const prog = new THREE3.Mesh(
+    new THREE3.RingGeometry(width * 1.15, width * 1.32, 48, 1, -Math.PI / 2, 1e-3),
+    new THREE3.MeshBasicMaterial({ color: 7258623, transparent: true, opacity: 0.9, side: THREE3.DoubleSide })
+  );
+  prog.rotation.x = -Math.PI / 2;
+  prog.position.y = 0.03;
+  prog.visible = false;
+  prog.name = "progress";
+  g.add(prog);
+  const foot = new THREE3.Mesh(
+    new THREE3.RingGeometry(MAX_RADIUS - 0.02, MAX_RADIUS, 8),
+    new THREE3.MeshBasicMaterial({ color: 4890204, transparent: true, opacity: 0.45, side: THREE3.DoubleSide })
+  );
+  foot.rotation.x = -Math.PI / 2;
+  foot.rotation.z = Math.PI / 8;
+  foot.position.y = 0.015;
+  foot.name = "footprint";
+  g.add(foot);
+  g.userData = { tier, def, turret, body, build: null, recoil: 0 };
+  const radius = measureSweptRadius(body);
+  g.userData.radius = radius;
+  if (radius > MAX_RADIUS) {
+    foot.material.color.set(13652028);
+    console.warn(`[emprise] ${def.name} (palier ${tier + 1}) deborde : rayon ${radius.toFixed(3)} > ${MAX_RADIUS.toFixed(3)}`);
+  }
+  return g;
+}
+function makeScaffold(width, top) {
+  const s = new THREE3.Group();
+  const r = width * 1.15;
+  const posts = 4;
+  for (let i = 0; i < posts; i++) {
+    const a = i / posts * Math.PI * 2 + Math.PI / 4;
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    s.add(mesh(new THREE3.CylinderGeometry(0.035, 0.035, top, 5), MAT.scaff, x, top / 2, z));
+  }
+  for (const h of [0.3, 0.58, 0.86]) {
+    for (let i = 0; i < posts; i++) {
+      const a1 = i / posts * Math.PI * 2 + Math.PI / 4;
+      const a2 = (i + 1) / posts * Math.PI * 2 + Math.PI / 4;
+      const p1 = new THREE3.Vector3(Math.cos(a1) * r, top * h, Math.sin(a1) * r);
+      const p2 = new THREE3.Vector3(Math.cos(a2) * r, top * h, Math.sin(a2) * r);
+      const mid = p1.clone().lerp(p2, 0.5);
+      const beam = mesh(new THREE3.BoxGeometry(p1.distanceTo(p2), 0.045, 0.045), MAT.scaff, mid.x, mid.y, mid.z);
+      beam.rotation.y = -Math.atan2(p2.z - p1.z, p2.x - p1.x);
+      s.add(beam);
+    }
+  }
+  return s;
+}
+
+// src/build.ts
+import * as THREE4 from "three";
+var DEFAULT_BUILD_DURATION_SEC = 2;
+var dustParticlesByTower = /* @__PURE__ */ new WeakMap();
+function dustContainer(tower) {
+  let d = tower.getObjectByName("dust");
+  if (!d) {
+    d = new THREE4.Group();
+    d.name = "dust";
+    tower.add(d);
+  }
+  return d;
+}
+function spawnDust(tower, n) {
+  const container = dustContainer(tower);
+  let list = dustParticlesByTower.get(tower);
+  if (!list) {
+    list = [];
+    dustParticlesByTower.set(tower, list);
+  }
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 0.5 + Math.random() * 0.5;
+    const particleMesh = new THREE4.Mesh(
+      new THREE4.SphereGeometry(0.05 + Math.random() * 0.06, 6, 5),
+      MAT.dust.clone()
+    );
+    particleMesh.position.set(Math.cos(a) * r, 0.05, Math.sin(a) * r);
+    container.add(particleMesh);
+    list.push({
+      mesh: particleMesh,
+      vy: 0.4 + Math.random() * 0.5,
+      vx: Math.cos(a) * 0.35,
+      vz: Math.sin(a) * 0.35,
+      life: 1
+    });
+  }
+}
+function updateDust(tower, dt) {
+  const list = dustParticlesByTower.get(tower);
+  if (!list || list.length === 0) return;
+  const container = dustContainer(tower);
+  for (let i = list.length - 1; i >= 0; i--) {
+    const p = list[i];
+    p.life -= dt * 1.4;
+    if (p.life <= 0) {
+      container.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      list.splice(i, 1);
+      continue;
+    }
+    p.mesh.position.x += p.vx * dt;
+    p.mesh.position.y += p.vy * dt;
+    p.mesh.position.z += p.vz * dt;
+    p.vy -= dt * 0.7;
+    p.mesh.material.opacity = p.life * 0.55;
+    p.mesh.scale.setScalar(1 + (1 - p.life) * 0.8);
+  }
+}
+function startBuild(tower, durationSec = DEFAULT_BUILD_DURATION_SEC) {
+  tower.userData.build = { t: 0, duration: durationSec };
+  const scaffold = tower.getObjectByName("scaffold");
+  const prog = tower.getObjectByName("progress");
+  if (scaffold) scaffold.visible = true;
+  if (prog) prog.visible = true;
+  spawnDust(tower, 14);
+}
+function updateBuild(tower, dt) {
+  updateDust(tower, dt);
+  const body = tower.userData.body;
+  if (!body) return;
+  const b = tower.userData.build;
+  if (b) {
+    b.t += dt / b.duration;
+    const scaffold = tower.getObjectByName("scaffold");
+    const prog = tower.getObjectByName("progress");
+    if (b.t >= 1) {
+      tower.userData.build = null;
+      tower.userData.pop = 1;
+      body.scale.set(1, 1, 1);
+      if (scaffold) scaffold.visible = false;
+      if (prog) prog.visible = false;
+      spawnDust(tower, 10);
+      return;
+    }
+    const e = b.t < 0.85 ? b.t / 0.85 : 1;
+    const ease = e * e * (3 - 2 * e);
+    body.scale.set(0.85 + ease * 0.15, 0.06 + ease * 0.94, 0.85 + ease * 0.15);
+    if (scaffold) {
+      scaffold.scale.setScalar(1);
+      scaffold.position.y = Math.sin(b.t * 40) * 6e-3;
+      scaffold.visible = b.t < 0.9;
+    }
+    if (prog) {
+      prog.geometry.dispose();
+      prog.geometry = new THREE4.RingGeometry(0.72, 0.86, 48, 1, -Math.PI / 2, Math.max(1e-3, b.t * Math.PI * 2));
+    }
+    if (Math.random() < dt * 8) spawnDust(tower, 1);
+    return;
+  }
+  const pop = tower.userData.pop ?? 0;
+  if (pop > 0) {
+    const k = 1 + Math.sin(pop * Math.PI) * 0.1;
+    body.scale.set(k, 2 - k, k);
+    const next = Math.max(0, pop - dt * 3.2);
+    tower.userData.pop = next;
+    if (next === 0) body.scale.set(1, 1, 1);
+  }
+}
+
+// src/turret.ts
+import * as THREE5 from "three";
+var ALIGN_TOLERANCE = 0.06;
+var _worldPos = new THREE5.Vector3();
+function aimTurret(turret, targetWorldPos, turnRate, dt) {
+  turret.getWorldPosition(_worldPos);
+  const dx = targetWorldPos.x - _worldPos.x;
+  const dz = targetWorldPos.z - _worldPos.z;
+  const want = Math.atan2(dx, dz);
+  let diff = want - turret.rotation.y;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  const maxStep = turnRate * dt;
+  turret.rotation.y += Math.max(-maxStep, Math.min(maxStep, diff));
+  return Math.abs(diff) < ALIGN_TOLERANCE;
+}
+
+// demo/scene.ts
+var chain = getBranchChain("h000");
+var app = document.getElementById("app");
+var scene = new THREE6.Scene();
+scene.background = new THREE6.Color(1711396);
+scene.fog = new THREE6.Fog(1711396, 14, 30);
+var camera = new THREE6.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
+var renderer = new THREE6.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE6.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+var controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+function setView(kind) {
+  if (kind === "game") {
+    camera.position.set(0, 7.4, 9);
+    controls.target.set(0, 0.8, 0);
+  } else {
+    camera.position.set(0, 2.6, 5.2);
+    controls.target.set(0, 1.2, 0);
+  }
+  controls.update();
+}
+setView("game");
+scene.add(new THREE6.AmbientLight(5923960, 1.5));
+var key = new THREE6.DirectionalLight(16773341, 2.1);
+key.position.set(5, 9, 4);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -10;
+key.shadow.camera.right = 10;
+key.shadow.camera.top = 10;
+key.shadow.camera.bottom = -10;
+scene.add(key);
+var rim = new THREE6.DirectionalLight(7315416, 0.8);
+rim.position.set(-6, 3, -5);
+scene.add(rim);
+function groundMesh() {
+  const m = new THREE6.Mesh(new THREE6.CircleGeometry(30, 48), new THREE6.MeshLambertMaterial({ color: 2830392 }));
+  m.rotation.x = -Math.PI / 2;
+  m.receiveShadow = true;
+  return m;
+}
+scene.add(groundMesh());
+var grid = new THREE6.GridHelper(30, 30, 3817808, 3159615);
+grid.position.y = 1e-3;
+scene.add(grid);
+var TURN_RATE = 2.6;
+var mode = "track";
+var towers2 = [];
+var SPACING = CELL;
+var teamColor = 12597547;
+chain.forEach((_def, tier) => {
+  const t = makeCannonTower(tier, teamColor);
+  t.position.x = (tier - (chain.length - 1) / 2) * SPACING;
+  scene.add(t);
+  towers2.push(t);
+});
+var targetMarker = new THREE6.Mesh(new THREE6.SphereGeometry(0.16, 12, 10), new THREE6.MeshBasicMaterial({ color: 16734794 }));
+targetMarker.position.set(0, 0.4, 3.5);
+scene.add(targetMarker);
+var targetRing = new THREE6.Mesh(
+  new THREE6.RingGeometry(0.24, 0.3, 24),
+  new THREE6.MeshBasicMaterial({ color: 16734794, transparent: true, opacity: 0.6, side: THREE6.DoubleSide })
+);
+targetRing.rotation.x = -Math.PI / 2;
+scene.add(targetRing);
+var BUILD_DURATION = 2;
+var shots = [];
+function fire(tower) {
+  if (tower.userData.build) return;
+  const turret = tower.userData.turret;
+  const muzzle = turret.getObjectByName("muzzle");
+  if (!muzzle) return;
+  const from = muzzle.getWorldPosition(new THREE6.Vector3());
+  const to = from.clone().add(new THREE6.Vector3((Math.random() - 0.5) * 0.8, -from.y + 0.1, 3.8));
+  const size = 0.05 + tower.userData.tier * 0.015;
+  const p = new THREE6.Mesh(new THREE6.SphereGeometry(size, 8, 6), MAT.hot);
+  p.position.copy(from);
+  scene.add(p);
+  shots.push({ mesh: p, from, to, t: 0, arc: 0.9 });
+  const flash = new THREE6.Mesh(new THREE6.SphereGeometry(size * 3.2, 8, 6), MAT.hot);
+  flash.position.copy(from);
+  scene.add(flash);
+  setTimeout(() => scene.remove(flash), 70);
+  tower.userData.recoil = 1;
+}
+var ray = new THREE6.Raycaster();
+var pointer = new THREE6.Vector2();
+var selected = 0;
+var showRange = false;
+var showFoot = true;
+function pickTower(e) {
+  pointer.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(pointer, camera);
+  const hit = ray.intersectObjects(towers2, true)[0];
+  if (!hit) return null;
+  let o = hit.object;
+  while (o && o.parent && !o.userData.def) o = o.parent;
+  return o && o.userData.def ? o : null;
+}
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  const t = pickTower(e);
+  if (t) {
+    selected = t.userData.tier;
+    showInfo();
+  }
+});
+renderer.domElement.addEventListener("dblclick", (e) => {
+  const t = pickTower(e);
+  if (t) startBuild(t, BUILD_DURATION);
+});
+function showInfo() {
+  const d = chain[selected];
+  document.querySelector("#info h2").textContent = `${d.name}  \xB7  palier ${selected + 1}/${chain.length}`;
+  document.getElementById("stats").innerHTML = `
+    <dt>Or</dt><dd>${d.goldCost.toLocaleString("fr-FR")}</dd>
+    <dt>D\xE9g\xE2ts</dt><dd>${d.damageBase}</dd>
+    <dt>Cadence</dt><dd>${d.cooldown}s</dd>
+    <dt>Port\xE9e</dt><dd>${d.range}</dd>
+    <dt>Zone</dt><dd>${d.aoeFull || "mono-cible"}</dd>
+    <dt>Cibles</dt><dd>${d.targets.includes("air") ? "air + sol" : "sol"}</dd>
+    <dt>Emprise</dt><dd>${towers2[selected] ? towers2[selected].userData.radius.toFixed(2) : "?"} / ${MAX_RADIUS.toFixed(2)}</dd>`;
+}
+showInfo();
+var $ = (id) => document.getElementById(id);
+function setMode(m) {
+  mode = m;
+  targetMarker.visible = m === "track";
+  for (const b of ["btn-track", "btn-spin", "btn-idle"]) $(b).classList.remove("on");
+  $({ track: "btn-track", spin: "btn-spin", idle: "btn-idle" }[m]).classList.add("on");
+}
+$("btn-track").onclick = () => setMode("track");
+$("btn-spin").onclick = () => setMode("spin");
+$("btn-idle").onclick = () => setMode("idle");
+$("btn-attack").onclick = () => towers2.forEach((t, i) => setTimeout(() => fire(t), i * 90));
+$("btn-build").onclick = () => towers2.forEach((t, i) => setTimeout(() => startBuild(t, BUILD_DURATION), i * 140));
+$("btn-game").onclick = (e) => {
+  setView("game");
+  e.target.classList.add("on");
+  $("btn-close").classList.remove("on");
+};
+$("btn-close").onclick = (e) => {
+  setView("close");
+  e.target.classList.add("on");
+  $("btn-game").classList.remove("on");
+};
+$("btn-range").onclick = (e) => {
+  showRange = !showRange;
+  e.target.classList.toggle("on", showRange);
+};
+$("btn-foot").onclick = (e) => {
+  showFoot = !showFoot;
+  e.target.classList.toggle("on", showFoot);
+};
+$("btn-wire").onclick = (e) => {
+  const on = !MAT.stone.wireframe;
+  Object.values(MAT).forEach((m) => {
+    if ("wireframe" in m) m.wireframe = on;
+  });
+  e.target.classList.toggle("on", on);
+};
+$("team").oninput = (e) => {
+  teamColor = parseInt(e.target.value.slice(1), 16);
+  const mat = teamMaterial(teamColor);
+  for (const t of towers2) {
+    const flag = t.getObjectByName("flag");
+    if (flag) flag.material = mat;
+  }
+};
+$("dur").oninput = (e) => {
+  BUILD_DURATION = +e.target.value;
+  $("dur-v").textContent = BUILD_DURATION.toFixed(1) + "s";
+};
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+var clock = new THREE6.Clock();
+function loop() {
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const time = clock.getElapsedTime();
+  const cycle = time * 0.28 % 1;
+  const paused = cycle > 0.42 && cycle < 0.58;
+  targetMarker.position.x = Math.sin(time * 0.55) * 5.2;
+  targetMarker.position.z = 3.2 + Math.cos(time * 0.4) * 0.9;
+  targetMarker.visible = mode === "track" && !paused;
+  targetRing.visible = targetMarker.visible;
+  targetRing.position.set(targetMarker.position.x, 0.02, targetMarker.position.z);
+  towers2.forEach((t, i) => {
+    updateBuild(t, dt);
+    const building = !!t.userData.build;
+    const turret = t.userData.turret;
+    if (!building) {
+      if (mode === "track" && targetMarker.visible) {
+        aimTurret(turret, targetMarker.position, TURN_RATE, dt);
+      } else if (mode === "spin") {
+        turret.rotation.y = time * 0.55 + i * 0.4;
+      }
+    }
+    const r = t.userData.recoil ?? 0;
+    if (r > 0) {
+      turret.position.z = -r * 0.18;
+      t.userData.recoil = Math.max(0, r - dt * 4.5);
+    } else {
+      turret.position.z = 0;
+    }
+    const flag = t.getObjectByName("flag");
+    if (flag) flag.rotation.y = Math.sin(time * 2.4 + i) * 0.22;
+    t.getObjectByName("rangeRing").visible = showRange && i === selected && !building;
+    t.getObjectByName("footprint").visible = showFoot;
+    t.position.y = i === selected && !building ? Math.sin(time * 2) * 0.03 + 0.05 : 0;
+  });
+  for (let i = shots.length - 1; i >= 0; i--) {
+    const s = shots[i];
+    s.t += dt * 1.5;
+    if (s.t >= 1) {
+      scene.remove(s.mesh);
+      shots.splice(i, 1);
+      continue;
+    }
+    s.mesh.position.lerpVectors(s.from, s.to, s.t);
+    s.mesh.position.y += Math.sin(s.t * Math.PI) * s.arc;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+loop();
+window.__sceneReady = true;
+
+</script>
+</body>
+</html>

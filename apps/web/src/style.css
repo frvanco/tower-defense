@@ -1,0 +1,408 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #14100c;
+  color: #e9e2d3;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+h3,
+h4 {
+  font-family: Georgia, 'Palatino Linotype', 'Book Antiqua', serif;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 10px 16px;
+  background: #1e1712;
+  border-bottom: 2px solid #6b5432;
+  flex-shrink: 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.stat .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b39a68;
+}
+
+.stat .value {
+  font-size: 17px;
+  font-weight: 600;
+  color: #f1e6c8;
+}
+
+.spacer {
+  flex: 1;
+}
+
+#bot-count-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 18px;
+  font-size: 12px;
+  color: #b39a68;
+}
+
+#bot-count-control select {
+  background: #2a2118;
+  border: 1px solid #6b5432;
+  color: #e9e2d3;
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+#speed-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.speed-btn {
+  background: #2a2118;
+  border: 1px solid #6b5432;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.speed-btn.active {
+  background: #c9a227;
+  border-color: #c9a227;
+  color: #221a0d;
+  font-weight: 600;
+}
+
+#main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+#canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+#toasts {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  max-width: 280px;
+}
+
+.toast {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #241c14;
+  border: 1px solid #6b5432;
+  color: #e9e2d3;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-warn {
+  border-color: #a3762f;
+  background: #2b2013;
+}
+
+.toast-danger {
+  border-color: #a33f3f;
+  background: #2b1414;
+}
+
+#game-over {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 7, 4, 0.75);
+}
+
+#game-over[hidden] {
+  display: none;
+}
+
+#game-over-box {
+  background: #201810;
+  border: 2px solid #c9a227;
+  border-radius: 10px;
+  padding: 28px 36px;
+  text-align: center;
+  min-width: 260px;
+  box-shadow: 0 0 40px rgba(201, 162, 39, 0.15);
+}
+
+#game-over-box h2 {
+  margin: 0 0 8px;
+  color: #f2d24b;
+  letter-spacing: 0.03em;
+}
+
+#game-over-box p {
+  margin: 0 0 18px;
+  color: #b39a68;
+}
+
+#restart-btn {
+  background: #c9a227;
+  color: #221a0d;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+#sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 14px;
+  background: #1a140f;
+  border-left: 2px solid #6b5432;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+#sidebar h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #c9a227;
+  border-bottom: 1px solid #6b5432;
+  padding-bottom: 6px;
+}
+
+#sidebar h4 {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8a7550;
+}
+
+#sidebar h4:first-child {
+  margin-top: 0;
+}
+
+.build-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: #241c14;
+  border: 1px solid #4a3c26;
+  border-left: 4px solid var(--branch-color, #444);
+  border-radius: 4px;
+  padding: 9px 10px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  text-align: left;
+  color: #e9e2d3;
+}
+
+.build-btn:hover:not(:disabled) {
+  background: #2c2318;
+  border-color: #6b5432;
+}
+
+.build-btn.armed {
+  outline: 2px solid #f2d24b;
+  outline-offset: -2px;
+}
+
+.build-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.build-btn .name {
+  font-size: 13px;
+}
+
+.build-btn .cost {
+  font-size: 12px;
+  color: #c9a227;
+}
+
+.shop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #2a2118;
+}
+
+.creep-swatch,
+.arena-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+.shop-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.shop-name {
+  font-size: 12.5px;
+  color: #e9e2d3;
+}
+
+.shop-meta {
+  font-size: 11px;
+  color: #8a7550;
+}
+
+.shop-status {
+  font-size: 11px;
+  color: #8a7550;
+  min-width: 60px;
+  text-align: right;
+}
+
+.shop-send-btn {
+  background: #2a2118;
+  border: 1px solid #6b5432;
+  color: #e9e2d3;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.shop-send-btn:hover:not(:disabled) {
+  background: #3a2f1c;
+}
+
+.shop-send-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.arena-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 12.5px;
+}
+
+.arena-row.dead {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.arena-label {
+  width: 26px;
+}
+
+.arena-lives {
+  flex: 1;
+}
+
+.arena-status {
+  color: #8a7550;
+  font-size: 11px;
+}
+
+#panel-selected {
+  background: #241c14;
+  border: 1px solid #6b5432;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+#selected-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #f1e6c8;
+}
+
+#selected-info {
+  font-size: 12px;
+  color: #b39a68;
+  margin-bottom: 10px;
+}
+
+#upgrade-btn,
+#sell-btn {
+  display: block;
+  width: 100%;
+  background: #2a2118;
+  border: 1px solid #6b5432;
+  color: #e9e2d3;
+  border-radius: 5px;
+  padding: 8px;
+  margin-top: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+
+#upgrade-btn:hover:not(:disabled),
+#sell-btn:hover:not(:disabled) {
+  background: #3a2f1c;
+}
+
+#upgrade-btn:disabled,
+#sell-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

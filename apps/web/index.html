@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tower Defense</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <div class="stat"><span class="label">Gold</span><span id="stat-gold" class="value">0</span></div>
+        <div class="stat"><span class="label">Income</span><span id="stat-income" class="value">0</span></div>
+        <div class="stat"><span class="label">Lives</span><span id="stat-lives" class="value">0</span></div>
+        <div class="stat"><span class="label">Round</span><span id="stat-round" class="value">0</span></div>
+        <div class="stat"><span class="label">Next round</span><span id="stat-countdown" class="value">0:00</span></div>
+        <div class="spacer"></div>
+        <div id="bot-count-control">
+          <label for="bot-count">Bots</label>
+          <select id="bot-count">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+          </select>
+        </div>
+        <div id="speed-controls">
+          <button class="speed-btn" data-speed="0">Pause</button>
+          <button class="speed-btn active" data-speed="1">1x</button>
+          <button class="speed-btn" data-speed="2">2x</button>
+          <button class="speed-btn" data-speed="4">4x</button>
+        </div>
+      </header>
+      <main id="main">
+        <div id="canvas-wrap">
+          <canvas id="game-canvas"></canvas>
+          <div id="toasts"></div>
+          <div id="game-over" hidden>
+            <div id="game-over-box">
+              <h2 id="game-over-title">Game over</h2>
+              <p id="game-over-detail"></p>
+              <button id="restart-btn">New game</button>
+            </div>
+          </div>
+        </div>
+        <aside id="sidebar">
+          <section id="panel-selected" hidden>
+            <h3>Selected tower</h3>
+            <div id="selected-name"></div>
+            <div id="selected-info"></div>
+            <button id="upgrade-btn"></button>
+            <button id="sell-btn"></button>
+          </section>
+          <section id="panel-build">
+            <h3>Build</h3>
+            <div id="build-list"></div>
+          </section>
+          <section id="panel-shop">
+            <h3>Send creeps</h3>
+            <div id="shop-list"></div>
+          </section>
+          <section id="panel-arenas">
+            <h3>Other arenas</h3>
+            <div id="arenas-list"></div>
+          </section>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
