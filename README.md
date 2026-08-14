@@ -56,6 +56,30 @@ dégâts de zone à trois paliers, table de dégâts (type d'attaque × type
 d'armure + réduction par armure), leaks, défaite, victoire, construction /
 upgrade / vente de tours, et un bot heuristique.
 
+## Emplacements de construction
+
+Une tour ne se pose pas n'importe où dans la zone constructible : elle se
+pose sur un **emplacement** précis, défini à la main dans
+`packages/data/src/build_slots.json` (une quarantaine par arène, regroupés en
+rangées nommées). C'est un choix de design, pas une limite technique — avec
+une zone continue ou une grille trop fine, il y a toujours de la place, donc
+poser une tour n'est jamais une décision. Avec peu d'emplacements comptés,
+chaque case est un arbitrage et la portée des tours reprend du sens.
+
+- `packages/data/scripts/gen_slots.ts` génère le layout de départ (rangées
+  parallèles au couloir de la lane 0) ; le JSON produit est ensuite modifiable
+  à la main sans toucher au code.
+- `packages/data/src/slots.ts` expose `buildSlots(player)` (emplacements
+  d'une arène, coordonnées déjà translatées — les 8 arènes du jeu d'origine
+  sont des copies congruentes du même couloir) et `nearestSlot(player, x, y)`
+  (l'emplacement le plus proche d'un clic, ou `null` au-delà d'une case de
+  distance).
+- Dans `packages/sim/src/sim.ts`, `buildTower` snap sur `nearestSlot()` : la
+  tour prend la position exacte de l'emplacement, jamais celle du clic — ce
+  qui garde la sim déterministe. L'occupation est suivie par
+  `arena.occupied`, indexée par l'id stable de l'emplacement (ex.
+  `"milieu-gauche-r1-3"`), libérée à la vente.
+
 ## Ce qui ne l'est pas
 
 Les abilities (poison, slow, chaîne d'éclairs) ne sont pas définies dans les
