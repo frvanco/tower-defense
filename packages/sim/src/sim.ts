@@ -1,4 +1,4 @@
-import { lanes, rules, towers, creeps, shops, buildableTowers, type CreepDef } from '@tower-defense/data';
+import { lanes, rules, towers, creeps, shops, buildableTowers, nearestSlot, type CreepDef } from '@tower-defense/data';
 import { rollDamage } from './rng.js';
 import { finalDamage } from './damage.js';
 import {
@@ -46,6 +46,7 @@ export function createGame(seed: number, playerCount = rules.maxPlayers): GameSt
       towers: [],
       creeps: [],
       stock: makeStock(),
+      occupied: {},
       leaked: 0,
       killed: 0,
       goldSpentOnTowers: 0,
@@ -70,15 +71,6 @@ function dist2(ax: number, ay: number, bx: number, by: number): number {
   return dx * dx + dy * dy;
 }
 
-function inBuildZone(player: number, x: number, y: number): boolean {
-  const z = lanes[player]?.buildZone;
-  if (!z) return false;
-  return x >= z.left && x <= z.right && y >= z.bottom && y <= z.top;
-}
-
-/** Un creep occupe ~64u ; on interdit de poser une tour pile sur une autre. */
-const TOWER_FOOTPRINT = 64;
-
 function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
   const arena = s.arenas[cmd.player];
   if (!arena || !arena.alive) return;
@@ -90,15 +82,18 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
       return events.push({ type: 'rejected', player: cmd.player, reason: 'not directly buildable' });
     if (arena.gold < def.goldCost)
       return events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
-    if (!inBuildZone(cmd.player, cmd.x, cmd.y))
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'outside build zone' });
-    for (const t of arena.towers) {
-      if (dist2(t.x, t.y, cmd.x, cmd.y) < TOWER_FOOTPRINT * TOWER_FOOTPRINT)
-        return events.push({ type: 'rejected', player: cmd.player, reason: 'occupied' });
-    }
+    // Le clic est snap sur l'emplacement le plus proche (a SLOT_SIZE pres) :
+    // la tour prend la position exacte de l'emplacement, jamais celle du
+    // clic — c'est ce qui garde la sim deterministe (le meme clic approximatif
+    // d'un client rejoue toujours sur la meme case).
+    const slot = nearestSlot(cmd.player, cmd.x, cmd.y);
+    if (!slot) return events.push({ type: 'rejected', player: cmd.player, reason: 'no slot here' });
+    if (arena.occupied[slot.id])
+      return events.push({ type: 'rejected', player: cmd.player, reason: 'occupied' });
     arena.gold -= def.goldCost;
     arena.goldSpentOnTowers += def.goldCost;
-    arena.towers.push({ eid: s.nextEid++, defId: def.id, x: cmd.x, y: cmd.y, cooldown: 0 });
+    arena.occupied[slot.id] = true;
+    arena.towers.push({ eid: s.nextEid++, defId: def.id, x: slot.x, y: slot.y, cooldown: 0, slotId: slot.id });
     return;
   }
 
@@ -124,6 +119,7 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
     if (i < 0) return;
     const t = arena.towers[i]!;
     arena.gold += towers.get(t.defId)?.refund ?? 0;
+    delete arena.occupied[t.slotId];
     arena.towers.splice(i, 1);
     return;
   }
@@ -223,6 +219,7 @@ function moveCreeps(s: GameState, arena: Arena, events: SimEvent[]): void {
 function killPlayer(arena: Arena, events: SimEvent[]): void {
   arena.alive = false;
   arena.gold = 0;
+  arena.occupied = {};
   arena.towers.length = 0;
   arena.creeps.length = 0;
   events.push({ type: 'defeat', player: arena.player });

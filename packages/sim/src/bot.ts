@@ -1,4 +1,4 @@
-import { lanes, towers, creeps, buildableTowers } from '@tower-defense/data';
+import { towers, creeps, buildableTowers, buildSlots, type Slot } from '@tower-defense/data';
 import { nextRandom } from './rng.js';
 import { TICK_RATE, type Command, type GameState } from './types.js';
 
@@ -18,8 +18,7 @@ export interface BotConfig {
  */
 export class Bot {
   private rng: number;
-  private slots: Array<[number, number]> | null = null;
-  private slotIndex = 0;
+  private slots: Slot[] | null = null;
 
   constructor(private cfg: BotConfig) {
     this.rng = cfg.seed | 0;
@@ -31,44 +30,10 @@ export class Bot {
     return r.value;
   }
 
-  /**
-   * Emplacements de tours precalcules le long du couloir.
-   * Le chemin est fixe et sans maze, donc un placement statique le long des
-   * segments est deja quasi optimal : pas besoin de pathfinding ni d'IA.
-   */
-  private buildSlots(): Array<[number, number]> {
-    const lane = lanes[this.cfg.player]!;
-    const path: Array<[number, number]> = [lane.spawn, ...lane.waypoints];
-    const out: Array<[number, number]> = [];
-    const OFFSET = 200;
-    for (let i = 0; i < path.length - 1; i++) {
-      const a = path[i]!;
-      const b = path[i + 1]!;
-      const dx = b[0] - a[0];
-      const dy = b[1] - a[1];
-      const len = Math.sqrt(dx * dx + dy * dy);
-      const nx = -dy / len;
-      const ny = dx / len;
-      const steps = Math.max(1, Math.floor(len / 180));
-      for (let k = 0; k <= steps; k++) {
-        const t = k / steps;
-        const px = a[0] + dx * t;
-        const py = a[1] + dy * t;
-        for (const side of [1, -1]) {
-          const x = px + nx * OFFSET * side;
-          const y = py + ny * OFFSET * side;
-          const z = lane.buildZone;
-          if (x >= z.left && x <= z.right && y >= z.bottom && y <= z.top) out.push([x, y]);
-        }
-      }
-    }
-    return out;
-  }
-
   decide(s: GameState): Command[] {
     const arena = s.arenas[this.cfg.player];
     if (!arena || !arena.alive) return [];
-    if (!this.slots) this.slots = this.buildSlots();
+    if (!this.slots) this.slots = buildSlots(this.cfg.player);
 
     // Une decision par seconde : evite de spammer 20 commandes/sec pour rien.
     if (s.tick % TICK_RATE !== 0) return [];
@@ -108,9 +73,16 @@ export class Bot {
     const root = towers.get(this.cfg.preferredRoot) ?? towers.get(buildableTowers[0]!)!;
     // Garde-fou : une tour a cout nul ferait boucler le bot a l infini.
     const rootCost = Math.max(1, root.goldCost);
-    while (towerBudget >= rootCost && this.slotIndex < this.slots.length) {
-      const slot = this.slots[this.slotIndex++]!;
-      cmds.push({ type: 'buildTower', player: this.cfg.player, defId: root.id, x: slot[0], y: slot[1] });
+    // `arena.occupied` ne reflete que les commandes deja traitees par tick() —
+    // une commande qu'on vient d'emettre dans CETTE meme decide() n'y figure
+    // pas encore. `claimed` evite donc de viser deux fois le meme emplacement
+    // dans le meme lot de commandes.
+    const claimed = new Set<string>();
+    while (towerBudget >= rootCost) {
+      const slot = this.slots.find((sl) => !arena.occupied[sl.id] && !claimed.has(sl.id));
+      if (!slot) break; // plus aucun emplacement libre
+      claimed.add(slot.id);
+      cmds.push({ type: 'buildTower', player: this.cfg.player, defId: root.id, x: slot.x, y: slot.y });
       towerBudget -= rootCost;
     }
 

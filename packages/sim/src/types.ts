@@ -9,6 +9,8 @@ export interface Tower {
   y: number;
   /** Ticks restants avant la prochaine attaque. */
   cooldown: number;
+  /** Emplacement occupe (packages/data/src/slots.ts) — cle pour liberer la case a la vente. */
+  slotId: string;
 }
 
 export interface Creep {
@@ -41,6 +43,8 @@ export interface Arena {
   creeps: Creep[];
   /** Cle = defId du creep. */
   stock: Record<string, StockEntry>;
+  /** Cle = Slot.id (packages/data/src/slots.ts). Presence = occupe. */
+  occupied: Record<string, true>;
   /** Stats cumulees, utiles pour les runs headless. */
   leaked: number;
   killed: number;
