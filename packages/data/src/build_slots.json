@@ -1,0 +1,270 @@
+{
+  "note": "Emplacements de construction. Coordonnees monde, arene du joueur 0.",
+  "slotSize": 64,
+  "groups": [
+    {
+      "id": "bas-gauche-r1",
+      "label": "Segment bas — cote gauche, rangee 1",
+      "slots": [
+        [
+          -4879,
+          3511
+        ],
+        [
+          -4878,
+          3447
+        ],
+        [
+          -4878,
+          3383
+        ],
+        [
+          -4877,
+          3319
+        ]
+      ]
+    },
+    {
+      "id": "bas-gauche-r2",
+      "label": "Segment bas — cote gauche, rangee 2",
+      "slots": [
+        [
+          -4943,
+          3511
+        ],
+        [
+          -4942,
+          3447
+        ],
+        [
+          -4942,
+          3383
+        ],
+        [
+          -4941,
+          3319
+        ]
+      ]
+    },
+    {
+      "id": "bas-droite-r1",
+      "label": "Segment bas — cote droite, rangee 1",
+      "slots": [
+        [
+          -4579,
+          3513
+        ],
+        [
+          -4578,
+          3449
+        ],
+        [
+          -4578,
+          3385
+        ],
+        [
+          -4577,
+          3321
+        ]
+      ]
+    },
+    {
+      "id": "bas-droite-r2",
+      "label": "Segment bas — cote droite, rangee 2",
+      "slots": [
+        [
+          -4515,
+          3513
+        ],
+        [
+          -4514,
+          3449
+        ],
+        [
+          -4514,
+          3385
+        ],
+        [
+          -4513,
+          3321
+        ]
+      ]
+    },
+    {
+      "id": "milieu-gauche-r1",
+      "label": "Segment milieu — cote gauche, rangee 1",
+      "slots": [
+        [
+          -4236,
+          1895
+        ],
+        [
+          -4172,
+          1897
+        ],
+        [
+          -4108,
+          1899
+        ],
+        [
+          -4044,
+          1901
+        ]
+      ]
+    },
+    {
+      "id": "milieu-gauche-r2",
+      "label": "Segment milieu — cote gauche, rangee 2",
+      "slots": [
+        [
+          -4234,
+          1831
+        ],
+        [
+          -4170,
+          1833
+        ],
+        [
+          -4106,
+          1835
+        ],
+        [
+          -4042,
+          1837
+        ]
+      ]
+    },
+    {
+      "id": "milieu-droite-r1",
+      "label": "Segment milieu — cote droite, rangee 1",
+      "slots": [
+        [
+          -4244,
+          2195
+        ],
+        [
+          -4180,
+          2197
+        ],
+        [
+          -4116,
+          2199
+        ],
+        [
+          -4052,
+          2201
+        ]
+      ]
+    },
+    {
+      "id": "milieu-droite-r2",
+      "label": "Segment milieu — cote droite, rangee 2",
+      "slots": [
+        [
+          -4246,
+          2259
+        ],
+        [
+          -4182,
+          2261
+        ],
+        [
+          -4118,
+          2263
+        ],
+        [
+          -4054,
+          2265
+        ]
+      ]
+    },
+    {
+      "id": "haut-gauche-r1",
+      "label": "Segment haut — cote gauche, rangee 1",
+      "slots": [
+        [
+          -3418,
+          3360
+        ],
+        [
+          -3418,
+          3424
+        ],
+        [
+          -3418,
+          3488
+        ],
+        [
+          -3418,
+          3552
+        ]
+      ]
+    },
+    {
+      "id": "haut-gauche-r2",
+      "label": "Segment haut — cote gauche, rangee 2",
+      "slots": [
+        [
+          -3354,
+          3360
+        ],
+        [
+          -3354,
+          3424
+        ],
+        [
+          -3354,
+          3488
+        ],
+        [
+          -3354,
+          3552
+        ]
+      ]
+    },
+    {
+      "id": "haut-droite-r1",
+      "label": "Segment haut — cote droite, rangee 1",
+      "slots": [
+        [
+          -3718,
+          3360
+        ],
+        [
+          -3718,
+          3424
+        ],
+        [
+          -3718,
+          3488
+        ],
+        [
+          -3718,
+          3552
+        ]
+      ]
+    },
+    {
+      "id": "haut-droite-r2",
+      "label": "Segment haut — cote droite, rangee 2",
+      "slots": [
+        [
+          -3782,
+          3360
+        ],
+        [
+          -3782,
+          3424
+        ],
+        [
+          -3782,
+          3488
+        ],
+        [
+          -3782,
+          3552
+        ]
+      ]
+    }
+  ]
+}

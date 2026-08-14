@@ -182,3 +182,5 @@ export const rules: Rules = {
 
 /** Tours constructibles directement par le Peasant (racines des 6 branches). */
 export const buildableTowers = ['h000', 'o001', 'o003', 'h005', 'h008', 'o008'];
+
+export { type Slot, SLOT_SIZE, buildSlots, nearestSlot } from './slots.js';
