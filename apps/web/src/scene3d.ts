@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import type { Lane } from '@tower-defense/data';
-import { worldToScene, PATH_WIDTH_WORLD, type Frame3D } from './world3d.js';
+import { PATH_WIDTH, type Lane } from '@tower-defense/data';
+import { worldToScene, type Frame3D } from './world3d.js';
 import { laneColor } from './colors.js';
 import { buildPlatforms } from './terrain3d.js';
 
@@ -74,7 +74,7 @@ function buildPath(lane: Lane, frame: Frame3D): THREE.Group {
   const g = new THREE.Group();
   g.name = 'path';
   const points = [lane.spawn, ...lane.waypoints].map(([x, y]) => worldToScene(frame, x, y));
-  const width = PATH_WIDTH_WORLD * frame.scale;
+  const width = PATH_WIDTH * frame.scale;
   const bed = new THREE.MeshLambertMaterial({ color: 0x6e5a3f });
   const edge = new THREE.MeshLambertMaterial({ color: 0x241c14 });
 

@@ -11,11 +11,6 @@ import { CELL } from '@tower-defense/renderer';
  */
 const WORLD_TO_SCENE = CELL / 64;
 
-/** Largeur du chemin, en unites monde — source commune pour le ruban rendu
- * (scene3d.ts) et le retrait des plateaux constructibles (terrain3d.ts), pour
- * que les deux restent coherents si l'un change. */
-export const PATH_WIDTH_WORLD = 90;
-
 export interface Frame3D {
   scale: number;
   centerX: number;
