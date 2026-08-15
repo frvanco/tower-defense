@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { Lane } from '@tower-defense/data';
 import { worldToScene, type Frame3D } from './world3d.js';
 import { laneColor } from './colors.js';
+import { buildPlatforms } from './terrain3d.js';
 
 export interface Scene3D {
   scene: THREE.Scene;
@@ -107,37 +108,6 @@ function buildPath(lane: Lane, frame: Frame3D): THREE.Group {
   return g;
 }
 
-function buildBuildZone(lane: Lane, frame: Frame3D): THREE.Group {
-  const g = new THREE.Group();
-  g.name = 'buildZone';
-  const [l, b] = worldToScene(frame, lane.buildZone.left, lane.buildZone.bottom);
-  const [r, t] = worldToScene(frame, lane.buildZone.right, lane.buildZone.top);
-  const w = Math.abs(r - l);
-  const h = Math.abs(t - b);
-  const cx = (l + r) / 2;
-  const cz = (b + t) / 2;
-
-  const tint = new THREE.Mesh(
-    new THREE.PlaneGeometry(w, h),
-    new THREE.MeshBasicMaterial({ color: 0xc9a227, transparent: true, opacity: 0.05 }),
-  );
-  tint.rotation.x = -Math.PI / 2;
-  tint.position.set(cx, 0.008, cz);
-  g.add(tint);
-
-  const border = new THREE.LineLoop(
-    new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(l, 0.01, b),
-      new THREE.Vector3(r, 0.01, b),
-      new THREE.Vector3(r, 0.01, t),
-      new THREE.Vector3(l, 0.01, t),
-    ]),
-    new THREE.LineBasicMaterial({ color: 0xc9a227, transparent: true, opacity: 0.5 }),
-  );
-  g.add(border);
-  return g;
-}
-
 function glowGate(x: number, z: number, color: number): THREE.Group {
   const g = new THREE.Group();
   const glow = new THREE.Mesh(
@@ -193,7 +163,7 @@ export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Fram
 
   scene.add(buildGround(frame));
   scene.add(buildPath(lane, frame));
-  scene.add(buildBuildZone(lane, frame));
+  scene.add(buildPlatforms(lane, frame));
 
   const [sx, sz] = worldToScene(frame, lane.spawn[0], lane.spawn[1]);
   scene.add(glowGate(sx, sz, new THREE.Color(laneColor(lane.color)).getHex()));

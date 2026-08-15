@@ -13,6 +13,7 @@ import {
 import { branchInfo, branchHue } from './branches.js';
 import { ARMOR_COLORS } from './colors.js';
 import { worldToScene, type Frame3D } from './world3d.js';
+import { PLATFORM_HEIGHT } from './terrain3d.js';
 
 /** Meme vitesse de rotation que la galerie de demo validee (packages/renderer/demo). */
 const TURN_RATE = 2.6;
@@ -47,7 +48,9 @@ export class TowerEntities {
 
   private place(group: THREE.Group, t: Tower): void {
     const [sx, sz] = worldToScene(this.frame, t.x, t.y);
-    group.position.set(sx, 0, sz);
+    // Les tours se posent sur le plateau surelevé (voir terrain3d.ts) ; le
+    // chemin, lui, reste au niveau bas.
+    group.position.set(sx, PLATFORM_HEIGHT, sz);
   }
 
   /** A appeler apres tick() : cree/upgrade/retire les meshes pour coller a `arena.towers`. */

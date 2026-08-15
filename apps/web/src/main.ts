@@ -7,6 +7,7 @@ import { computeFrame, worldToScene, type Frame3D } from './world3d.js';
 import { pickGroundWorld, pickTowerEid } from './pick3d.js';
 import { TowerEntities, CreepEntities } from './entities3d.js';
 import { createSlotMarkers } from './slots3d.js';
+import { PLATFORM_HEIGHT } from './terrain3d.js';
 import { laneColor } from './colors.js';
 import {
   buildBuildPanel,
@@ -303,7 +304,7 @@ function frame3d(now: number): void {
     if (armedBuildDefId && hoveredSlot) {
       const occupied = !!arena0.occupied[hoveredSlot.id];
       const [gx, gz] = worldToScene(frame, hoveredSlot.x, hoveredSlot.y);
-      ghost.position.set(gx, 0.03, gz);
+      ghost.position.set(gx, PLATFORM_HEIGHT + 0.03, gz);
       (ghost.material as THREE.MeshBasicMaterial).color.set(occupied ? 0xd0503c : 0x4a9e5c);
       ghost.visible = true;
     } else {

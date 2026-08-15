@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildSlots, SLOT_SIZE } from '@tower-defense/data';
 import type { Arena } from '@tower-defense/sim';
 import { worldToScene, type Frame3D } from './world3d.js';
+import { PLATFORM_HEIGHT } from './terrain3d.js';
 
 /**
  * Contours discrets au sol pour chaque emplacement de construction du joueur
@@ -32,7 +33,7 @@ export function createSlotMarkers(frame: Frame3D): SlotMarkers {
       new THREE.MeshBasicMaterial({ color: FREE_COLOR, transparent: true, opacity: 0.28, side: THREE.DoubleSide }),
     );
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(sx, 0.012, sz);
+    mesh.position.set(sx, PLATFORM_HEIGHT + 0.012, sz);
     group.add(mesh);
     meshes.set(slot.id, mesh);
   }
