@@ -1,55 +1,46 @@
-// Genere build_slots.json : quatre blocs rectangulaires d'emplacements de
-// construction, poses par rapport aux points cles du couloir de la lane 0
-// (les deux bras verticaux et la liaison horizontale qui les relie) :
+// Genere build_slots.json : dans chaque zone (packages/data/src/zoneFootprints.ts),
+// les emplacements forment un bloc compact — cote a cote, espaces d'exactement
+// SLOT_SIZE (les tours se touchent, comme demande) — centre dans la zone, avec
+// une marge (RECUL) qui l'ecarte un peu du chemin plutot que de coller au bord.
+// Retour direct : une premiere version repartissait les 218 emplacements sur
+// toute l'etendue de chaque zone (gros espacement, presque au bord du chemin) ;
+// ce n'est pas ce qui etait voulu — les tours doivent rester collees les unes
+// aux autres, meme si les zones (plateaux) restent larges.
 //
-//   - "milieu" : le grand espace INTERIEUR du couloir, entre les deux bras.
-//   - "gauche" / "droite" : de chaque cote, a l'EXTERIEUR de chaque bras.
-//   - "bas"    : sous la liaison horizontale, entre elle et le bord bas de
-//                la zone constructible (pres du spawn).
-//
-// Chaque bloc est ecrit comme plusieurs rangees nommees (une rangee = un
-// alignement de cases cote a cote, espacees exactement de slotSize) plutot
-// que comme un seul groupe, pour rester coherent avec le format du fichier
-// et avec le test qui verifie l'espacement au sein d'une rangee.
-//
-// Le systeme cible (grille de pathing avec `isBuildableSlot()`) n'existe pas
-// dans ce depot — il n'y a pas de grille de pathing du tout, seulement un
-// rectangle `lane.buildZone`. Le filtre utilise donc la meme regle que
-// `inBuildZone` (ancienne version de packages/sim/src/sim.ts).
+// Le systeme cible du prompt d'origine (grille de pathing avec
+// `isBuildableSlot()`) n'existe pas dans ce depot — il n'y a pas de grille de
+// pathing du tout. Le filtre utilise donc la meme regle que `inBuildZone`
+// (ancienne version de packages/sim/src/sim.ts).
 //
 // Usage : npx tsx scripts/gen_slots.ts (depuis packages/data/)
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { lanes, laneAnchors } from '../src/index.js';
+import { lanes, zoneFootprints, type ZoneFootprint } from '../src/index.js';
 
 // --- Parametres, faciles a changer ---
 // Dimensions demandees : milieu 5 de large x 22 de long ; cotes 3 de large x
-// 12 de long (chacun) ; bas 12 de large x 3 de profond. Remplace la version
-// precedente (rangees eparses, ~48 emplacements au total, cf. git log) —
-// choix explicite de densite plutot que de raret, a la demande directe.
-const MIDDLE_COLS = 5;
-const MIDDLE_ROWS = 22;
-const SIDE_COLS = 3;
-const SIDE_ROWS = 12;
-const BOTTOM_COLS = 12;
-const BOTTOM_ROWS = 3;
-/** Distance minimale entre le couloir et le bord d'un bloc. */
-const CLEARANCE = 150;
+// 12 de long (chacun) ; bas 12 de large x 3 de profond. 218 emplacements au
+// total, toujours espaces de SLOT_SIZE (collees) — seule leur position dans
+// la zone (centree, en retrait du chemin) depend de zoneFootprints.ts.
+const DIMS: Record<ZoneFootprint['id'], { cols: number; rows: number; label: string }> = {
+  milieu: { cols: 5, rows: 22, label: 'Milieu' },
+  gauche: { cols: 3, rows: 12, label: 'Cote gauche' },
+  droite: { cols: 3, rows: 12, label: 'Cote droite' },
+  bas: { cols: 12, rows: 3, label: 'Bas' },
+};
 // --- fin des parametres ---
 
-/** Meme valeur que TOWER_FOOTPRINT dans packages/sim/src/sim.ts : emprise
- * minimale entre deux tours, donc taille d'une case. */
+/** Emprise minimale entre deux tours (packages/sim/src/sim.ts) — aussi
+ * l'espacement cible ici : les tours se touchent, elles ne sont pas ecartees. */
 const SLOT_SIZE = 64;
+
+/** Recul supplementaire par rapport au bord de la zone (donc par rapport au
+ * chemin, qui longe la zone) avant de centrer le bloc compact. */
+const RECUL = 60;
 
 const lane = lanes.find((l) => l.player === 0);
 if (!lane) throw new Error('lane 0 introuvable');
-
-const spawnY = lane.spawn[1];
-const wp1Y = lane.waypoints[0]![1];
-const wp2Y = lane.waypoints[1]![1];
-const endY = lane.waypoints[2]![1];
-const { leftArmX, rightArmX, connectorY, armTopY } = laneAnchors(lane);
 
 const bz = lane.buildZone;
 
@@ -63,96 +54,47 @@ function inBuildZone(x: number, y: number): boolean {
   return x >= bz.left && x <= bz.right && y >= bz.bottom && y <= bz.top;
 }
 
-/**
- * Un bloc = plusieurs rangees de `cols` emplacements, espacees de SLOT_SIZE
- * dans les deux directions. (originX, originY) est le coin de la rangee 0 ;
- * chaque rangee suivante avance de SLOT_SIZE le long de `rowDir` (+1 ou -1).
- */
-function makeBlock(idPrefix: string, labelPrefix: string, originX: number, originY: number, cols: number, rows: number, rowDir: 1 | -1): Group[] {
-  const groups: Group[] = [];
-  for (let r = 0; r < rows; r++) {
-    const y = originY + r * SLOT_SIZE * rowDir;
-    const slots: Array<[number, number]> = [];
-    for (let c = 0; c < cols; c++) {
-      const x = originX + c * SLOT_SIZE;
-      slots.push([Math.round(x), Math.round(y)]);
-    }
-    groups.push({ id: `${idPrefix}-r${r + 1}`, label: `${labelPrefix} — rangee ${r + 1}`, slots });
-  }
-  return groups;
-}
-
-const rawGroups: Group[] = [];
-
-// --- Milieu : interieur du couloir, entre les deux bras, au-dessus de la liaison.
-{
-  const midX = (leftArmX + rightArmX) / 2;
-  const blockWidth = (MIDDLE_COLS - 1) * SLOT_SIZE;
-  const originX = midX - blockWidth / 2;
-  const vSpanStart = connectorY + CLEARANCE;
-  const vSpanEnd = armTopY - CLEARANCE;
-  const blockHeight = (MIDDLE_ROWS - 1) * SLOT_SIZE;
-  const originY = vSpanStart + (vSpanEnd - vSpanStart - blockHeight) / 2;
-  rawGroups.push(...makeBlock('milieu', 'Milieu', originX, originY, MIDDLE_COLS, MIDDLE_ROWS, 1));
-}
-
-// --- Cotes : a l'exterieur de chaque bras, centres sur sa longueur.
-{
-  const armSpanStart = Math.min(wp1Y, spawnY);
-  const armSpanEnd = Math.max(wp1Y, spawnY);
-  const blockHeight = (SIDE_ROWS - 1) * SLOT_SIZE;
-  const originY = armSpanStart + (armSpanEnd - armSpanStart - blockHeight) / 2;
-  const nearX = leftArmX - CLEARANCE;
-  const originX = nearX - (SIDE_COLS - 1) * SLOT_SIZE; // s'etend plus loin vers l'exterieur (x decroissant)
-  rawGroups.push(...makeBlock('gauche', 'Cote gauche', originX, originY, SIDE_COLS, SIDE_ROWS, 1));
-}
-{
-  const armSpanStart = Math.min(wp2Y, endY);
-  const armSpanEnd = Math.max(wp2Y, endY);
-  const blockHeight = (SIDE_ROWS - 1) * SLOT_SIZE;
-  const originY = armSpanStart + (armSpanEnd - armSpanStart - blockHeight) / 2;
-  const originX = rightArmX + CLEARANCE; // s'etend vers l'exterieur (x croissant)
-  rawGroups.push(...makeBlock('droite', 'Cote droite', originX, originY, SIDE_COLS, SIDE_ROWS, 1));
-}
-
-// --- Bas : sous la liaison, entre elle et le bord bas de la zone constructible.
-{
-  const midX = (leftArmX + rightArmX) / 2;
-  const blockWidth = (BOTTOM_COLS - 1) * SLOT_SIZE;
-  const originX = midX - blockWidth / 2;
-  const spanStart = bz.bottom;
-  const spanEnd = connectorY - CLEARANCE;
-  const blockHeight = (BOTTOM_ROWS - 1) * SLOT_SIZE;
-  const originY = spanStart + (spanEnd - spanStart - blockHeight) / 2;
-  rawGroups.push(...makeBlock('bas', 'Bas', originX, originY, BOTTOM_COLS, BOTTOM_ROWS, 1));
-}
-
-// --- Filtrage : zone constructible + dedup (garde-fous, ne devraient rejeter
-// personne avec des parametres sensés vu le calcul par blocs centres).
+const groups: Group[] = [];
 let rejectedOutOfZone = 0;
 let rejectedOverlap = 0;
 const placed: Array<[number, number]> = [];
-const groups: Group[] = [];
-for (const g of rawGroups) {
-  const slots: Array<[number, number]> = [];
-  for (const [x, y] of g.slots) {
-    if (!inBuildZone(x, y)) {
-      rejectedOutOfZone++;
-      continue;
+
+for (const zone of zoneFootprints(lane)) {
+  const { cols, rows, label } = DIMS[zone.id];
+  const blockW = (cols - 1) * SLOT_SIZE;
+  const blockH = (rows - 1) * SLOT_SIZE;
+  const midX = (zone.x0 + RECUL + zone.x1 - RECUL) / 2;
+  const midY = (zone.y0 + RECUL + zone.y1 - RECUL) / 2;
+  const x0 = midX - blockW / 2;
+  const y0 = midY - blockH / 2;
+
+  for (let r = 0; r < rows; r++) {
+    const y = y0 + r * SLOT_SIZE;
+    const rowSlots: Array<[number, number]> = [];
+    for (let c = 0; c < cols; c++) {
+      const x = x0 + c * SLOT_SIZE;
+      const rx = Math.round(x);
+      const ry = Math.round(y);
+      if (!inBuildZone(rx, ry)) {
+        rejectedOutOfZone++;
+        continue;
+      }
+      const tooClose = placed.some(([px, py]) => Math.hypot(px - rx, py - ry) < SLOT_SIZE);
+      if (tooClose) {
+        rejectedOverlap++;
+        continue;
+      }
+      placed.push([rx, ry]);
+      rowSlots.push([rx, ry]);
     }
-    const tooClose = placed.some(([px, py]) => Math.hypot(px - x, py - y) < SLOT_SIZE);
-    if (tooClose) {
-      rejectedOverlap++;
-      continue;
+    if (rowSlots.length > 0) {
+      groups.push({ id: `${zone.id}-r${r + 1}`, label: `${label} — rangee ${r + 1}`, slots: rowSlots });
     }
-    placed.push([x, y]);
-    slots.push([x, y]);
   }
-  if (slots.length > 0) groups.push({ ...g, slots });
 }
 
 const total = groups.reduce((n, g) => n + g.slots.length, 0);
-const expected = MIDDLE_COLS * MIDDLE_ROWS + 2 * SIDE_COLS * SIDE_ROWS + BOTTOM_COLS * BOTTOM_ROWS;
+const expected = Object.values(DIMS).reduce((n, d) => n + d.cols * d.rows, 0);
 
 const out = {
   note: 'Emplacements de construction. Coordonnees monde, arene du joueur 0.',
@@ -167,6 +109,6 @@ writeFileSync(outFile, JSON.stringify(out, null, 2) + '\n', 'utf8');
 console.log(`${total} emplacements generes dans ${groups.length} rangees (attendu : ${expected}).`);
 console.log(`rejetes : ${rejectedOutOfZone} hors zone constructible, ${rejectedOverlap} trop proches d'un autre emplacement.`);
 if (total !== expected) {
-  console.warn('ATTENTION : le total ne correspond pas au calcul attendu — verifier CLEARANCE ou les dimensions de blocs.');
+  console.warn('ATTENTION : le total ne correspond pas au calcul attendu — verifier zoneFootprints.ts ou les dimensions.');
 }
 console.log(`ecrit : ${path.relative(process.cwd(), outFile)}`);
