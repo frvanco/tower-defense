@@ -21,7 +21,7 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { lanes } from '../src/index.js';
+import { lanes, laneAnchors } from '../src/index.js';
 
 // --- Parametres, faciles a changer ---
 // Dimensions demandees : milieu 5 de large x 22 de long ; cotes 3 de large x
@@ -45,20 +45,11 @@ const SLOT_SIZE = 64;
 const lane = lanes.find((l) => l.player === 0);
 if (!lane) throw new Error('lane 0 introuvable');
 
-const [spawnX, spawnY] = lane.spawn;
-const [wp1X, wp1Y] = lane.waypoints[0]!;
-const [wp2X, wp2Y] = lane.waypoints[1]!;
-const [endX, endY] = lane.waypoints[2]!;
-
-/** Points cles du couloir : deux bras quasi verticaux relies par une liaison
- * quasi horizontale (spawn -> wp1 -> wp2 -> end). On les traite comme des
- * droites axees pour poser des blocs rectangulaires simples — les segments
- * reels ont une pente negligeable (quelques dizaines d'unites sur des
- * milliers), l'ecart est absorbe par CLEARANCE. */
-const leftArmX = (spawnX + wp1X) / 2;
-const rightArmX = (wp2X + endX) / 2;
-const connectorY = (wp1Y + wp2Y) / 2;
-const armTopY = Math.max(spawnY, endY);
+const spawnY = lane.spawn[1];
+const wp1Y = lane.waypoints[0]![1];
+const wp2Y = lane.waypoints[1]![1];
+const endY = lane.waypoints[2]![1];
+const { leftArmX, rightArmX, connectorY, armTopY } = laneAnchors(lane);
 
 const bz = lane.buildZone;
 

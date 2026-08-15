@@ -79,3 +79,33 @@ export function nearestSlot(player: number, x: number, y: number): Slot | null {
   }
   return best && bestDist2 <= SLOT_SIZE * SLOT_SIZE ? best : null;
 }
+
+export interface SlotZoneBounds {
+  /** "milieu" / "gauche" / "droite" / "bas" — prefixe des ids de rangee. */
+  id: string;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+/** Boite englobante des emplacements de chaque zone (regroupes par le
+ * prefixe de groupId avant "-rN") — sert au rendu pour poser un plateau
+ * surelevé qui couvre reellement les emplacements, sans dupliquer la
+ * geometrie de gen_slots.ts. */
+export function buildZones(player: number): SlotZoneBounds[] {
+  const byZone = new Map<string, SlotZoneBounds>();
+  for (const s of slotsFor(player)) {
+    const zoneId = s.groupId.split('-r')[0]!;
+    let z = byZone.get(zoneId);
+    if (!z) {
+      z = { id: zoneId, minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+      byZone.set(zoneId, z);
+    }
+    z.minX = Math.min(z.minX, s.x);
+    z.maxX = Math.max(z.maxX, s.x);
+    z.minY = Math.min(z.minY, s.y);
+    z.maxY = Math.max(z.maxY, s.y);
+  }
+  return [...byZone.values()];
+}
