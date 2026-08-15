@@ -1,11 +1,21 @@
-// Genere build_slots.json : des rangees d'emplacements de construction
-// paralleles a chaque segment du couloir de la lane 0, filtrees pour ne
-// garder que celles a l'interieur de la zone constructible.
+// Genere build_slots.json : quatre blocs rectangulaires d'emplacements de
+// construction, poses par rapport aux points cles du couloir de la lane 0
+// (les deux bras verticaux et la liaison horizontale qui les relie) :
+//
+//   - "milieu" : le grand espace INTERIEUR du couloir, entre les deux bras.
+//   - "gauche" / "droite" : de chaque cote, a l'EXTERIEUR de chaque bras.
+//   - "bas"    : sous la liaison horizontale, entre elle et le bord bas de
+//                la zone constructible (pres du spawn).
+//
+// Chaque bloc est ecrit comme plusieurs rangees nommees (une rangee = un
+// alignement de cases cote a cote, espacees exactement de slotSize) plutot
+// que comme un seul groupe, pour rester coherent avec le format du fichier
+// et avec le test qui verifie l'espacement au sein d'une rangee.
 //
 // Le systeme cible (grille de pathing avec `isBuildableSlot()`) n'existe pas
 // dans ce depot — il n'y a pas de grille de pathing du tout, seulement un
 // rectangle `lane.buildZone`. Le filtre utilise donc la meme regle que
-// `inBuildZone` dans packages/sim/src/sim.ts.
+// `inBuildZone` (ancienne version de packages/sim/src/sim.ts).
 //
 // Usage : npx tsx scripts/gen_slots.ts (depuis packages/data/)
 import { writeFileSync } from 'node:fs';
@@ -14,14 +24,18 @@ import path from 'node:path';
 import { lanes } from '../src/index.js';
 
 // --- Parametres, faciles a changer ---
-// 6/2 (valeurs de depart) donnaient 72 emplacements (3 segments x 2 cotes x
-// 2 rangees x 6 cases), au-dessus de la fourchette visee (40-60) avec 0 rejet
-// — DISTANCE_FROM_PATH=150 laissait largement assez de place dans la zone
-// constructible, le probleme etait juste "trop de cases", pas leur position.
-// Reduit a 4 cases/rangee pour retomber a 48.
-const SLOTS_PER_ROW = 4;
-const ROWS_PER_SIDE = 2;
-const DISTANCE_FROM_PATH = 150;
+// Dimensions demandees : milieu 5 de large x 22 de long ; cotes 3 de large x
+// 12 de long (chacun) ; bas 12 de large x 3 de profond. Remplace la version
+// precedente (rangees eparses, ~48 emplacements au total, cf. git log) —
+// choix explicite de densite plutot que de raret, a la demande directe.
+const MIDDLE_COLS = 5;
+const MIDDLE_ROWS = 22;
+const SIDE_COLS = 3;
+const SIDE_ROWS = 12;
+const BOTTOM_COLS = 12;
+const BOTTOM_ROWS = 3;
+/** Distance minimale entre le couloir et le bord d'un bloc. */
+const CLEARANCE = 150;
 // --- fin des parametres ---
 
 /** Meme valeur que TOWER_FOOTPRINT dans packages/sim/src/sim.ts : emprise
@@ -31,12 +45,22 @@ const SLOT_SIZE = 64;
 const lane = lanes.find((l) => l.player === 0);
 if (!lane) throw new Error('lane 0 introuvable');
 
-/** Le couloir de ce jeu a toujours exactement 3 segments (spawn -> wp1 -> wp2
- * -> end, cf. Lane.waypoints dans packages/data/src/index.ts) : pas besoin de
- * generaliser a un nombre de segments variable. */
-const path0: Array<[number, number]> = [lane.spawn, ...lane.waypoints];
-const SEGMENT_LABELS = ['bas', 'milieu', 'haut'];
-const SIDE_LABELS: Record<number, string> = { [-1]: 'gauche', 1: 'droite' };
+const [spawnX, spawnY] = lane.spawn;
+const [wp1X, wp1Y] = lane.waypoints[0]!;
+const [wp2X, wp2Y] = lane.waypoints[1]!;
+const [endX, endY] = lane.waypoints[2]!;
+
+/** Points cles du couloir : deux bras quasi verticaux relies par une liaison
+ * quasi horizontale (spawn -> wp1 -> wp2 -> end). On les traite comme des
+ * droites axees pour poser des blocs rectangulaires simples — les segments
+ * reels ont une pente negligeable (quelques dizaines d'unites sur des
+ * milliers), l'ecart est absorbe par CLEARANCE. */
+const leftArmX = (spawnX + wp1X) / 2;
+const rightArmX = (wp2X + endX) / 2;
+const connectorY = (wp1Y + wp2Y) / 2;
+const armTopY = Math.max(spawnY, endY);
+
+const bz = lane.buildZone;
 
 interface Group {
   id: string;
@@ -45,62 +69,86 @@ interface Group {
 }
 
 function inBuildZone(x: number, y: number): boolean {
-  const z = lane!.buildZone;
-  return x >= z.left && x <= z.right && y >= z.bottom && y <= z.top;
+  return x >= bz.left && x <= bz.right && y >= bz.bottom && y <= bz.top;
+}
+
+/**
+ * Un bloc = plusieurs rangees de `cols` emplacements, espacees de SLOT_SIZE
+ * dans les deux directions. (originX, originY) est le coin de la rangee 0 ;
+ * chaque rangee suivante avance de SLOT_SIZE le long de `rowDir` (+1 ou -1).
+ */
+function makeBlock(idPrefix: string, labelPrefix: string, originX: number, originY: number, cols: number, rows: number, rowDir: 1 | -1): Group[] {
+  const groups: Group[] = [];
+  for (let r = 0; r < rows; r++) {
+    const y = originY + r * SLOT_SIZE * rowDir;
+    const slots: Array<[number, number]> = [];
+    for (let c = 0; c < cols; c++) {
+      const x = originX + c * SLOT_SIZE;
+      slots.push([Math.round(x), Math.round(y)]);
+    }
+    groups.push({ id: `${idPrefix}-r${r + 1}`, label: `${labelPrefix} — rangee ${r + 1}`, slots });
+  }
+  return groups;
 }
 
 const rawGroups: Group[] = [];
-let rejectedOutOfZone = 0;
 
-for (let seg = 0; seg < path0.length - 1; seg++) {
-  const a = path0[seg]!;
-  const b = path0[seg + 1]!;
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const len = Math.hypot(dx, dy);
-  const dirX = dx / len;
-  const dirY = dy / len;
-  const perpX = -dirY;
-  const perpY = dirX;
-
-  const rowSpan = (SLOTS_PER_ROW - 1) * SLOT_SIZE;
-  const startAlong = (len - rowSpan) / 2; // centre la rangee sur le segment
-
-  for (const side of [-1, 1] as const) {
-    for (let r = 0; r < ROWS_PER_SIDE; r++) {
-      const distance = DISTANCE_FROM_PATH + r * SLOT_SIZE;
-      const rowSlots: Array<[number, number]> = [];
-      for (let i = 0; i < SLOTS_PER_ROW; i++) {
-        const along = startAlong + i * SLOT_SIZE;
-        const x = a[0] + dirX * along + perpX * side * distance;
-        const y = a[1] + dirY * along + perpY * side * distance;
-        if (!inBuildZone(x, y)) {
-          rejectedOutOfZone++;
-          continue;
-        }
-        rowSlots.push([Math.round(x), Math.round(y)]);
-      }
-      if (rowSlots.length === 0) continue;
-      const segLabel = SEGMENT_LABELS[seg] ?? `segment${seg}`;
-      const id = `${segLabel}-${SIDE_LABELS[side]}-r${r + 1}`;
-      rawGroups.push({
-        id,
-        label: `Segment ${segLabel} — cote ${SIDE_LABELS[side]}, rangee ${r + 1}`,
-        slots: rowSlots,
-      });
-    }
-  }
+// --- Milieu : interieur du couloir, entre les deux bras, au-dessus de la liaison.
+{
+  const midX = (leftArmX + rightArmX) / 2;
+  const blockWidth = (MIDDLE_COLS - 1) * SLOT_SIZE;
+  const originX = midX - blockWidth / 2;
+  const vSpanStart = connectorY + CLEARANCE;
+  const vSpanEnd = armTopY - CLEARANCE;
+  const blockHeight = (MIDDLE_ROWS - 1) * SLOT_SIZE;
+  const originY = vSpanStart + (vSpanEnd - vSpanStart - blockHeight) / 2;
+  rawGroups.push(...makeBlock('milieu', 'Milieu', originX, originY, MIDDLE_COLS, MIDDLE_ROWS, 1));
 }
 
-// Dedup : deux rangees issues de segments differents peuvent se recouvrir
-// pres d'un virage. On garde le premier arrive ; l'espacement minimum est
-// SLOT_SIZE, la meme regle que l'emprise TOWER_FOOTPRINT en jeu.
-const placed: Array<[number, number]> = [];
+// --- Cotes : a l'exterieur de chaque bras, centres sur sa longueur.
+{
+  const armSpanStart = Math.min(wp1Y, spawnY);
+  const armSpanEnd = Math.max(wp1Y, spawnY);
+  const blockHeight = (SIDE_ROWS - 1) * SLOT_SIZE;
+  const originY = armSpanStart + (armSpanEnd - armSpanStart - blockHeight) / 2;
+  const nearX = leftArmX - CLEARANCE;
+  const originX = nearX - (SIDE_COLS - 1) * SLOT_SIZE; // s'etend plus loin vers l'exterieur (x decroissant)
+  rawGroups.push(...makeBlock('gauche', 'Cote gauche', originX, originY, SIDE_COLS, SIDE_ROWS, 1));
+}
+{
+  const armSpanStart = Math.min(wp2Y, endY);
+  const armSpanEnd = Math.max(wp2Y, endY);
+  const blockHeight = (SIDE_ROWS - 1) * SLOT_SIZE;
+  const originY = armSpanStart + (armSpanEnd - armSpanStart - blockHeight) / 2;
+  const originX = rightArmX + CLEARANCE; // s'etend vers l'exterieur (x croissant)
+  rawGroups.push(...makeBlock('droite', 'Cote droite', originX, originY, SIDE_COLS, SIDE_ROWS, 1));
+}
+
+// --- Bas : sous la liaison, entre elle et le bord bas de la zone constructible.
+{
+  const midX = (leftArmX + rightArmX) / 2;
+  const blockWidth = (BOTTOM_COLS - 1) * SLOT_SIZE;
+  const originX = midX - blockWidth / 2;
+  const spanStart = bz.bottom;
+  const spanEnd = connectorY - CLEARANCE;
+  const blockHeight = (BOTTOM_ROWS - 1) * SLOT_SIZE;
+  const originY = spanStart + (spanEnd - spanStart - blockHeight) / 2;
+  rawGroups.push(...makeBlock('bas', 'Bas', originX, originY, BOTTOM_COLS, BOTTOM_ROWS, 1));
+}
+
+// --- Filtrage : zone constructible + dedup (garde-fous, ne devraient rejeter
+// personne avec des parametres sensés vu le calcul par blocs centres).
+let rejectedOutOfZone = 0;
 let rejectedOverlap = 0;
+const placed: Array<[number, number]> = [];
 const groups: Group[] = [];
 for (const g of rawGroups) {
   const slots: Array<[number, number]> = [];
   for (const [x, y] of g.slots) {
+    if (!inBuildZone(x, y)) {
+      rejectedOutOfZone++;
+      continue;
+    }
     const tooClose = placed.some(([px, py]) => Math.hypot(px - x, py - y) < SLOT_SIZE);
     if (tooClose) {
       rejectedOverlap++;
@@ -113,6 +161,7 @@ for (const g of rawGroups) {
 }
 
 const total = groups.reduce((n, g) => n + g.slots.length, 0);
+const expected = MIDDLE_COLS * MIDDLE_ROWS + 2 * SIDE_COLS * SIDE_ROWS + BOTTOM_COLS * BOTTOM_ROWS;
 
 const out = {
   note: 'Emplacements de construction. Coordonnees monde, arene du joueur 0.',
@@ -124,14 +173,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const outFile = path.join(here, '../src/build_slots.json');
 writeFileSync(outFile, JSON.stringify(out, null, 2) + '\n', 'utf8');
 
-console.log(`${total} emplacements generes dans ${groups.length} rangees.`);
+console.log(`${total} emplacements generes dans ${groups.length} rangees (attendu : ${expected}).`);
 console.log(`rejetes : ${rejectedOutOfZone} hors zone constructible, ${rejectedOverlap} trop proches d'un autre emplacement.`);
-if (total < 40 || total > 60) {
-  console.warn(
-    `ATTENTION : ${total} est hors de la fourchette visee (40-60). Ajuster SLOTS_PER_ROW/ROWS_PER_SIDE/DISTANCE_FROM_PATH en tete du script.`,
-  );
-}
-if (rejectedOutOfZone > total * 0.15) {
-  console.warn('ATTENTION : beaucoup de rejets hors zone — DISTANCE_FROM_PATH est probablement mal choisi.');
+if (total !== expected) {
+  console.warn('ATTENTION : le total ne correspond pas au calcul attendu — verifier CLEARANCE ou les dimensions de blocs.');
 }
 console.log(`ecrit : ${path.relative(process.cwd(), outFile)}`);

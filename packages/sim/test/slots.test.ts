@@ -22,9 +22,11 @@ function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: n
 describe('emplacements de construction — layout', () => {
   const slots = buildSlots(0);
 
-  it('le nombre d\'emplacements est dans la fourchette visee (40-60)', () => {
-    expect(slots.length).toBeGreaterThanOrEqual(40);
-    expect(slots.length).toBeLessThanOrEqual(60);
+  it('le nombre d\'emplacements correspond aux dimensions des 4 blocs (milieu 5x22, cotes 3x12 chacun, bas 12x3)', () => {
+    // Choix explicite de densite plutot que de raret (demande directe) :
+    // remplace la fourchette 40-60 de la premiere version du systeme — voir
+    // packages/data/scripts/gen_slots.ts.
+    expect(slots.length).toBe(5 * 22 + 2 * 3 * 12 + 12 * 3);
   });
 
   it('deux emplacements ne se chevauchent jamais (distance >= SLOT_SIZE)', () => {
