@@ -22,11 +22,11 @@ function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: n
 describe('emplacements de construction — layout', () => {
   const slots = buildSlots(0);
 
-  it('le nombre d\'emplacements correspond aux dimensions des 4 blocs (milieu 5x22, cotes 3x12 chacun, bas 12x3)', () => {
+  it('le nombre d\'emplacements correspond aux dimensions des 4 blocs (milieu 5x22, cotes 3x16 chacun, bas 12x3)', () => {
     // Choix explicite de densite plutot que de raret (demande directe) :
     // remplace la fourchette 40-60 de la premiere version du systeme — voir
     // packages/data/scripts/gen_slots.ts.
-    expect(slots.length).toBe(5 * 22 + 2 * 3 * 12 + 12 * 3);
+    expect(slots.length).toBe(5 * 22 + 2 * 3 * 16 + 12 * 3);
   });
 
   it('deux emplacements ne se chevauchent jamais (distance >= SLOT_SIZE)', () => {
@@ -38,16 +38,22 @@ describe('emplacements de construction — layout', () => {
     }
   });
 
-  it('au sein d\'une rangee, les emplacements sont exactement espaces de SLOT_SIZE', () => {
+  it('au sein d\'une rangee, les emplacements sont regulierement espaces (>= SLOT_SIZE)', () => {
+    // L'espacement s'adapte a l'etendue reelle de chaque zone
+    // (packages/data/src/zoneFootprints.ts) : les rangees couvrent toute la
+    // zone plutot que d'etre serrees a exactement SLOT_SIZE.
     const byGroup = new Map<string, typeof slots>();
     for (const s of slots) {
       if (!byGroup.has(s.groupId)) byGroup.set(s.groupId, []);
       byGroup.get(s.groupId)!.push(s);
     }
     for (const [, group] of byGroup) {
-      for (let i = 1; i < group.length; i++) {
+      if (group.length < 2) continue;
+      const first = Math.hypot(group[1]!.x - group[0]!.x, group[1]!.y - group[0]!.y);
+      expect(first).toBeGreaterThanOrEqual(SLOT_SIZE - 1);
+      for (let i = 2; i < group.length; i++) {
         const d = Math.hypot(group[i]!.x - group[i - 1]!.x, group[i]!.y - group[i - 1]!.y);
-        expect(d).toBeCloseTo(SLOT_SIZE, 0);
+        expect(Math.abs(d - first)).toBeLessThanOrEqual(2); // tolerance d'arrondi (coords ecrites arrondies a l'unite)
       }
     }
   });

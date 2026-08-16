@@ -9,7 +9,12 @@ import type { Lane } from './index.js';
  */
 export const PATH_WIDTH = 90;
 
-const PATH_CLEARANCE = PATH_WIDTH / 2 + 8;
+/** >= SLOT_SIZE (packages/data/src/slots.ts) : un emplacement pose au bord
+ * meme d'une zone reste a distance de securite du chemin (packages/sim/test
+ * verifie qu'aucun emplacement n'empiete a moins de SLOT_SIZE du couloir). La
+ * marge au-dela de SLOT_SIZE couvre les coins (un coin de zone peut etre plus
+ * proche d'un virage du chemin qu'un simple retrait perpendiculaire). */
+const PATH_CLEARANCE = 84;
 /** Marge entre le bord d'une zone et le vrai bord de la zone constructible. */
 const EDGE_GAP = 24;
 /** Marge vis-a-vis des points de spawn/sortie — plus genereuse que EDGE_GAP :
