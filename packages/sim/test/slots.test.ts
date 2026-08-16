@@ -25,16 +25,18 @@ describe('emplacements de construction — layout', () => {
   const slots = buildSlots(0);
 
   it('le nombre d\'emplacements correspond a une grille pleine interieure + un contour exterieur de profondeur 3', () => {
-    // 323, pas les 329 attendus au crayon. L'interieur (grille 5x25 = 125)
-    // correspond exactement. L'ecart vient entierement du contour exterieur,
-    // maintenant a 0 dedup (voir plus bas) : gauche/droite incluent chacun
-    // leurs 2 extremites (coin partage avec "bas" compris) et "bas" ne
-    // reprend que son interieur, pour eviter de compter un coin deux fois —
-    // ce qui donne pour "bas" moins de points qu'une estimation qui
-    // compterait ses propres coins (594-848 unites de long selon la colonne,
-    // /64 sans les 2 extremites). Voir packages/data/scripts/gen_slots.ts
-    // pour le detail par groupe.
-    expect(slots.length).toBe(323);
+    // 317, pas 323 : depuis l'ajout des bras horizontaux d'entree/sortie en
+    // haut de chaque bras vertical (laneGeometry.ts), le coin haut n'est
+    // plus une extremite "ouverte" du chemin — le chemin continue au-dela,
+    // en tournant a 90°. Les bandes exterieures (gauche/droite) s'arretent
+    // donc a PATH_CLEARANCE de ce coin, comme elles le faisaient deja pour
+    // les coins du bas (armClearanceTopY dans laneBandSlots) : chaque
+    // colonne perd exactement 1 rangee du haut (3 colonnes x 2 cotes = -6).
+    // L'interieur (125) est inchange : ses colonnes s'arretent deja a
+    // PATH_CLEARANCE des bras verticaux, largement a l'ecart des bras
+    // horizontaux. Voir packages/data/scripts/gen_slots.ts pour le detail
+    // par groupe.
+    expect(slots.length).toBe(317);
   });
 
   it('l\'interieur du U forme une grille pleine de 5 x 25 sans case manquante', () => {
@@ -86,7 +88,10 @@ describe('emplacements de construction — layout', () => {
 
   it('symetrie : tout emplacement a gauche de l\'axe du U a un symetrique a droite', () => {
     const lane = lanes.find((l) => l.player === 0)!;
-    const midX = (lane.waypoints[0]![0] + lane.waypoints[1]![0]) / 2;
+    // waypoints[1]/[2] = bas des bras gauche/droite (le U lui-meme) —
+    // waypoints[0]/[3] (haut des bras) donneraient le meme axe, mais [1]/[2]
+    // restent valables independamment de la longueur des bras horizontaux.
+    const midX = (lane.waypoints[1]![0] + lane.waypoints[2]![0]) / 2;
     for (const s of slots) {
       if (Math.abs(s.x - midX) < 1) continue; // sur l'axe : son propre symetrique
       const mirrorX = 2 * midX - s.x;
@@ -196,6 +201,31 @@ describe('emplacements de construction — layout', () => {
         );
       }
     }
+  });
+});
+
+describe('chemin — bras d\'entree et de sortie', () => {
+  it('le chemin compte 5 segments (6 points : entree, 4 coins du U, sortie)', () => {
+    const lane = lanes.find((l) => l.player === 0)!;
+    expect(lane.waypoints.length).toBe(5);
+  });
+
+  it('entree et sortie sont a la meme hauteur', () => {
+    const lane = lanes.find((l) => l.player === 0)!;
+    const entryY = lane.spawn[1];
+    const exitY = lane.waypoints[lane.waypoints.length - 1]![1];
+    expect(Math.abs(entryY - exitY)).toBeLessThanOrEqual(1);
+  });
+
+  it('les deux bras horizontaux (entree et sortie) ont la meme longueur', () => {
+    const lane = lanes.find((l) => l.player === 0)!;
+    const [entryX] = lane.spawn;
+    const [topLeftX] = lane.waypoints[0]!;
+    const [topRightX] = lane.waypoints[3]!;
+    const [exitX] = lane.waypoints[4]!;
+    const entryArmLen = Math.abs(topLeftX - entryX);
+    const exitArmLen = Math.abs(exitX - topRightX);
+    expect(Math.abs(entryArmLen - exitArmLen)).toBeLessThanOrEqual(1);
   });
 });
 

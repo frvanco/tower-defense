@@ -32,6 +32,13 @@ const DEPTH = 3;
  * toutes les directions y compris vers le chemin. */
 const PLATFORM_MARGIN = 32;
 
+/** Distance depuis l'axe d'un bras vertical jusqu'au bord exterieur de la
+ * bande de colonnes qui le longe (memes constantes que outerR dans
+ * zoneFootprints ci-dessous). Utilise par laneGeometry.ts pour dimensionner
+ * les bras horizontaux d'entree/sortie : ils s'arretent exactement a ce
+ * bord, jamais plus loin, sans coder 244 en dur ailleurs. */
+export const ARM_EXTENSION = PATH_CLEARANCE + (DEPTH - 1) * SLOT_SIZE + PLATFORM_MARGIN;
+
 export type ZoneId = 'interieur' | 'exterieur';
 
 /**
@@ -154,6 +161,16 @@ function sampleSegmentInterior(ax: number, ay: number, bx: number, by: number, s
  */
 export function laneBandSlots(lane: Lane): BandSlots[] {
   const { leftArmX, rightArmX, connectorY, armTopY } = laneAnchors(lane);
+  // Le haut de chaque bras vertical n'est plus une extremite "ouverte" du
+  // chemin depuis l'ajout des bras horizontaux d'entree/sortie (voir
+  // laneGeometry.ts) : le chemin continue au-dela, en tournant a 90°,
+  // exactement comme au connecteur en bas. Les bandes exterieures doivent
+  // donc s'arreter a PATH_CLEARANCE de ce coin, comme elles le font deja
+  // pour les coins du bas — sinon leurs rangees les plus hautes empietent
+  // sur le nouveau bras. L'interieur, lui, n'atteint jamais cette zone (son
+  // colonnes s'arretent a PATH_CLEARANCE des bras verticaux, largement en
+  // retrait du bras horizontal), donc son etendue en Y ne change pas.
+  const armClearanceTopY = armTopY - PATH_CLEARANCE;
 
   // --- Interieur : grille pleine ---
   const interiorXs = range(leftArmX + PATH_CLEARANCE, rightArmX - PATH_CLEARANCE, SLOT_SIZE);
@@ -171,10 +188,10 @@ export function laneBandSlots(lane: Lane): BandSlots[] {
   // segment donc le meme nombre de points (symetrie).
   for (let col = 0; col < DEPTH; col++) {
     const offset = PATH_CLEARANCE + col * SLOT_SIZE;
-    const topLeft: [number, number] = [leftArmX - offset, armTopY];
+    const topLeft: [number, number] = [leftArmX - offset, armClearanceTopY];
     const bottomLeft: [number, number] = [leftArmX - offset, connectorY - offset];
     const bottomRight: [number, number] = [rightArmX + offset, connectorY - offset];
-    const topRight: [number, number] = [rightArmX + offset, armTopY];
+    const topRight: [number, number] = [rightArmX + offset, armClearanceTopY];
 
     const gauche = sampleSegmentEnds(...topLeft, ...bottomLeft, SLOT_SIZE);
     const bas = sampleSegmentInterior(...bottomLeft, ...bottomRight, SLOT_SIZE);
@@ -208,8 +225,12 @@ export function laneBandSlots(lane: Lane): BandSlots[] {
 export function zoneFootprints(lane: Lane): ZoneFootprint[] {
   const { leftArmX, rightArmX, connectorY, armTopY } = laneAnchors(lane);
   const innerR = PATH_CLEARANCE - PLATFORM_MARGIN;
-  const outerR = PATH_CLEARANCE + (DEPTH - 1) * SLOT_SIZE + PLATFORM_MARGIN;
+  const outerR = ARM_EXTENSION;
   const topY = armTopY + PLATFORM_MARGIN;
+  // Les bandes exterieures s'arretent a PATH_CLEARANCE du coin haut (cf.
+  // laneBandSlots, meme raison : le bras horizontal d'entree/sortie
+  // continue au-dela) — le plateau exterieur suit, l'interieur non.
+  const exteriorTopY = armTopY - PATH_CLEARANCE + PLATFORM_MARGIN;
 
   const interieur: Array<[number, number]> = [
     [leftArmX + innerR, connectorY + innerR],
@@ -222,14 +243,14 @@ export function zoneFootprints(lane: Lane): ZoneFootprint[] {
   // segments courts en bout de bras — trace un anneau en U ferme d'un
   // seul tenant, sans qu'aucun coin ne soit un rectangle separe.
   const exterieur: Array<[number, number]> = [
-    [leftArmX - outerR, topY],
+    [leftArmX - outerR, exteriorTopY],
     [leftArmX - outerR, connectorY - outerR],
     [rightArmX + outerR, connectorY - outerR],
-    [rightArmX + outerR, topY],
-    [rightArmX + innerR, topY],
+    [rightArmX + outerR, exteriorTopY],
+    [rightArmX + innerR, exteriorTopY],
     [rightArmX + innerR, connectorY - innerR],
     [leftArmX - innerR, connectorY - innerR],
-    [leftArmX - innerR, topY],
+    [leftArmX - innerR, exteriorTopY],
   ];
 
   return [
