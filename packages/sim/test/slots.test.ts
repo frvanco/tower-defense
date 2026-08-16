@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSlots, nearestSlot, SLOT_SIZE, lanes, buildableTowers } from '@tower-defense/data';
+import { buildSlots, nearestSlot, SLOT_SIZE, PATH_CLEARANCE, lanes, buildableTowers } from '@tower-defense/data';
 import { createGame, tick } from '../src/index.js';
 
 /**
@@ -22,11 +22,13 @@ function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: n
 describe('emplacements de construction — layout', () => {
   const slots = buildSlots(0);
 
-  it('le nombre d\'emplacements correspond aux dimensions des 4 blocs (milieu 5x22, cotes 3x16 chacun, bas 12x3)', () => {
-    // Choix explicite de densite plutot que de raret (demande directe) :
-    // remplace la fourchette 40-60 de la premiere version du systeme — voir
-    // packages/data/scripts/gen_slots.ts.
-    expect(slots.length).toBe(5 * 22 + 2 * 3 * 16 + 12 * 3);
+  it('le nombre d\'emplacements correspond a 2 bandes (interieur/exterieur) de 2 colonnes/rangees par segment de chemin', () => {
+    // 410, pas les 420 attendus au crayon : les coins de bandes
+    // perpendiculaires se recoupent (dedup), et l'ordre de traitement
+    // (bras avant connecteur, cf. gen_slots.ts) determine qui garde la case
+    // en trop — ici c'est le connecteur ("interieur-bas") qui en perd le
+    // plus. Voir packages/data/scripts/gen_slots.ts pour le detail par bande.
+    expect(slots.length).toBe(410);
   });
 
   it('deux emplacements ne se chevauchent jamais (distance >= SLOT_SIZE)', () => {
@@ -58,7 +60,7 @@ describe('emplacements de construction — layout', () => {
     }
   });
 
-  it('aucun emplacement ne tombe sur le couloir', () => {
+  it('aucun emplacement n\'empiete a moins de PATH_CLEARANCE du couloir', () => {
     const lane = lanes.find((l) => l.player === 0)!;
     const path: Array<[number, number]> = [lane.spawn, ...lane.waypoints];
     for (const s of slots) {
@@ -68,7 +70,22 @@ describe('emplacements de construction — layout', () => {
         const [bx, by] = path[i + 1]!;
         minDist = Math.min(minDist, distanceToSegment(s.x, s.y, ax, ay, bx, by));
       }
-      expect(minDist).toBeGreaterThanOrEqual(SLOT_SIZE);
+      expect(minDist).toBeGreaterThanOrEqual(PATH_CLEARANCE - 1); // -1 : tolerance d'arrondi
+    }
+  });
+
+  it('aucun emplacement n\'est a plus de PATH_CLEARANCE + 2*SLOT_SIZE du couloir (les tours restent collees au chemin)', () => {
+    const lane = lanes.find((l) => l.player === 0)!;
+    const path: Array<[number, number]> = [lane.spawn, ...lane.waypoints];
+    const maxAllowed = PATH_CLEARANCE + 2 * SLOT_SIZE;
+    for (const s of slots) {
+      let minDist = Infinity;
+      for (let i = 0; i < path.length - 1; i++) {
+        const [ax, ay] = path[i]!;
+        const [bx, by] = path[i + 1]!;
+        minDist = Math.min(minDist, distanceToSegment(s.x, s.y, ax, ay, bx, by));
+      }
+      expect(minDist).toBeLessThanOrEqual(maxAllowed + 1); // +1 : tolerance d'arrondi
     }
   });
 });

@@ -185,4 +185,12 @@ export const buildableTowers = ['h000', 'o001', 'o003', 'h005', 'h008', 'o008'];
 
 export { type Slot, type SlotZoneBounds, SLOT_SIZE, buildSlots, nearestSlot, buildZones } from './slots.js';
 export { type LaneAnchors, laneAnchors } from './laneGeometry.js';
-export { type ZoneFootprint, PATH_WIDTH, DIMS, zoneFootprints, slotFootprint } from './zoneFootprints.js';
+export {
+  type ZoneFootprint,
+  type BandId,
+  type BandSlots,
+  PATH_WIDTH,
+  PATH_CLEARANCE,
+  zoneFootprints,
+  laneBandSlots,
+} from './zoneFootprints.js';
