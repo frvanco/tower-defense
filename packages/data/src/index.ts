@@ -166,7 +166,9 @@ export const lanes: Lane[] = (raw.lanes as Array<Record<string, unknown>>).map((
   player: l.player as number,
   color: l.color as string,
   spawn: l.spawn as [number, number],
-  waypoints: [l.waypoint1, l.waypoint2, l.end] as Array<[number, number]>,
+  // spawn = entree (bras horizontal gauche), end = sortie (bras horizontal
+  // droit) ; waypoint1..4 = les 4 coins du U lui-meme (voir laneGeometry.ts).
+  waypoints: [l.waypoint1, l.waypoint2, l.waypoint3, l.waypoint4, l.end] as Array<[number, number]>,
   buildZone: l.buildZone as Lane['buildZone'],
 }));
 
