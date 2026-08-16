@@ -5,6 +5,30 @@ export type ArmorType = 'small' | 'medium' | 'large' | 'fort' | 'normal' | 'hero
 export type AttackType = 'normal' | 'pierce' | 'siege' | 'magic' | 'chaos' | 'hero' | 'spells';
 export type TargetFlag = 'air' | 'ground';
 
+/** Ralentissement de zone (branche Ice). Le rayon d'application est
+ * derive de aoeFull (pas de champ dedie) ; maxTargets n'a pas d'equivalent
+ * existant, ajoute ici expres — packages/sim ne fait toucher le
+ * ralentissement qu'aux `maxTargets` creeps les plus proches du point
+ * d'impact, dans un rayon aoeFull. */
+export interface SlowAbility {
+  pct: number;
+  maxTargets: number;
+  durationSec: number;
+}
+
+/** Poison sur la duree (branche Poison), mono-cible. */
+export interface PoisonAbility {
+  slowPct: number;
+  dps: number;
+  durationSec: number;
+}
+
+/** Chaine d'eclair (branche Lightning) : degats au rebond n = base * falloff^n. */
+export interface ChainAbility {
+  bounces: number;
+  falloff: number;
+}
+
 export interface TowerDef {
   id: string;
   name: string;
@@ -27,6 +51,11 @@ export interface TowerDef {
   upgradesTo: string[];
   requires: string[];
   abilities: string[];
+  /** Abilites specifiques a une branche — absentes des donnees source,
+   * definies via balance.json (packages/sim/src/sim.ts + status.ts). */
+  slow?: SlowAbility;
+  poison?: PoisonAbility;
+  chain?: ChainAbility;
 }
 
 export interface CreepDef {
