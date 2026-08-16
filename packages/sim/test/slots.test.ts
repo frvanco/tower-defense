@@ -39,9 +39,9 @@ describe('emplacements de construction — layout', () => {
   });
 
   it('au sein d\'une rangee, les emplacements sont regulierement espaces (>= SLOT_SIZE)', () => {
-    // L'espacement s'adapte a l'etendue reelle de chaque zone
-    // (packages/data/src/zoneFootprints.ts) : les rangees couvrent toute la
-    // zone plutot que d'etre serrees a exactement SLOT_SIZE.
+    // Les tours sont collees (espacement SLOT_SIZE exact, cf.
+    // packages/data/src/zoneFootprints.ts) — verifie la regularite plutot que
+    // la valeur exacte pour rester robuste a l'arrondi des coordonnees.
     const byGroup = new Map<string, typeof slots>();
     for (const s of slots) {
       if (!byGroup.has(s.groupId)) byGroup.set(s.groupId, []);
