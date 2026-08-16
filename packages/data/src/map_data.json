@@ -24,7 +24,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.8999999761581421,
       "atk1Range": 1000,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "ground",
       "atk1AoeFull": 60,
       "atk1AoeMedium": 120,
@@ -40,7 +40,7 @@
       "pointValue": 21,
       "atk1DamageBase": 59,
       "atk1Sides": 1,
-      "atk1Cooldown": 1.0,
+      "atk1Cooldown": 1,
       "atk1Targets": "ground",
       "atk1AoeFull": 45,
       "atk1AoeMedium": 90,
@@ -59,7 +59,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.949999988079071,
       "atk1Range": 900,
-      "acquisitionRange": 1500.0,
+      "acquisitionRange": 1500,
       "atk1Targets": "ground",
       "upgradesTo": "n003,h002",
       "requires": "",
@@ -74,7 +74,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.5,
       "atk1Range": 800,
-      "acquisitionRange": 800.0,
+      "acquisitionRange": 800,
       "atk1Targets": "air",
       "atk1AoeFull": 45,
       "atk1AoeMedium": 90,
@@ -93,7 +93,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.4000000059604645,
       "atk1Range": 900,
-      "acquisitionRange": 900.0,
+      "acquisitionRange": 900,
       "atk1Targets": "air",
       "atk1AoeFull": 50,
       "atk1AoeMedium": 100,
@@ -112,7 +112,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.30000001192092896,
       "atk1Range": 1000,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "air",
       "atk1AoeFull": 60,
       "atk1AoeMedium": 120,
@@ -129,9 +129,9 @@
       "pointValue": 630,
       "atk1DamageBase": 9999,
       "atk1Sides": 1,
-      "atk1Cooldown": 6.0,
+      "atk1Cooldown": 6,
       "atk1Range": 1600,
-      "acquisitionRange": 1600.0,
+      "acquisitionRange": 1600,
       "atk1AttackType": "siege",
       "atk1Targets": "ground",
       "atk1AoeFull": 100,
@@ -149,9 +149,9 @@
       "pointValue": 1470,
       "atk1DamageBase": 9999,
       "atk1Sides": 1,
-      "atk1Cooldown": 2.0,
+      "atk1Cooldown": 2,
       "atk1Range": 2000,
-      "acquisitionRange": 1600.0,
+      "acquisitionRange": 1600,
       "atk1AttackType": "siege",
       "atk1Targets": "ground",
       "atk1AoeFull": 100,
@@ -188,7 +188,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.10000000149011612,
       "atk1Range": 1000,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "air",
       "atk1AoeFull": 60,
       "atk1AoeMedium": 120,
@@ -224,7 +224,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.10000000149011612,
       "atk1Range": 1000,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "air,ground",
       "upgradesTo": "o006,n00E",
       "requires": "",
@@ -239,7 +239,7 @@
       "atk1DamageBase": 14,
       "atk1Sides": 1,
       "atk1Cooldown": 0.4000000059604645,
-      "acquisitionRange": 800.0,
+      "acquisitionRange": 800,
       "atk1Targets": "air,ground",
       "upgradesTo": "n00C,o002",
       "requires": "",
@@ -268,8 +268,8 @@
       "pointValue": 56,
       "atk1DamageBase": 19,
       "atk1Sides": 1,
-      "atk1Cooldown": 1.0,
-      "acquisitionRange": 800.0,
+      "atk1Cooldown": 1,
+      "acquisitionRange": 800,
       "atk1Targets": "air,ground",
       "atk1AoeFull": 50,
       "atk1AoeMedium": 100,
@@ -324,7 +324,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.05000000074505806,
       "atk1Range": 1500,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "air,ground",
       "atk1AoeFull": 10,
       "atk1AoeMedium": 20,
@@ -360,7 +360,7 @@
       "atk1DamageBase": 39,
       "atk1Sides": 1,
       "atk1Cooldown": 0.009999999776482582,
-      "acquisitionRange": 800.0,
+      "acquisitionRange": 800,
       "atk1AttackType": "normal",
       "atk1Targets": "air,enemies,ground",
       "upgradesTo": "n00J,o009",
@@ -376,7 +376,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.009999999776482582,
       "atk1Range": 1200,
-      "acquisitionRange": 800.0,
+      "acquisitionRange": 800,
       "atk1AttackType": "normal",
       "atk1Targets": "air,enemies,ground",
       "upgradesTo": "o00A,n00K",
@@ -392,7 +392,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.009999999776482582,
       "atk1Range": 2000,
-      "acquisitionRange": 1200.0,
+      "acquisitionRange": 1200,
       "atk1AttackType": "normal",
       "atk1Targets": "air,enemies,ground",
       "upgradesTo": "o00B,n00L",
@@ -408,7 +408,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.009999999776482582,
       "atk1Range": 2000,
-      "acquisitionRange": 1200.0,
+      "acquisitionRange": 1200,
       "atk1AttackType": "normal",
       "atk1Targets": "air,enemies,ground",
       "upgradesTo": "n00M",
@@ -1069,20 +1069,20 @@
       "player": 0,
       "color": "red",
       "spawn": [
-        -4736.0,
-        4800.0
+        -4728,
+        4800
       ],
       "waypoint1": [
-        -4720.0,
-        2032.0
+        -4728,
+        2048
       ],
       "waypoint2": [
-        -3568.0,
-        2064.0
+        -3568,
+        2048
       ],
       "end": [
-        -3568.0,
-        4848.0
+        -3568,
+        4848
       ],
       "buildZone": {
         "left": -5408,
@@ -1095,20 +1095,20 @@
       "player": 1,
       "color": "blue",
       "spawn": [
-        -1936.0,
-        4784.0
+        -1912,
+        4784
       ],
       "waypoint1": [
-        -1888.0,
-        2032.0
+        -1912,
+        2048
       ],
       "waypoint2": [
-        -752.0,
-        2064.0
+        -752,
+        2048
       ],
       "end": [
-        -752.0,
-        4832.0
+        -752,
+        4832
       ],
       "buildZone": {
         "left": -2624,
@@ -1121,20 +1121,20 @@
       "player": 2,
       "color": "teal",
       "spawn": [
-        784.0,
-        4816.0
+        792,
+        4816
       ],
       "waypoint1": [
-        800.0,
-        2032.0
+        792,
+        2056
       ],
       "waypoint2": [
-        1936.0,
-        2080.0
+        1936,
+        2056
       ],
       "end": [
-        1936.0,
-        4784.0
+        1936,
+        4784
       ],
       "buildZone": {
         "left": 96,
@@ -1147,20 +1147,20 @@
       "player": 3,
       "color": "purple",
       "spawn": [
-        3584.0,
-        4768.0
+        3600,
+        4768
       ],
       "waypoint1": [
-        3616.0,
-        2032.0
+        3600,
+        2048
       ],
       "waypoint2": [
-        4752.0,
-        2064.0
+        4744,
+        2048
       ],
       "end": [
-        4736.0,
-        4784.0
+        4744,
+        4784
       ],
       "buildZone": {
         "left": 2912,
@@ -1173,20 +1173,20 @@
       "player": 4,
       "color": "yellow",
       "spawn": [
-        -4736.0,
-        -112.0
+        -4744,
+        -112
       ],
       "waypoint1": [
-        -4752.0,
-        -2832.0
+        -4744,
+        -2816
       ],
       "waypoint2": [
-        -3568.0,
-        -2800.0
+        -3568,
+        -2816
       ],
       "end": [
-        -3568.0,
-        -64.0
+        -3568,
+        -64
       ],
       "buildZone": {
         "left": -5376,
@@ -1199,20 +1199,20 @@
       "player": 5,
       "color": "orange",
       "spawn": [
-        -1920.0,
-        -112.0
+        -1920,
+        -112
       ],
       "waypoint1": [
-        -1920.0,
-        -2832.0
+        -1920,
+        -2816
       ],
       "waypoint2": [
-        -752.0,
-        -2800.0
+        -752,
+        -2816
       ],
       "end": [
-        -752.0,
-        -112.0
+        -752,
+        -112
       ],
       "buildZone": {
         "left": -2592,
@@ -1225,20 +1225,20 @@
       "player": 6,
       "color": "green",
       "spawn": [
-        768.0,
-        -96.0
+        768,
+        -96
       ],
       "waypoint1": [
-        768.0,
-        -2832.0
+        768,
+        -2816
       ],
       "waypoint2": [
-        1936.0,
-        -2800.0
+        1928,
+        -2816
       ],
       "end": [
-        1920.0,
-        -80.0
+        1928,
+        -80
       ],
       "buildZone": {
         "left": 96,
@@ -1251,20 +1251,20 @@
       "player": 7,
       "color": "pink",
       "spawn": [
-        3584.0,
-        -80.0
+        3584,
+        -80
       ],
       "waypoint1": [
-        3584.0,
-        -2832.0
+        3584,
+        -2816
       ],
       "waypoint2": [
-        4752.0,
-        -2800.0
+        4752,
+        -2816
       ],
       "end": [
-        4752.0,
-        -64.0
+        4752,
+        -64
       ],
       "buildZone": {
         "left": 2944,
