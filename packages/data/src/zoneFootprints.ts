@@ -16,28 +16,26 @@ export const PATH_WIDTH = 90;
 export const PATH_CLEARANCE = 84;
 
 /** Emprise minimale entre deux tours (packages/sim/src/sim.ts) — aussi
- * l'espacement, exact, des emplacements le long d'une bande (les tours sont
- * collees). Duplique le SLOT_SIZE de slots.js (meme convention, pas
- * reexporte d'ici pour eviter un conflit de nom au niveau de index.ts). */
+ * l'espacement, exact, des emplacements le long d'une bande ou d'une grille
+ * (les tours sont collees). Duplique le SLOT_SIZE de slots.js (meme
+ * convention, pas reexporte d'ici pour eviter un conflit de nom au niveau
+ * de index.ts). */
 const SLOT_SIZE = 64;
 
-/** Marge visuelle entre le dernier emplacement d'une bande et le bord du
+/** Marge visuelle entre le dernier emplacement d'une zone et le bord du
  * plateau rendu (evite qu'une tour semble poser sa base dans le vide au bord
  * de la falaise). N'affecte pas le placement des emplacements eux-memes. */
 const PLATFORM_MARGIN = 32;
 
-export type BandId =
-  | 'interieur-gauche'
-  | 'exterieur-gauche'
-  | 'interieur-droite'
-  | 'exterieur-droite'
-  | 'interieur-bas'
-  | 'exterieur-bas';
+export type ZoneId = 'interieur' | 'exterieur-gauche' | 'exterieur-droite' | 'exterieur-bas';
 
-/** Rectangle d'un plateau rendu (apps/web/src/terrain3d.ts) — une bande
- * longeant un segment du chemin, pas une zone remplie. */
+/** Rectangle d'un plateau rendu (apps/web/src/terrain3d.ts). Les 3 plateaux
+ * exterieurs debordent volontairement les uns dans les autres au niveau des
+ * coins bas (cf. zoneFootprints ci-dessous) pour qu'il n'y ait pas d'encoche
+ * visible entre eux, meme si leurs bords ne tombent pas au pixel pres au
+ * meme endroit. */
 export interface ZoneFootprint {
-  id: BandId;
+  id: ZoneId;
   x0: number;
   x1: number;
   y0: number;
@@ -45,8 +43,9 @@ export interface ZoneFootprint {
 }
 
 export interface BandSlots {
-  /** Identifiant de rangee/colonne, ex. "interieur-gauche-c1" — utilise tel
-   * quel comme groupId dans build_slots.json. */
+  /** Identifiant de rangee/colonne, ex. "interieur-r1" ou
+   * "exterieur-gauche-c1" — utilise tel quel comme groupId dans
+   * build_slots.json. */
   groupId: string;
   label: string;
   points: Array<[number, number]>;
@@ -63,89 +62,143 @@ function range(start: number, end: number, step: number): number[] {
 }
 
 /**
- * Emplacements bruts (avant filtrage/dedup, a la charge de l'appelant — voir
- * packages/data/scripts/gen_slots.ts) : pour chacun des 3 segments du
- * couloir (bras gauche, bras droit, connecteur), deux bandes de 2
- * colonnes/rangees chacune, l'une du cote interieur du U, l'autre du cote
- * exterieur. Chaque bande longe son segment sur toute sa longueur, a
- * PATH_CLEARANCE puis PATH_CLEARANCE + SLOT_SIZE de la ligne du chemin —
- * dessine, vu de dessus, deux U concentriques de tours autour du couloir.
- * Les coins de bandes perpendiculaires se recoupent par construction ; le
- * dedup est fait par l'appelant, pas ici.
+ * Echantillonne une polyligne a intervalle regulier (longueur d'arc), en
+ * numerotant chaque point par l'indice du segment source (0 = premier
+ * segment de `points`, etc.) — sert a re-decouper le contour continu
+ * ci-dessous en groupes nommes (gauche / bas / droite) sans jamais generer
+ * deux points pour un meme endroit : contrairement a un echantillonnage par
+ * segment independant, un coin n'est visite qu'une seule fois.
+ */
+function sampleAlongPolyline(points: Array<[number, number]>, step: number): Array<{ point: [number, number]; segment: number }> {
+  const samples: Array<{ point: [number, number]; segment: number }> = [];
+  let covered = 0;
+  let nextAt = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const [ax, ay] = points[i]!;
+    const [bx, by] = points[i + 1]!;
+    const segLen = Math.hypot(bx - ax, by - ay);
+    while (nextAt <= covered + segLen + 1e-6) {
+      const t = segLen === 0 ? 0 : (nextAt - covered) / segLen;
+      samples.push({ point: [ax + t * (bx - ax), ay + t * (by - ay)], segment: i });
+      nextAt += step;
+    }
+    covered += segLen;
+  }
+  return samples;
+}
+
+/**
+ * Emplacements bruts (avant filtrage, a la charge de l'appelant — voir
+ * packages/data/scripts/gen_slots.ts) :
+ *
+ * - L'INTERIEUR du U (entre les deux bras, au-dessus du connecteur) est
+ *   entierement rempli par une grille reguliere a PATH_CLEARANCE du chemin,
+ *   espacee de SLOT_SIZE (tours collees) — pas juste une bande le long des
+ *   bras.
+ * - L'EXTERIEUR est une bande de profondeur 2 qui longe les 3 segments du
+ *   couloir (bras gauche, connecteur, bras droit) COMME UN SEUL CONTOUR
+ *   continu : on decale la polyligne du chemin perpendiculairement vers
+ *   l'exterieur (de PATH_CLEARANCE, puis PATH_CLEARANCE + SLOT_SIZE), et on
+ *   echantillonne ce contour a intervalle SLOT_SIZE. Les coins se raccordent
+ *   naturellement (le contour decale d'un angle droit reste un angle droit,
+ *   son sommet est simplement les deux segments voisins decales) : plus
+ *   besoin de dedupliquer, contrairement a une generation par segment
+ *   independant (retour direct : ca laissait une encoche visible aux coins).
  */
 export function laneBandSlots(lane: Lane): BandSlots[] {
   const { leftArmX, rightArmX, connectorY, armTopY } = laneAnchors(lane);
-  // Symetrique au bornage des rangees du connecteur ci-dessous : la colonne
-  // "interieure" d'un bras (x entre les deux bras, donc dans l'intervalle X
-  // du connecteur) ne peut pas descendre jusqu'a y = connectorY, sous peine
-  // de toucher la ligne du connecteur lui-meme (distance 0, quel que soit
-  // le decalage en X). Elle est donc bornee a connectorY + PATH_CLEARANCE.
-  // La colonne "exterieure" (x hors de l'intervalle du connecteur) peut
-  // descendre jusqu'a connectorY sans risque : sa distance au connecteur se
-  // mesure alors depuis l'extremite du segment, deja >= PATH_CLEARANCE.
-  const armYsInterior = range(connectorY + PATH_CLEARANCE, armTopY, SLOT_SIZE);
-  const armYsExterior = range(connectorY, armTopY, SLOT_SIZE);
-  // La rangee "interieure" du connecteur (y = connectorY + PATH_CLEARANCE ou
-  // plus) est encore dans l'intervalle Y des deux bras : sans bornage en X
-  // elle traverserait leur ligne de chemin (x = leftArmX / rightArmX) au
-  // lieu de juste recouper leurs colonnes en coin. On la borne donc a la
-  // meme limite que les colonnes interieures des bras. La rangee
-  // "exterieure" (y = connectorY - PATH_CLEARANCE ou moins) est hors de cet
-  // intervalle : distance aux bras deja garantie via leurs extremites, elle
-  // peut couvrir toute la largeur sans risque.
-  const connectorXsInterior = range(leftArmX + PATH_CLEARANCE, rightArmX - PATH_CLEARANCE, SLOT_SIZE);
-  const connectorXsExterior = range(leftArmX, rightArmX, SLOT_SIZE);
+
+  // --- Interieur : grille pleine ---
+  const interiorXs = range(leftArmX + PATH_CLEARANCE, rightArmX - PATH_CLEARANCE, SLOT_SIZE);
+  const interiorYs = range(connectorY + PATH_CLEARANCE, armTopY, SLOT_SIZE);
 
   const bands: BandSlots[] = [];
+  interiorYs.forEach((y, i) => {
+    bands.push({ groupId: `interieur-r${i + 1}`, label: `Interieur — rangee ${i + 1}`, points: interiorXs.map((x) => [x, y]) });
+  });
 
-  const arm = (id: string, label: string, xBase: number, dir: 1 | -1, ys: number[]) => {
-    for (let i = 0; i < 2; i++) {
-      const x = xBase + dir * (PATH_CLEARANCE + i * SLOT_SIZE);
-      bands.push({ groupId: `${id}-c${i + 1}`, label: `${label} — colonne ${i + 1}`, points: ys.map((y) => [x, y]) });
-    }
-  };
-  arm('interieur-gauche', 'Interieur gauche', leftArmX, 1, armYsInterior);
-  arm('exterieur-gauche', 'Exterieur gauche', leftArmX, -1, armYsExterior);
-  arm('interieur-droite', 'Interieur droite', rightArmX, -1, armYsInterior);
-  arm('exterieur-droite', 'Exterieur droite', rightArmX, 1, armYsExterior);
+  // --- Exterieur : contour continu offset, un jeu de points par colonne (c1/c2) ---
+  // Contour du couloir vu de l'exterieur du U : haut du bras gauche -> coin
+  // bas-gauche -> coin bas-droit -> haut du bras droit. Decale de `offset`
+  // (perpendiculairement, donc en X pour les bras et en Y pour le
+  // connecteur), le coin decale est simplement l'intersection des deux
+  // lignes decalees — un angle droit reste un angle droit.
+  const exteriorContour = (offset: number): Array<[number, number]> => [
+    [leftArmX - offset, armTopY],
+    [leftArmX - offset, connectorY - offset],
+    [rightArmX + offset, connectorY - offset],
+    [rightArmX + offset, armTopY],
+  ];
 
-  const connector = (id: string, label: string, yBase: number, dir: 1 | -1, xs: number[]) => {
-    for (let i = 0; i < 2; i++) {
-      const y = yBase + dir * (PATH_CLEARANCE + i * SLOT_SIZE);
-      bands.push({ groupId: `${id}-r${i + 1}`, label: `${label} — rangee ${i + 1}`, points: xs.map((x) => [x, y]) });
+  const segmentGroup = ['exterieur-gauche', 'exterieur-bas', 'exterieur-droite'] as const;
+  const segmentLabel = ['Exterieur gauche', 'Exterieur bas', 'Exterieur droite'] as const;
+
+  for (let col = 0; col < 2; col++) {
+    const offset = PATH_CLEARANCE + col * SLOT_SIZE;
+    const samples = sampleAlongPolyline(exteriorContour(offset), SLOT_SIZE);
+    const bySegment = new Map<number, Array<[number, number]>>();
+    for (const s of samples) {
+      if (!bySegment.has(s.segment)) bySegment.set(s.segment, []);
+      bySegment.get(s.segment)!.push(s.point);
     }
-  };
-  connector('interieur-bas', 'Interieur bas', connectorY, 1, connectorXsInterior);
-  connector('exterieur-bas', 'Exterieur bas', connectorY, -1, connectorXsExterior);
+    for (let seg = 0; seg < 3; seg++) {
+      const pts = bySegment.get(seg) ?? [];
+      if (pts.length === 0) continue;
+      const id = segmentGroup[seg];
+      bands.push({
+        groupId: `${id}-c${col + 1}`,
+        label: `${segmentLabel[seg]} — colonne ${col + 1}`,
+        points: pts,
+      });
+    }
+  }
 
   return bands;
 }
 
 /**
- * Rectangles des 6 plateaux rendus (apps/web/src/terrain3d.ts) : chacun
- * couvre les 2 colonnes/rangees d'une bande, plus une fine marge visuelle
- * (PLATFORM_MARGIN). Correspond exactement a l'emprise de laneBandSlots(),
- * donc plateau rendu et emplacements ne peuvent pas diverger.
+ * Rectangles des plateaux rendus (apps/web/src/terrain3d.ts) : un grand
+ * rectangle pour l'interieur plein, et 3 rectangles pour les bandes
+ * exterieures. Ces 3 derniers debordent volontairement les uns dans les
+ * autres au niveau des coins bas (leur etendue depasse le strict minimum)
+ * pour garantir un raccord visuel sans encoche, meme si leurs bords ne
+ * correspondent pas au pixel pres a l'emplacement exact du dernier
+ * emplacement.
  */
 export function zoneFootprints(lane: Lane): ZoneFootprint[] {
   const { leftArmX, rightArmX, connectorY, armTopY } = laneAnchors(lane);
-  const armY0 = Math.min(connectorY, armTopY) - PLATFORM_MARGIN;
-  const armY1 = Math.max(connectorY, armTopY) + PLATFORM_MARGIN;
-  // La rangee interieure du connecteur est bornee (meme limite que
-  // laneBandSlots) pour ne pas chevaucher la ligne des bras ; l'exterieure
-  // couvre la largeur complete, cf. commentaire dans laneBandSlots.
-  const interiorX0 = Math.min(leftArmX, rightArmX) + PATH_CLEARANCE - PLATFORM_MARGIN;
-  const interiorX1 = Math.max(leftArmX, rightArmX) - PATH_CLEARANCE + PLATFORM_MARGIN;
-  const exteriorX0 = Math.min(leftArmX, rightArmX) - PLATFORM_MARGIN;
-  const exteriorX1 = Math.max(leftArmX, rightArmX) + PLATFORM_MARGIN;
-  const bandDepth = SLOT_SIZE + 2 * PLATFORM_MARGIN;
+  const outerDepth = PATH_CLEARANCE + SLOT_SIZE; // 148 : bord le plus eloigne du chemin
 
   return [
-    { id: 'interieur-gauche', x0: leftArmX + PATH_CLEARANCE - PLATFORM_MARGIN, x1: leftArmX + PATH_CLEARANCE - PLATFORM_MARGIN + bandDepth, y0: armY0, y1: armY1 },
-    { id: 'exterieur-gauche', x0: leftArmX - PATH_CLEARANCE - SLOT_SIZE - PLATFORM_MARGIN, x1: leftArmX - PATH_CLEARANCE + PLATFORM_MARGIN, y0: armY0, y1: armY1 },
-    { id: 'interieur-droite', x0: rightArmX - PATH_CLEARANCE - SLOT_SIZE - PLATFORM_MARGIN, x1: rightArmX - PATH_CLEARANCE + PLATFORM_MARGIN, y0: armY0, y1: armY1 },
-    { id: 'exterieur-droite', x0: rightArmX + PATH_CLEARANCE - PLATFORM_MARGIN, x1: rightArmX + PATH_CLEARANCE - PLATFORM_MARGIN + bandDepth, y0: armY0, y1: armY1 },
-    { id: 'interieur-bas', x0: interiorX0, x1: interiorX1, y0: connectorY + PATH_CLEARANCE - PLATFORM_MARGIN, y1: connectorY + PATH_CLEARANCE - PLATFORM_MARGIN + bandDepth },
-    { id: 'exterieur-bas', x0: exteriorX0, x1: exteriorX1, y0: connectorY - PATH_CLEARANCE - SLOT_SIZE - PLATFORM_MARGIN, y1: connectorY - PATH_CLEARANCE + PLATFORM_MARGIN },
+    {
+      id: 'interieur',
+      x0: leftArmX + PATH_CLEARANCE - PLATFORM_MARGIN,
+      x1: rightArmX - PATH_CLEARANCE + PLATFORM_MARGIN,
+      y0: connectorY + PATH_CLEARANCE - PLATFORM_MARGIN,
+      y1: armTopY + PLATFORM_MARGIN,
+    },
+    {
+      id: 'exterieur-gauche',
+      x0: leftArmX - outerDepth - PLATFORM_MARGIN,
+      x1: leftArmX - PATH_CLEARANCE + PLATFORM_MARGIN,
+      // Deborde jusqu'au bord bas du plateau "exterieur-bas" pour couvrir le coin.
+      y0: connectorY - outerDepth - PLATFORM_MARGIN,
+      y1: armTopY + PLATFORM_MARGIN,
+    },
+    {
+      id: 'exterieur-droite',
+      x0: rightArmX + PATH_CLEARANCE - PLATFORM_MARGIN,
+      x1: rightArmX + outerDepth + PLATFORM_MARGIN,
+      y0: connectorY - outerDepth - PLATFORM_MARGIN,
+      y1: armTopY + PLATFORM_MARGIN,
+    },
+    {
+      id: 'exterieur-bas',
+      // Deborde jusqu'au bord exterieur des plateaux des bras pour couvrir les 2 coins.
+      x0: leftArmX - outerDepth - PLATFORM_MARGIN,
+      x1: rightArmX + outerDepth + PLATFORM_MARGIN,
+      y0: connectorY - outerDepth - PLATFORM_MARGIN,
+      y1: connectorY - PATH_CLEARANCE + PLATFORM_MARGIN,
+    },
   ];
 }

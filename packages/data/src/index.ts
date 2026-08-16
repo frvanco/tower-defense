@@ -187,7 +187,7 @@ export { type Slot, type SlotZoneBounds, SLOT_SIZE, buildSlots, nearestSlot, bui
 export { type LaneAnchors, laneAnchors } from './laneGeometry.js';
 export {
   type ZoneFootprint,
-  type BandId,
+  type ZoneId,
   type BandSlots,
   PATH_WIDTH,
   PATH_CLEARANCE,

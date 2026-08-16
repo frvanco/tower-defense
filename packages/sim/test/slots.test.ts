@@ -22,13 +22,31 @@ function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: n
 describe('emplacements de construction — layout', () => {
   const slots = buildSlots(0);
 
-  it('le nombre d\'emplacements correspond a 2 bandes (interieur/exterieur) de 2 colonnes/rangees par segment de chemin', () => {
-    // 410, pas les 420 attendus au crayon : les coins de bandes
-    // perpendiculaires se recoupent (dedup), et l'ordre de traitement
-    // (bras avant connecteur, cf. gen_slots.ts) determine qui garde la case
-    // en trop — ici c'est le connecteur ("interieur-bas") qui en perd le
-    // plus. Voir packages/data/scripts/gen_slots.ts pour le detail par bande.
-    expect(slots.length).toBe(410);
+  it('le nombre d\'emplacements correspond a une grille pleine interieure + un contour exterieur de profondeur 2', () => {
+    // 415, pas les 423 attendus au crayon : l'interieur (grille 11x25 = 275)
+    // correspond exactement, l'ecart vient du contour exterieur — 4
+    // emplacements sont deduplique pres des coins bas. Ce n'est pas un
+    // artefact de generation : pres d'un virage a 90°, deux points
+    // echantillonnes a exactement SLOT_SIZE d'arc peuvent se retrouver a
+    // moins de SLOT_SIZE en ligne droite (le chemin "replie" sur lui-meme) —
+    // le dedup applique la meme regle que partout ailleurs (deux
+    // emplacements ne se chevauchent jamais). Voir
+    // packages/data/scripts/gen_slots.ts pour le detail par groupe.
+    expect(slots.length).toBe(415);
+  });
+
+  it('l\'interieur du U forme une grille pleine de 11 x 25 sans case manquante', () => {
+    const interiorGroups = Array.from({ length: 25 }, (_, i) => `interieur-r${i + 1}`);
+    const byGroup = new Map<string, typeof slots>();
+    for (const s of slots) {
+      if (!byGroup.has(s.groupId)) byGroup.set(s.groupId, []);
+      byGroup.get(s.groupId)!.push(s);
+    }
+    for (const groupId of interiorGroups) {
+      const group = byGroup.get(groupId);
+      expect(group, `groupe ${groupId} manquant`).toBeDefined();
+      expect(group!.length, `groupe ${groupId} incomplet`).toBe(11);
+    }
   });
 
   it('deux emplacements ne se chevauchent jamais (distance >= SLOT_SIZE)', () => {
@@ -74,11 +92,16 @@ describe('emplacements de construction — layout', () => {
     }
   });
 
-  it('aucun emplacement n\'est a plus de PATH_CLEARANCE + 2*SLOT_SIZE du couloir (les tours restent collees au chemin)', () => {
+  it('aucun emplacement exterieur n\'est a plus de PATH_CLEARANCE + 2*SLOT_SIZE du couloir (les tours restent collees au chemin)', () => {
+    // Restreint aux groupes exterieur-* : l'interieur remplit toute la
+    // surface entre les bras (jusqu'a armTopY), donc loin du chemin par
+    // construction — ce test ne s'applique qu'a la bande qui longe le
+    // chemin.
     const lane = lanes.find((l) => l.player === 0)!;
     const path: Array<[number, number]> = [lane.spawn, ...lane.waypoints];
     const maxAllowed = PATH_CLEARANCE + 2 * SLOT_SIZE;
     for (const s of slots) {
+      if (!s.groupId.startsWith('exterieur-')) continue;
       let minDist = Infinity;
       for (let i = 0; i < path.length - 1; i++) {
         const [ax, ay] = path[i]!;

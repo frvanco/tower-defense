@@ -1,15 +1,15 @@
 import type { Lane } from './index.js';
 
 /**
- * Points cles du couloir : deux bras quasi verticaux relies par une liaison
- * quasi horizontale (spawn -> wp1 -> wp2 -> end). Les segments reels ont une
- * pente negligeable (quelques dizaines d'unites sur des milliers) ; les
- * traiter comme des droites axees suffit pour poser des blocs rectangulaires
- * (emplacements de construction, plateaux de terrain).
+ * Points cles du couloir : deux bras verticaux relies par un connecteur
+ * horizontal (spawn -> wp1 -> wp2 -> end). Les waypoints de map_data.json
+ * sont exactement axes (spawn.x == wp1.x, wp2.x == end.x, wp1.y == wp2.y) —
+ * moyenner reste la methode utilisee ici par simplicite/robustesse, mais ne
+ * corrige plus aucune derive reelle.
  *
- * Partage entre packages/data/scripts/gen_slots.ts (positions des
- * emplacements) et apps/web (plateaux sureleves) pour eviter que les deux
- * dérivent l'un de l'autre.
+ * Partage entre packages/data/src/zoneFootprints.ts (emplacements de
+ * construction et plateaux) pour eviter que geometrie du chemin et
+ * geometrie des zones constructibles ne puissent diverger.
  */
 export interface LaneAnchors {
   leftArmX: number;
