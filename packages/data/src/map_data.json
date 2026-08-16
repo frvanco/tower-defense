@@ -1069,208 +1069,208 @@
       "player": 0,
       "color": "red",
       "spawn": [
-        -4572,
+        -4392,
         3672
       ],
       "waypoint1": [
-        -4572,
+        -4392,
         2048
       ],
       "waypoint2": [
-        -3724,
+        -3904,
         2048
       ],
       "end": [
-        -3724,
+        -3904,
         3672
       ],
       "buildZone": {
-        "left": -4792,
-        "bottom": 1828,
-        "right": -3504,
-        "top": 3892
+        "left": -4672,
+        "bottom": 1768,
+        "right": -3624,
+        "top": 3952
       }
     },
     {
       "player": 1,
       "color": "blue",
       "spawn": [
-        -1756,
+        -1576,
         3672
       ],
       "waypoint1": [
-        -1756,
+        -1576,
         2048
       ],
       "waypoint2": [
-        -908,
+        -1088,
         2048
       ],
       "end": [
-        -908,
+        -1088,
         3672
       ],
       "buildZone": {
-        "left": -1976,
-        "bottom": 1828,
-        "right": -688,
-        "top": 3892
+        "left": -1856,
+        "bottom": 1768,
+        "right": -808,
+        "top": 3952
       }
     },
     {
       "player": 2,
       "color": "teal",
       "spawn": [
-        940,
+        1120,
         3680
       ],
       "waypoint1": [
-        940,
+        1120,
         2056
       ],
       "waypoint2": [
-        1788,
+        1608,
         2056
       ],
       "end": [
-        1788,
+        1608,
         3680
       ],
       "buildZone": {
-        "left": 720,
-        "bottom": 1836,
-        "right": 2008,
-        "top": 3900
+        "left": 840,
+        "bottom": 1776,
+        "right": 1888,
+        "top": 3960
       }
     },
     {
       "player": 3,
       "color": "purple",
       "spawn": [
-        3748,
+        3928,
         3672
       ],
       "waypoint1": [
-        3748,
+        3928,
         2048
       ],
       "waypoint2": [
-        4596,
+        4416,
         2048
       ],
       "end": [
-        4596,
+        4416,
         3672
       ],
       "buildZone": {
-        "left": 3528,
-        "bottom": 1828,
-        "right": 4816,
-        "top": 3892
+        "left": 3648,
+        "bottom": 1768,
+        "right": 4696,
+        "top": 3952
       }
     },
     {
       "player": 4,
       "color": "yellow",
       "spawn": [
-        -4580,
+        -4400,
         -1192
       ],
       "waypoint1": [
-        -4580,
+        -4400,
         -2816
       ],
       "waypoint2": [
-        -3732,
+        -3912,
         -2816
       ],
       "end": [
-        -3732,
+        -3912,
         -1192
       ],
       "buildZone": {
-        "left": -4800,
-        "bottom": -3036,
-        "right": -3512,
-        "top": -972
+        "left": -4680,
+        "bottom": -3096,
+        "right": -3632,
+        "top": -912
       }
     },
     {
       "player": 5,
       "color": "orange",
       "spawn": [
-        -1760,
+        -1580,
         -1192
       ],
       "waypoint1": [
-        -1760,
+        -1580,
         -2816
       ],
       "waypoint2": [
-        -912,
+        -1092,
         -2816
       ],
       "end": [
-        -912,
+        -1092,
         -1192
       ],
       "buildZone": {
-        "left": -1980,
-        "bottom": -3036,
-        "right": -692,
-        "top": -972
+        "left": -1860,
+        "bottom": -3096,
+        "right": -812,
+        "top": -912
       }
     },
     {
       "player": 6,
       "color": "green",
       "spawn": [
-        924,
+        1104,
         -1192
       ],
       "waypoint1": [
-        924,
+        1104,
         -2816
       ],
       "waypoint2": [
-        1772,
+        1592,
         -2816
       ],
       "end": [
-        1772,
+        1592,
         -1192
       ],
       "buildZone": {
-        "left": 704,
-        "bottom": -3036,
-        "right": 1992,
-        "top": -972
+        "left": 824,
+        "bottom": -3096,
+        "right": 1872,
+        "top": -912
       }
     },
     {
       "player": 7,
       "color": "pink",
       "spawn": [
-        3744,
+        3924,
         -1192
       ],
       "waypoint1": [
-        3744,
+        3924,
         -2816
       ],
       "waypoint2": [
-        4592,
+        4412,
         -2816
       ],
       "end": [
-        4592,
+        4412,
         -1192
       ],
       "buildZone": {
-        "left": 3524,
-        "bottom": -3036,
-        "right": 4812,
-        "top": -972
+        "left": 3644,
+        "bottom": -3096,
+        "right": 4692,
+        "top": -912
       }
     }
   ],
