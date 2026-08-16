@@ -67,44 +67,72 @@ function range(start: number, end: number, step: number): number[] {
 }
 
 /**
- * Echantillonne une polyligne a intervalle regulier (longueur d'arc), en
- * numerotant chaque point par l'indice du segment source (0 = premier
- * segment de `points`, etc.) — sert a re-decouper le contour continu
- * ci-dessous en groupes nommes (gauche / bas / droite) sans jamais generer
- * deux points pour un meme endroit : contrairement a un echantillonnage par
- * segment independant, un coin n'est visite qu'une seule fois.
+ * Echantillonne un segment [a,b] en incluant TOUJOURS ses deux extremites,
+ * avec n+1 points repartis a intervalle egal (n = longueur / step, arrondi —
+ * donc tres proche de `step` sans l'etre pixel-pres). Retour direct sur deux
+ * essais precedents :
+ *
+ * 1. Accumuler la longueur d'arc en continu sur toute la polyligne
+ *    gauche+bas+droite ne garantissait pas qu'un point tombe pile sur un
+ *    coin : les deux points les plus proches de part et d'autre d'un virage
+ *    a 90° pouvaient se retrouver a moins de `step` l'un de l'autre en ligne
+ *    droite (le chemin "replie" sur lui-meme), obligeant a en supprimer un
+ *    apres coup — les trous aux coins signales.
+ * 2. Echantillonner chaque segment a `step` fixe depuis une seule extremite
+ *    (l'autre extremite ajoutee separement) force bien les deux bouts a
+ *    etre des points, mais laisse le reliquat d'arrondi (si la longueur du
+ *    segment n'est pas un multiple exact de `step`) toujours du meme cote
+ *    (celui ou l'echantillonnage s'arrete). Applique a "gauche" (du haut
+ *    vers le bas) et "droite" (du bas vers le haut), le reliquat finit a
+ *    des extremites OPPOSEES en coordonnees absolues (bas pour l'un, haut
+ *    pour l'autre) : les deux bandes ont alors le meme nombre de points mais
+ *    ne sont plus l'image miroir l'une de l'autre — casse la symetrie
+ *    gauche/droite et laisse un emplacement de bord sans voisin a exactement
+ *    `step`.
+ *
+ * Repartir uniformement resout les deux a la fois : les extremites sont
+ * toujours des points (donc les coins se raccordent), et le motif est
+ * identique quel que soit le sens de parcours (donc gauche et droite,
+ * segments de meme longueur, sont des images miroir exactes).
  */
-function sampleAlongPolyline(points: Array<[number, number]>, step: number): Array<{ point: [number, number]; segment: number }> {
-  const samples: Array<{ point: [number, number]; segment: number }> = [];
-  let covered = 0;
-  let nextAt = 0;
-  for (let i = 0; i < points.length - 1; i++) {
-    const [ax, ay] = points[i]!;
-    const [bx, by] = points[i + 1]!;
-    const segLen = Math.hypot(bx - ax, by - ay);
-    while (nextAt <= covered + segLen + 1e-6) {
-      const t = segLen === 0 ? 0 : (nextAt - covered) / segLen;
-      samples.push({ point: [ax + t * (bx - ax), ay + t * (by - ay)], segment: i });
-      nextAt += step;
-    }
-    covered += segLen;
+function sampleSegmentEnds(ax: number, ay: number, bx: number, by: number, step: number): Array<[number, number]> {
+  const segLen = Math.hypot(bx - ax, by - ay);
+  // floor, pas round : l'espacement resultant (segLen/n) doit rester >=
+  // step (jamais deux tours a moins de SLOT_SIZE), quitte a s'eloigner un
+  // peu plus de `step` que ne le ferait l'arrondi le plus proche.
+  const n = Math.max(1, Math.floor(segLen / step));
+  const pts: Array<[number, number]> = [];
+  for (let k = 0; k <= n; k++) {
+    const t = k / n;
+    pts.push([ax + t * (bx - ax), ay + t * (by - ay)]);
   }
-  return samples;
+  return pts;
 }
 
-/** Contour du couloir vu de l'exterieur du U, decale perpendiculairement de
- * `offset` : haut du bras gauche -> coin bas-gauche -> coin bas-droit ->
- * haut du bras droit. Un coin a 90° decale reste un coin a 90° (simple
- * intersection des deux lignes decalees) — partage entre laneBandSlots
- * (emplacements) et zoneFootprints (plateau) pour que les deux ne puissent
- * pas diverger. */
-function exteriorContour(leftArmX: number, rightArmX: number, connectorY: number, armTopY: number, offset: number): Array<[number, number]> {
-  return [
-    [leftArmX - offset, armTopY],
-    [leftArmX - offset, connectorY - offset],
-    [rightArmX + offset, connectorY - offset],
-    [rightArmX + offset, armTopY],
-  ];
+/**
+ * Meme repartition uniforme que sampleSegmentEnds (n = floor(longueur /
+ * step) intervalles egaux), mais SANS les extremites — pour le segment du
+ * milieu (connecteur/bas), dont les deux coins sont deja couverts par les
+ * segments voisins (gauche et droite) qui incluent leurs propres
+ * extremites. Evite que le coin partage soit compte deux fois sous deux
+ * groupIds differents.
+ *
+ * Reutilise le meme n (pas un pas fixe depuis une seule extremite) pour que
+ * l'ensemble des points reste symetrique par rapport au milieu du segment :
+ * le point a k/n a pour miroir celui a (n-k)/n, lui aussi dans l'ensemble
+ * genere (k et n-k parcourent tous deux 1..n-1). Un simple pas fixe depuis
+ * une extremite unique ne garantit pas cette symetrie (retour direct :
+ * c'est ce qui cassait la symetrie gauche/droite de la bande du bas).
+ */
+function sampleSegmentInterior(ax: number, ay: number, bx: number, by: number, step: number): Array<[number, number]> {
+  const segLen = Math.hypot(bx - ax, by - ay);
+  const n = Math.max(1, Math.floor(segLen / step));
+  const pts: Array<[number, number]> = [];
+  for (let k = 1; k < n; k++) {
+    const t = k / n;
+    pts.push([ax + t * (bx - ax), ay + t * (by - ay)]);
+  }
+  return pts;
 }
 
 /**
@@ -137,27 +165,24 @@ export function laneBandSlots(lane: Lane): BandSlots[] {
   });
 
   // --- Exterieur : contour continu offset, un jeu de points par colonne ---
-  const segmentGroup = ['exterieur-gauche', 'exterieur-bas', 'exterieur-droite'] as const;
-  const segmentLabel = ['Exterieur gauche', 'Exterieur bas', 'Exterieur droite'] as const;
-
+  // Gauche et droite incluent chacun leurs deux extremites (dont le coin
+  // partage avec "bas") ; "bas" ne reprend que son interieur — evite de
+  // compter un coin deux fois, et donne a gauche/droite la meme longueur de
+  // segment donc le meme nombre de points (symetrie).
   for (let col = 0; col < DEPTH; col++) {
     const offset = PATH_CLEARANCE + col * SLOT_SIZE;
-    const samples = sampleAlongPolyline(exteriorContour(leftArmX, rightArmX, connectorY, armTopY, offset), SLOT_SIZE);
-    const bySegment = new Map<number, Array<[number, number]>>();
-    for (const s of samples) {
-      if (!bySegment.has(s.segment)) bySegment.set(s.segment, []);
-      bySegment.get(s.segment)!.push(s.point);
-    }
-    for (let seg = 0; seg < 3; seg++) {
-      const pts = bySegment.get(seg) ?? [];
-      if (pts.length === 0) continue;
-      const id = segmentGroup[seg];
-      bands.push({
-        groupId: `${id}-c${col + 1}`,
-        label: `${segmentLabel[seg]} — colonne ${col + 1}`,
-        points: pts,
-      });
-    }
+    const topLeft: [number, number] = [leftArmX - offset, armTopY];
+    const bottomLeft: [number, number] = [leftArmX - offset, connectorY - offset];
+    const bottomRight: [number, number] = [rightArmX + offset, connectorY - offset];
+    const topRight: [number, number] = [rightArmX + offset, armTopY];
+
+    const gauche = sampleSegmentEnds(...topLeft, ...bottomLeft, SLOT_SIZE);
+    const bas = sampleSegmentInterior(...bottomLeft, ...bottomRight, SLOT_SIZE);
+    const droite = sampleSegmentEnds(...bottomRight, ...topRight, SLOT_SIZE);
+
+    bands.push({ groupId: `exterieur-gauche-c${col + 1}`, label: `Exterieur gauche — colonne ${col + 1}`, points: gauche });
+    if (bas.length > 0) bands.push({ groupId: `exterieur-bas-c${col + 1}`, label: `Exterieur bas — colonne ${col + 1}`, points: bas });
+    bands.push({ groupId: `exterieur-droite-c${col + 1}`, label: `Exterieur droite — colonne ${col + 1}`, points: droite });
   }
 
   return bands;

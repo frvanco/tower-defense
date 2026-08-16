@@ -25,20 +25,19 @@ describe('emplacements de construction — layout', () => {
   const slots = buildSlots(0);
 
   it('le nombre d\'emplacements correspond a une grille pleine interieure + un contour exterieur de profondeur 3', () => {
-    // 348, pas les 357 attendus au crayon : l'interieur (grille 6x25 = 150)
-    // correspond exactement, l'ecart vient du contour exterieur — 6
-    // emplacements sont deduplique pres des coins bas (contre 4 a
-    // profondeur 2 : plus de colonnes pres du coin, plus de collisions).
-    // Ce n'est pas un artefact de generation : pres d'un virage a 90°, deux
-    // points echantillonnes a exactement SLOT_SIZE d'arc peuvent se
-    // retrouver a moins de SLOT_SIZE en ligne droite (le chemin "replie" sur
-    // lui-meme) — le dedup applique la meme regle que partout ailleurs (deux
-    // emplacements ne se chevauchent jamais). Voir
-    // packages/data/scripts/gen_slots.ts pour le detail par groupe.
-    expect(slots.length).toBe(348);
+    // 323, pas les 329 attendus au crayon. L'interieur (grille 5x25 = 125)
+    // correspond exactement. L'ecart vient entierement du contour exterieur,
+    // maintenant a 0 dedup (voir plus bas) : gauche/droite incluent chacun
+    // leurs 2 extremites (coin partage avec "bas" compris) et "bas" ne
+    // reprend que son interieur, pour eviter de compter un coin deux fois —
+    // ce qui donne pour "bas" moins de points qu'une estimation qui
+    // compterait ses propres coins (594-848 unites de long selon la colonne,
+    // /64 sans les 2 extremites). Voir packages/data/scripts/gen_slots.ts
+    // pour le detail par groupe.
+    expect(slots.length).toBe(323);
   });
 
-  it('l\'interieur du U forme une grille pleine de 6 x 25 sans case manquante', () => {
+  it('l\'interieur du U forme une grille pleine de 5 x 25 sans case manquante', () => {
     const interiorGroups = Array.from({ length: 25 }, (_, i) => `interieur-r${i + 1}`);
     const byGroup = new Map<string, typeof slots>();
     for (const s of slots) {
@@ -48,7 +47,51 @@ describe('emplacements de construction — layout', () => {
     for (const groupId of interiorGroups) {
       const group = byGroup.get(groupId);
       expect(group, `groupe ${groupId} manquant`).toBeDefined();
-      expect(group!.length, `groupe ${groupId} incomplet`).toBe(6);
+      expect(group!.length, `groupe ${groupId} incomplet`).toBe(5);
+    }
+  });
+
+  it('le contour exterieur est continu : chaque emplacement a un voisin proche, meme aux coins', () => {
+    // Regroupe par colonne (c1/c2/c3) plutot que par sous-groupe
+    // (gauche/bas/droite) : un coin partage appartient a un seul groupe
+    // (cf. laneBandSlots), mais son voisin de l'autre cote du virage est
+    // dans le groupe voisin, a la meme profondeur. Un emplacement isole
+    // (ancien symptome des coins qui ne se raccordaient pas) n'aurait aucun
+    // voisin proche dans sa colonne.
+    //
+    // Tolerance au-dela de SLOT_SIZE : gauche/droite/bas repartissent leurs
+    // points uniformement sur toute la longueur du segment (n = longueur /
+    // SLOT_SIZE, arrondi au sol pour ne jamais descendre sous SLOT_SIZE —
+    // voir sampleSegmentEnds), donc l'espacement reel est SLOT_SIZE ou un
+    // peu plus (mesure : jusqu'a ~66 ici), jamais exactement 64 sauf si la
+    // longueur du segment tombe pile sur un multiple.
+    const exterieur = slots.filter((s) => s.groupId.startsWith('exterieur-'));
+    const byColumn = new Map<string, typeof slots>();
+    for (const s of exterieur) {
+      const col = s.groupId.slice(s.groupId.lastIndexOf('-c'));
+      if (!byColumn.has(col)) byColumn.set(col, []);
+      byColumn.get(col)!.push(s);
+    }
+    for (const [col, group] of byColumn) {
+      for (const s of group) {
+        const hasNeighbor = group.some((o) => {
+          if (o === s) return false;
+          const d = Math.hypot(o.x - s.x, o.y - s.y);
+          return d >= SLOT_SIZE - 1 && d <= SLOT_SIZE * 1.2;
+        });
+        expect(hasNeighbor, `emplacement isole : ${s.id} (colonne ${col})`).toBe(true);
+      }
+    }
+  });
+
+  it('symetrie : tout emplacement a gauche de l\'axe du U a un symetrique a droite', () => {
+    const lane = lanes.find((l) => l.player === 0)!;
+    const midX = (lane.waypoints[0]![0] + lane.waypoints[1]![0]) / 2;
+    for (const s of slots) {
+      if (Math.abs(s.x - midX) < 1) continue; // sur l'axe : son propre symetrique
+      const mirrorX = 2 * midX - s.x;
+      const hasMirror = slots.some((o) => Math.abs(o.x - mirrorX) <= 1 && Math.abs(o.y - s.y) <= 1);
+      expect(hasMirror, `pas de symetrique pour ${s.id} (${s.x},${s.y}), attendu pres de (${mirrorX},${s.y})`).toBe(true);
     }
   });
 
@@ -95,14 +138,23 @@ describe('emplacements de construction — layout', () => {
     }
   });
 
-  it('aucun emplacement exterieur n\'est a plus de PATH_CLEARANCE + 3*SLOT_SIZE du couloir (les tours restent collees au chemin)', () => {
+  it('aucun emplacement exterieur n\'est a plus de PATH_CLEARANCE + 3*SLOT_SIZE du couloir, coins compris (les tours restent collees au chemin)', () => {
     // Restreint aux groupes exterieur-* : l'interieur remplit toute la
     // surface entre les bras (jusqu'a armTopY), donc loin du chemin par
     // construction — ce test ne s'applique qu'a la bande qui longe le
     // chemin.
+    //
+    // Au coin le plus exterieur (colonne c3), le point est a PATH_CLEARANCE
+    // + 2*SLOT_SIZE (212) du chemin EN X ET EN Y a la fois — un coin a 90°
+    // decale reste un coin a 90°, donc sa distance au vrai coin du chemin
+    // est la diagonale 212*sqrt(2) =~ 300, pas 212. La borne lineaire
+    // PATH_CLEARANCE + 3*SLOT_SIZE (276) ne couvre que le cas "en face d'un
+    // segment droit" ; on l'etend par sqrt(2) pour couvrir aussi les coins.
     const lane = lanes.find((l) => l.player === 0)!;
     const path: Array<[number, number]> = [lane.spawn, ...lane.waypoints];
-    const maxAllowed = PATH_CLEARANCE + 3 * SLOT_SIZE;
+    const straightBound = PATH_CLEARANCE + 3 * SLOT_SIZE;
+    const cornerBound = (PATH_CLEARANCE + 2 * SLOT_SIZE) * Math.SQRT2;
+    const maxAllowed = Math.max(straightBound, cornerBound);
     for (const s of slots) {
       if (!s.groupId.startsWith('exterieur-')) continue;
       let minDist = Infinity;
