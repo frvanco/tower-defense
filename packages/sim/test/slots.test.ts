@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { buildSlots, nearestSlot, SLOT_SIZE, PATH_CLEARANCE, lanes, buildableTowers } from '@tower-defense/data';
+import { buildSlots, nearestSlot, SLOT_SIZE, PATH_CLEARANCE, lanes, zoneFootprints, buildableTowers } from '@tower-defense/data';
 import { createGame, tick } from '../src/index.js';
+
+const PLATFORM_MARGIN = 32; // duplique zoneFootprints.ts (non exporte)
 
 /**
  * Le prompt d'origine demandait de remplacer packages/sim/test/grid.test.ts,
@@ -22,20 +24,21 @@ function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: n
 describe('emplacements de construction — layout', () => {
   const slots = buildSlots(0);
 
-  it('le nombre d\'emplacements correspond a une grille pleine interieure + un contour exterieur de profondeur 2', () => {
-    // 415, pas les 423 attendus au crayon : l'interieur (grille 11x25 = 275)
-    // correspond exactement, l'ecart vient du contour exterieur — 4
-    // emplacements sont deduplique pres des coins bas. Ce n'est pas un
-    // artefact de generation : pres d'un virage a 90°, deux points
-    // echantillonnes a exactement SLOT_SIZE d'arc peuvent se retrouver a
-    // moins de SLOT_SIZE en ligne droite (le chemin "replie" sur lui-meme) —
-    // le dedup applique la meme regle que partout ailleurs (deux
+  it('le nombre d\'emplacements correspond a une grille pleine interieure + un contour exterieur de profondeur 3', () => {
+    // 348, pas les 357 attendus au crayon : l'interieur (grille 6x25 = 150)
+    // correspond exactement, l'ecart vient du contour exterieur — 6
+    // emplacements sont deduplique pres des coins bas (contre 4 a
+    // profondeur 2 : plus de colonnes pres du coin, plus de collisions).
+    // Ce n'est pas un artefact de generation : pres d'un virage a 90°, deux
+    // points echantillonnes a exactement SLOT_SIZE d'arc peuvent se
+    // retrouver a moins de SLOT_SIZE en ligne droite (le chemin "replie" sur
+    // lui-meme) — le dedup applique la meme regle que partout ailleurs (deux
     // emplacements ne se chevauchent jamais). Voir
     // packages/data/scripts/gen_slots.ts pour le detail par groupe.
-    expect(slots.length).toBe(415);
+    expect(slots.length).toBe(348);
   });
 
-  it('l\'interieur du U forme une grille pleine de 11 x 25 sans case manquante', () => {
+  it('l\'interieur du U forme une grille pleine de 6 x 25 sans case manquante', () => {
     const interiorGroups = Array.from({ length: 25 }, (_, i) => `interieur-r${i + 1}`);
     const byGroup = new Map<string, typeof slots>();
     for (const s of slots) {
@@ -45,7 +48,7 @@ describe('emplacements de construction — layout', () => {
     for (const groupId of interiorGroups) {
       const group = byGroup.get(groupId);
       expect(group, `groupe ${groupId} manquant`).toBeDefined();
-      expect(group!.length, `groupe ${groupId} incomplet`).toBe(11);
+      expect(group!.length, `groupe ${groupId} incomplet`).toBe(6);
     }
   });
 
@@ -92,14 +95,14 @@ describe('emplacements de construction — layout', () => {
     }
   });
 
-  it('aucun emplacement exterieur n\'est a plus de PATH_CLEARANCE + 2*SLOT_SIZE du couloir (les tours restent collees au chemin)', () => {
+  it('aucun emplacement exterieur n\'est a plus de PATH_CLEARANCE + 3*SLOT_SIZE du couloir (les tours restent collees au chemin)', () => {
     // Restreint aux groupes exterieur-* : l'interieur remplit toute la
     // surface entre les bras (jusqu'a armTopY), donc loin du chemin par
     // construction — ce test ne s'applique qu'a la bande qui longe le
     // chemin.
     const lane = lanes.find((l) => l.player === 0)!;
     const path: Array<[number, number]> = [lane.spawn, ...lane.waypoints];
-    const maxAllowed = PATH_CLEARANCE + 2 * SLOT_SIZE;
+    const maxAllowed = PATH_CLEARANCE + 3 * SLOT_SIZE;
     for (const s of slots) {
       if (!s.groupId.startsWith('exterieur-')) continue;
       let minDist = Infinity;
@@ -109,6 +112,37 @@ describe('emplacements de construction — layout', () => {
         minDist = Math.min(minDist, distanceToSegment(s.x, s.y, ax, ay, bx, by));
       }
       expect(minDist).toBeLessThanOrEqual(maxAllowed + 1); // +1 : tolerance d'arrondi
+    }
+  });
+
+  it('le plateau rendu ne deborde pas largement de l\'enveloppe des emplacements', () => {
+    // Le plateau (zoneFootprints) est cense suivre le contour des
+    // emplacements a PLATFORM_MARGIN pres, pas etre un rectangle englobant —
+    // c'est precisement le bug corrige ici (le plateau debordait largement,
+    // de centaines d'unites sur tout le pourtour). On verifie chaque sommet
+    // du polygone plutot que son aire : un sommet trop loin de tout
+    // emplacement du meme groupe (interieur/exterieur) revele un plateau
+    // plus large que necessaire.
+    //
+    // Tolerance plus large que PLATFORM_MARGIN aux coins de l'anneau
+    // exterieur (mesure : jusqu'a ~97 sur la lane 0) : l'echantillonnage du
+    // contour se fait par longueur d'arc (SLOT_SIZE), colonne par colonne —
+    // rien ne garantit qu'un emplacement tombe pile au coin geometrique
+    // theorique pour une colonne donnee, l'ecart peut donc approcher
+    // PLATFORM_MARGIN + SLOT_SIZE la ou deux segments se rejoignent. C'est
+    // un slack borne et localise aux coins, pas le defaut d'origine (une
+    // marge large et uniforme sur tout le plateau).
+    const lane = lanes.find((l) => l.player === 0)!;
+    for (const zone of zoneFootprints(lane)) {
+      const zoneSlots = slots.filter((s) => s.groupId.startsWith(zone.id));
+      expect(zoneSlots.length, `aucun emplacement pour la zone ${zone.id}`).toBeGreaterThan(0);
+      for (const [vx, vy] of zone.points) {
+        let minDist = Infinity;
+        for (const s of zoneSlots) minDist = Math.min(minDist, Math.hypot(s.x - vx, s.y - vy));
+        expect(minDist, `sommet (${vx},${vy}) de ${zone.id} trop loin de tout emplacement`).toBeLessThanOrEqual(
+          PLATFORM_MARGIN + SLOT_SIZE + 10,
+        );
+      }
     }
   });
 });
