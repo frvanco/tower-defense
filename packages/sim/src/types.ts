@@ -13,6 +13,22 @@ export interface Tower {
   slotId: string;
 }
 
+/** Ralentissement de la branche Ice — un seul actif a la fois (le plus fort
+ * remplace le plus faible, cf. packages/sim/src/status.ts). */
+export interface IceDebuff {
+  pct: number;
+  /** Tick auquel le debuff expire (exclusif). */
+  untilTick: number;
+}
+
+/** Poison de la branche Poison — degats sur la duree + ralentissement, un
+ * seul actif a la fois (le plus fort remplace le plus faible). */
+export interface PoisonDebuff {
+  pct: number;
+  dps: number;
+  untilTick: number;
+}
+
 export interface Creep {
   eid: number;
   defId: string;
@@ -23,6 +39,9 @@ export interface Creep {
   wp: number;
   /** Envoye par ce joueur (pour les stats, pas pour la logique). */
   sender: number;
+  /** Champs plats, serialisables tels quels — pas de logique, juste l'etat. */
+  ice?: IceDebuff;
+  poison?: PoisonDebuff;
 }
 
 export interface StockEntry {

@@ -1,6 +1,7 @@
-import { lanes, rules, towers, creeps, shops, buildableTowers, nearestSlot, type CreepDef } from '@tower-defense/data';
+import { lanes, rules, towers, creeps, shops, buildableTowers, nearestSlot, type CreepDef, type TowerDef } from '@tower-defense/data';
 import { rollDamage } from './rng.js';
 import { finalDamage } from './damage.js';
+import { applyIceSlow, applyPoison, totalSlowPct, poisonTickDamage, CHAIN_RANGE } from './status.js';
 import {
   TICK_RATE,
   secToTicks,
@@ -189,7 +190,8 @@ function moveCreeps(s: GameState, arena: Arena, events: SimEvent[]): void {
       arena.creeps.splice(i, 1);
       continue;
     }
-    const step = def.moveSpeed / TICK_RATE;
+    const slow = totalSlowPct(c, s.tick);
+    const step = (def.moveSpeed * (1 - slow)) / TICK_RATE;
     const dx = target[0] - c.x;
     const dy = target[1] - c.y;
     const d = Math.sqrt(dx * dx + dy * dy);
@@ -273,9 +275,43 @@ function fireTowers(s: GameState, arena: Arena): void {
     targetedThisTick.add(best.eid);
     const roll = rollDamage(s.rng, def.damageBase, def.dice, def.sides);
     s.rng = roll.state;
-    applyDamage(s, arena, def, best.eid, best.x, best.y, roll.value);
+    const bestEid = best.eid;
+    const bestX = best.x;
+    const bestY = best.y;
+    applyDamage(s, arena, def, bestEid, bestX, bestY, roll.value);
+    // Les abilites (ralentissement, poison) s'appliquent apres les degats —
+    // une cible achevee par le coup lui-meme n'a plus rien a ralentir ou
+    // empoisonner (splice l'a deja retiree de arena.creeps).
+    if (def.slow) applyIceAoeSlow(arena, def, def.slow, bestX, bestY, s.tick);
+    if (def.poison) {
+      const survivor = arena.creeps.find((c) => c.eid === bestEid);
+      if (survivor) applyPoison(survivor, def.poison.slowPct, def.poison.dps, secToTicks(def.poison.durationSec), s.tick);
+    }
     t.cooldown = Math.max(1, secToTicks(def.cooldown));
   }
+}
+
+/** Ralentissement de zone (branche Ice) : les `maxTargets` creeps les plus
+ * proches du point d'impact, dans un rayon aoeFull — pas tous les creeps du
+ * rayon, pour que le nombre de cibles touchees reste une progression
+ * deliberee par palier (cf. balance.json) plutot qu'un effet de bord de la
+ * densite locale de creeps. */
+function applyIceAoeSlow(
+  arena: Arena,
+  def: TowerDef,
+  slow: NonNullable<TowerDef['slow']>,
+  cx: number,
+  cy: number,
+  currentTick: number,
+): void {
+  const radius2 = def.aoeFull * def.aoeFull;
+  const inRange = arena.creeps
+    .map((c) => ({ c, d2: dist2(cx, cy, c.x, c.y) }))
+    .filter((x) => x.d2 <= radius2)
+    .sort((a, b) => a.d2 - b.d2 || a.c.eid - b.c.eid)
+    .slice(0, slow.maxTargets);
+  const durationTicks = secToTicks(slow.durationSec);
+  for (const { c } of inRange) applyIceSlow(c, slow.pct, durationTicks, currentTick);
 }
 
 function isBetterTiebreak(c: Creep, best: Creep, targetedThisTick: Set<number>): boolean {
@@ -289,12 +325,17 @@ function isBetterTiebreak(c: Creep, best: Creep, targetedThisTick: Set<number>):
 function applyDamage(
   s: GameState,
   arena: Arena,
-  def: ReturnType<typeof towers.get> & object,
+  def: TowerDef,
   targetEid: number,
   cx: number,
   cy: number,
   raw: number,
 ): void {
+  if (def.chain) {
+    applyChainDamage(s, arena, def.chain, def, targetEid, raw);
+    return;
+  }
+
   const hits: Array<{ c: Creep; factor: number }> = [];
   if (def.aoeFull > 0) {
     // Trois paliers de degats de zone : 100% / 50% / 25% selon le rayon.
@@ -317,6 +358,62 @@ function applyDamage(
     h.c.hp -= finalDamage(raw * h.factor, def.attackType, cd.armorType, cd.armor);
   }
 
+  handleDeaths(s, arena);
+}
+
+/**
+ * Chaine d'eclair (branche Lightning) : rebondit sur les creeps AERIENS les
+ * plus proches (cf. cibles de la branche, air uniquement), jamais deux fois
+ * sur la meme cible, degats decroissants par palier (dégâts au rebond n =
+ * base * falloff^n — formule de Warcraft III). Le prochain saut se cherche
+ * depuis la position de la derniere cible touchee (pas depuis l'impact
+ * d'origine), a portee CHAIN_RANGE — plus courte que la portee de la tour.
+ * Selection deterministe (le plus proche, eid en depart) : jamais de RNG.
+ */
+function applyChainDamage(
+  s: GameState,
+  arena: Arena,
+  chain: NonNullable<TowerDef['chain']>,
+  def: TowerDef,
+  startEid: number,
+  raw: number,
+): void {
+  const hitEids = new Set<number>();
+  const range2 = CHAIN_RANGE * CHAIN_RANGE;
+  let currentEid: number | undefined = startEid;
+
+  for (let n = 0; n <= chain.bounces; n++) {
+    const target = arena.creeps.find((c) => c.eid === currentEid);
+    if (!target) break;
+    hitEids.add(target.eid);
+    const cd = creeps.get(target.defId)!;
+    target.hp -= finalDamage(raw * Math.pow(chain.falloff, n), def.attackType, cd.armorType, cd.armor);
+
+    if (n === chain.bounces) break;
+    let next: Creep | null = null;
+    let bestD2 = Infinity;
+    for (const c of arena.creeps) {
+      if (hitEids.has(c.eid)) continue;
+      const ccd = creeps.get(c.defId)!;
+      if (!ccd.isAir) continue; // la branche Lightning ne cible que les unites aeriennes
+      const d2 = dist2(target.x, target.y, c.x, c.y);
+      if (d2 > range2) continue;
+      if (d2 < bestD2 || (d2 === bestD2 && c.eid < next!.eid)) {
+        next = c;
+        bestD2 = d2;
+      }
+    }
+    if (!next) break;
+    currentEid = next.eid;
+  }
+
+  handleDeaths(s, arena);
+}
+
+/** Retire les creeps a 0 PV ou moins, compte les kills, gere le spawn a la
+ * mort (Goblin Zeppelin) — factorise pour rester identique quelle que soit
+ * la source des degats (attaque normale, chaine, poison sur la duree). */
+function handleDeaths(s: GameState, arena: Arena): void {
   for (let i = arena.creeps.length - 1; i >= 0; i--) {
     const c = arena.creeps[i]!;
     if (c.hp > 0) continue;
@@ -340,6 +437,19 @@ function applyDamage(
       }
     }
   }
+}
+
+/** Degats de poison, une fois par tick, pour tous les creeps affectes —
+ * independant de la portee de toute tour (le creep continue de perdre des
+ * PV apres etre sorti de portee). Ignore l'armure (pas de finalDamage) :
+ * c'est le role du poison de rester efficace contre les creeps a armure
+ * elevee. Peut achever un creep, contrairement au Slow Poison d'origine. */
+function applyPoisonTicks(s: GameState, arena: Arena): void {
+  for (const c of arena.creeps) {
+    const dmg = poisonTickDamage(c, s.tick);
+    if (dmg > 0) c.hp -= dmg;
+  }
+  handleDeaths(s, arena);
 }
 
 function checkEnd(s: GameState, events: SimEvent[]): void {
@@ -376,6 +486,7 @@ export function tick(s: GameState, commands: Command[] = []): SimEvent[] {
   for (const arena of s.arenas) {
     if (!arena.alive) continue;
     fireTowers(s, arena);
+    applyPoisonTicks(s, arena);
     moveCreeps(s, arena, events);
   }
 
