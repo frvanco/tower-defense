@@ -87,6 +87,7 @@ export function buildShopPanel(container: HTMLElement, onSend: (defId: string) =
     const ids = shop.sells.filter((id) => creeps.has(id) && !seen.has(id));
     if (ids.length === 0) continue;
     container.appendChild(h('h4', undefined, shop.name));
+    container.appendChild(h('div', 'shop-world', shop.world));
     for (const id of ids) {
       seen.add(id);
       const def = creeps.get(id);

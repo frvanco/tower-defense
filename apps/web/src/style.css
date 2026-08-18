@@ -236,6 +236,13 @@ button {
   margin-top: 0;
 }
 
+.shop-world {
+  margin: -4px 0 8px;
+  font-size: 10px;
+  font-style: italic;
+  color: #5f5238;
+}
+
 .build-btn {
   display: flex;
   justify-content: space-between;

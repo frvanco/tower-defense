@@ -42,8 +42,8 @@ export interface Creep {
   /** Champs plats, serialisables tels quels — pas de logique, juste l'etat. */
   ice?: IceDebuff;
   poison?: PoisonDebuff;
-  /** true si engendre par la mort d'un autre creep (ex. Goblin Zeppelin ->
-   * Demon Hunter) : n'a pas de cout en or propre, ne rapporte aucune prime
+  /** true si engendre par la mort d'un autre creep (ex. Porte-essaim ->
+   * Drone d'essaim) : n'a pas de cout en or propre, ne rapporte aucune prime
    * a sa propre mort (packages/sim/src/sim.ts, handleDeaths). */
   freeSpawn?: true;
 }

@@ -62,18 +62,18 @@ describe('prime de mise a mort', () => {
     expect(arena.goldFromBounty).toBe(expectedBounty);
   });
 
-  it('un creep engendre a la mort d\'un autre (Goblin Zeppelin) ne rapporte rien lui-meme', () => {
+  it('un creep engendre a la mort d\'un autre (Porte-essaim) ne rapporte rien lui-meme', () => {
     const s = createGame(1, 2);
     const arena = s.arenas[0]!;
-    const zeppelin = creeps.get('u00B')!; // Goblin Zeppelin, spawnsOnDeath -> h00Y x4
-    expect(zeppelin.spawnsOnDeath).not.toBeNull();
+    const porteEssaim = creeps.get('u00B')!; // Porte-essaim, spawnsOnDeath -> h00Y x4
+    expect(porteEssaim.spawnsOnDeath).not.toBeNull();
 
     const c = makeCreep({ eid: 1, defId: 'u00B', x: 0, y: 0, hp: -1, wp: 0 });
     arena.creeps.push(c);
-    tick(s); // le zeppelin meurt, engendre 4 Demon Hunters, paie sa propre prime
+    tick(s); // le porte-essaim meurt, engendre 4 drones d'essaim, paie sa propre prime
 
-    const zeppelinBounty = Math.max(1, Math.ceil(zeppelin.goldCost * 0.05));
-    expect(arena.goldFromBounty).toBe(zeppelinBounty);
+    const porteEssaimBounty = Math.max(1, Math.ceil(porteEssaim.goldCost * 0.05));
+    expect(arena.goldFromBounty).toBe(porteEssaimBounty);
     const spawned = arena.creeps.filter((x) => x.defId === 'h00Y');
     expect(spawned.length).toBe(4);
     expect(spawned.every((x) => x.freeSpawn === true)).toBe(true);
@@ -81,7 +81,7 @@ describe('prime de mise a mort', () => {
     // Tuer les 4 creeps engendres ne doit ajouter aucune prime supplementaire.
     for (const x of spawned) x.hp = -1;
     tick(s);
-    expect(arena.goldFromBounty).toBe(zeppelinBounty);
+    expect(arena.goldFromBounty).toBe(porteEssaimBounty);
   });
 
   it('un creep tue par le poison (degats sur la duree) rapporte bien la prime', () => {

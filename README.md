@@ -69,7 +69,7 @@ gros du revenu), et une **prime de mise à mort** — quand un creep meurt dans
 l'arène d'un joueur, ce joueur reçoit 5 % du coût en or du creep (arrondi au
 supérieur, minimum 1 ; taux dans `balance.json`, `rules.bountyPct`). C'est le
 propriétaire de l'arène qui est payé, jamais l'envoyeur du creep ; un creep
-qui leak, ou qui est engendré par la mort d'un autre (Goblin Zeppelin), ne
+qui leak, ou qui est engendré par la mort d'un autre (Porte-essaim), ne
 rapporte rien. `arena.goldFromBounty` et `arena.goldFromIncome` cumulent
 chaque source séparément — c'est ce que `pnpm headless` utilise pour afficher
 la part du revenu qui vient de la défense plutôt que de l'income pur.

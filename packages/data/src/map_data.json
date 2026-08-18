@@ -420,7 +420,7 @@
     {
       "id": "h001",
       "baseId": "hhdl",
-      "name": "Running horse",
+      "name": "Conscrit",
       "goldCost": 10,
       "pointValue": 2,
       "hitPoints": 130,
@@ -433,7 +433,7 @@
     {
       "id": "h009",
       "baseId": "hhdl",
-      "name": "Wolfman",
+      "name": "Sapeur",
       "goldCost": 20,
       "pointValue": 4,
       "hitPoints": 600,
@@ -446,7 +446,7 @@
     {
       "id": "h00A",
       "baseId": "hhdl",
-      "name": "Sentry",
+      "name": "Lancier",
       "goldCost": 30,
       "pointValue": 6,
       "hitPoints": 900,
@@ -460,7 +460,7 @@
     {
       "id": "h00B",
       "baseId": "hhdl",
-      "name": "Shaman",
+      "name": "Hallebardier",
       "goldCost": 50,
       "pointValue": 10,
       "hitPoints": 1100,
@@ -474,7 +474,7 @@
     {
       "id": "h00C",
       "baseId": "hhdl",
-      "name": "Skeleton",
+      "name": "Bretteur",
       "goldCost": 80,
       "pointValue": 16,
       "hitPoints": 900,
@@ -488,7 +488,7 @@
     {
       "id": "h00D",
       "baseId": "hhdl",
-      "name": "Tauren",
+      "name": "Grognard",
       "goldCost": 120,
       "pointValue": 24,
       "hitPoints": 2000,
@@ -502,7 +502,7 @@
     {
       "id": "h00E",
       "baseId": "hhdl",
-      "name": "little whispy",
+      "name": "Éclaireur",
       "goldCost": 50,
       "pointValue": 10,
       "hitPoints": 500,
@@ -516,7 +516,7 @@
     {
       "id": "h00F",
       "baseId": "hhdl",
-      "name": "Magma Elemental",
+      "name": "Cuirassier",
       "goldCost": 250,
       "pointValue": 50,
       "hitPoints": 10000,
@@ -530,7 +530,7 @@
     {
       "id": "h00G",
       "baseId": "hhdl",
-      "name": "Treant",
+      "name": "Maréchal",
       "goldCost": 300,
       "pointValue": 60,
       "hitPoints": 4000,
@@ -544,7 +544,7 @@
     {
       "id": "h00H",
       "baseId": "hhdl",
-      "name": "High Elf",
+      "name": "Greffé",
       "goldCost": 360,
       "pointValue": 72,
       "hitPoints": 3200,
@@ -557,7 +557,7 @@
     {
       "id": "h00I",
       "baseId": "hhdl",
-      "name": "Spider",
+      "name": "Bras-canon",
       "goldCost": 500,
       "hitPoints": 6000,
       "armorType": "normal",
@@ -569,7 +569,7 @@
     {
       "id": "h00J",
       "baseId": "hhdl",
-      "name": "Captain",
+      "name": "Sergent augmenté",
       "goldCost": 620,
       "pointValue": 124,
       "hitPoints": 5200,
@@ -582,7 +582,7 @@
     {
       "id": "h00K",
       "baseId": "hhdl",
-      "name": "Warden",
+      "name": "Exosquelette lourd",
       "goldCost": 1000,
       "pointValue": 200,
       "hitPoints": 25000,
@@ -595,7 +595,7 @@
     {
       "id": "h00L",
       "baseId": "hhdl",
-      "name": "Centaur",
+      "name": "Traqueur",
       "goldCost": 2000,
       "pointValue": 400,
       "hitPoints": 18000,
@@ -609,7 +609,7 @@
     {
       "id": "h00M",
       "baseId": "hhdl",
-      "name": "Demolisher",
+      "name": "Broyeur",
       "goldCost": 4000,
       "pointValue": 680,
       "hitPoints": 28000,
@@ -623,7 +623,7 @@
     {
       "id": "h00N",
       "baseId": "hhdl",
-      "name": "Sasquatch",
+      "name": "Titan greffé",
       "goldCost": 7500,
       "pointValue": 1500,
       "hitPoints": 40000,
@@ -637,7 +637,7 @@
     {
       "id": "h00O",
       "baseId": "hhdl",
-      "name": "Thing",
+      "name": "Prototype Oméga",
       "goldCost": 10000,
       "pointValue": 2000,
       "hitPoints": 50000,
@@ -651,7 +651,7 @@
     {
       "id": "h00P",
       "baseId": "hhdl",
-      "name": "War Golem",
+      "name": "Meute quadrupède",
       "goldCost": 15000,
       "pointValue": 3000,
       "hitPoints": 30000,
@@ -665,7 +665,7 @@
     {
       "id": "h00Q",
       "baseId": "hhdl",
-      "name": "Salamander",
+      "name": "Marcheur de siège",
       "goldCost": 18000,
       "pointValue": 3600,
       "hitPoints": 50000,
@@ -679,7 +679,7 @@
     {
       "id": "h00R",
       "baseId": "hhdl",
-      "name": "Space Orc",
+      "name": "Écraseur chenillé",
       "goldCost": 24000,
       "pointValue": 4800,
       "hitPoints": 60000,
@@ -693,7 +693,7 @@
     {
       "id": "h00S",
       "baseId": "hhdl",
-      "name": "Burning legion",
+      "name": "Colonne d'extermination",
       "goldCost": 100000,
       "pointValue": 0,
       "hitPoints": 200000,
@@ -707,7 +707,7 @@
     {
       "id": "h00U",
       "baseId": "hhdl",
-      "name": "Tauren Chieftain",
+      "name": "Gardien Alpha",
       "goldCost": 30000,
       "pointValue": 6000,
       "hitPoints": 45000,
@@ -721,7 +721,7 @@
     {
       "id": "h00V",
       "baseId": "hhdl",
-      "name": "Keeper of the Grove",
+      "name": "Arbitre",
       "goldCost": 40000,
       "pointValue": 8000,
       "hitPoints": 50000,
@@ -735,7 +735,7 @@
     {
       "id": "h00W",
       "baseId": "hhdl",
-      "name": "Demon Hunter",
+      "name": "Exécuteur",
       "goldCost": 65000,
       "pointValue": 13000,
       "hitPoints": 60000,
@@ -749,7 +749,7 @@
     {
       "id": "h00X",
       "baseId": "hhdl",
-      "name": "Blade Master",
+      "name": "Forteresse mobile",
       "goldCost": 40000,
       "pointValue": 8000,
       "hitPoints": 100000,
@@ -763,7 +763,7 @@
     {
       "id": "h00Y",
       "baseId": "hhdl",
-      "name": "Demon Hunter",
+      "name": "Drone d'essaim",
       "hitPoints": 8000,
       "armorType": "divine",
       "moveSpeed": 360,
@@ -772,7 +772,7 @@
     {
       "id": "h00Z",
       "baseId": "hhdl",
-      "name": "Mountain King",
+      "name": "Intelligence Mère",
       "goldCost": 100000,
       "pointValue": 20000,
       "hitPoints": 75000,
@@ -786,7 +786,7 @@
     {
       "id": "n000",
       "baseId": "nvil",
-      "name": "Runner",
+      "name": "Traînard",
       "goldCost": 5,
       "pointValue": 1,
       "moveSpeed": 200,
@@ -804,12 +804,13 @@
       "moveSpeed": 300,
       "stockStartDelaySec": 160,
       "stockReplenishIntervalSec": 4,
-      "stockMaximum": 16
+      "stockMaximum": 16,
+      "name": "Fauconnier"
     },
     {
       "id": "u001",
       "baseId": "ugar",
-      "name": "Hippogryph",
+      "name": "Chevaucheur d'aigle",
       "goldCost": 200,
       "pointValue": 40,
       "hitPoints": 3800,
@@ -822,7 +823,7 @@
     {
       "id": "u002",
       "baseId": "ugar",
-      "name": "Wyvern",
+      "name": "Voltigeur",
       "goldCost": 400,
       "pointValue": 80,
       "hitPoints": 6500,
@@ -835,7 +836,7 @@
     {
       "id": "u003",
       "baseId": "ugar",
-      "name": "Vulture",
+      "name": "Planeur d'assaut",
       "goldCost": 800,
       "pointValue": 160,
       "hitPoints": 9000,
@@ -848,7 +849,7 @@
     {
       "id": "u004",
       "baseId": "ugar",
-      "name": "Owl",
+      "name": "Séraphin d'acier",
       "goldCost": 1200,
       "pointValue": 240,
       "hitPoints": 16000,
@@ -861,7 +862,7 @@
     {
       "id": "u005",
       "baseId": "ugar",
-      "name": "Chimaera",
+      "name": "Colosse ailé",
       "goldCost": 4500,
       "pointValue": 900,
       "hitPoints": 20000,
@@ -873,7 +874,7 @@
     {
       "id": "u006",
       "baseId": "ugar",
-      "name": "Frost Wyrm",
+      "name": "Essaim de drones",
       "goldCost": 12000,
       "pointValue": 2400,
       "hitPoints": 30000,
@@ -885,7 +886,7 @@
     {
       "id": "u007",
       "baseId": "ugar",
-      "name": "Bronze Dragon",
+      "name": "Cuirassé aérien",
       "goldCost": 10000,
       "pointValue": 2000,
       "hitPoints": 60000,
@@ -897,7 +898,7 @@
     {
       "id": "u008",
       "baseId": "ugar",
-      "name": "Green Dragon",
+      "name": "Porte-nefs",
       "goldCost": 50000,
       "pointValue": 10000,
       "hitPoints": 40000,
@@ -909,7 +910,7 @@
     {
       "id": "u00A",
       "baseId": "ugar",
-      "name": "Gryphon Rider",
+      "name": "Dreadnought orbital",
       "goldCost": 80000,
       "pointValue": 16000,
       "hitPoints": 50000,
@@ -921,7 +922,7 @@
     {
       "id": "u00B",
       "baseId": "ugar",
-      "name": "Goblin Zeppelin",
+      "name": "Porte-essaim",
       "goldCost": 80000,
       "pointValue": 0,
       "hitPoints": 80000,
@@ -934,7 +935,7 @@
   "shops": [
     {
       "id": "htow",
-      "name": "Hall",
+      "name": "Caserne",
       "goldCost": 40,
       "requires": "",
       "sells": [
@@ -978,7 +979,7 @@
     },
     {
       "id": "hkee",
-      "name": "Keep",
+      "name": "Forge",
       "goldCost": 2000,
       "requires": "h006",
       "sells": [
@@ -1022,7 +1023,7 @@
     },
     {
       "id": "hcas",
-      "name": "Castle",
+      "name": "Fonderie",
       "goldCost": 20000,
       "requires": "hkee,h002,h007,o005,o000",
       "sells": [

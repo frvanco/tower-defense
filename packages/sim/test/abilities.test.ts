@@ -124,8 +124,8 @@ describe('poison — degats sur la duree', () => {
 
   it('le poison ignore l\'armure : memes degats sur un creep divine et un creep normal', () => {
     const s = createGame(1, 2);
-    const divineDef = creeps.get('h00Y')!; // Demon Hunter, armorType divine
-    const normalDef = creeps.get('h009')!; // Wolfman, armorType normal
+    const divineDef = creeps.get('h00Y')!; // Drone d'essaim, armorType divine
+    const normalDef = creeps.get('h009')!; // Sapeur, armorType normal
     expect(divineDef.armorType).toBe('divine');
     expect(normalDef.armorType).toBe('normal');
 

@@ -413,7 +413,7 @@ function applyChainDamage(
 }
 
 /** Retire les creeps a 0 PV ou moins, compte les kills, gere le spawn a la
- * mort (Goblin Zeppelin) — factorise pour rester identique quelle que soit
+ * mort (Porte-essaim) — factorise pour rester identique quelle que soit
  * la source des degats (attaque normale, chaine, poison sur la duree). */
 function handleDeaths(s: GameState, arena: Arena): void {
   for (let i = arena.creeps.length - 1; i >= 0; i--) {
@@ -425,7 +425,7 @@ function handleDeaths(s: GameState, arena: Arena): void {
     // Prime versee au proprietaire de l'arene ou le creep meurt (c'est lui
     // qui defend), jamais a l'envoyeur. Rien pour un joueur deja elimine.
     // Rien non plus pour un creep engendre par la mort d'un autre (pas de
-    // cout en or propre) — sinon un Goblin Zeppelin paierait deux fois.
+    // cout en or propre) — sinon un Porte-essaim paierait deux fois.
     if (arena.alive && !c.freeSpawn) {
       const bounty = Math.max(1, Math.ceil(cd.goldCost * rules.bountyPct));
       arena.gold += bounty;

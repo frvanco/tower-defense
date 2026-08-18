@@ -73,7 +73,7 @@ export interface CreepDef {
   stockStartDelay: number;
   stockReplenishInterval: number;
   stockMaximum: number;
-  /** Creeps spawnes a la mort (Goblin Zeppelin). */
+  /** Creeps spawnes a la mort (Porte-essaim). */
   spawnsOnDeath: { id: string; count: number } | null;
 }
 
@@ -192,13 +192,31 @@ export const creeps = new Map<string, CreepDef>(rawCreeps.map((c) => [c.id as st
 applyOverrides(towers, (balance.towers ?? {}) as Record<string, Partial<TowerDef>>);
 applyOverrides(creeps, (balance.creeps ?? {}) as Record<string, Partial<CreepDef>>);
 
+export interface Shop {
+  id: string;
+  name: string;
+  /** Regroupement narratif du shop (affichage/UI) — absent des donnees
+   * source, defini via balance.json comme name/goldCost. */
+  world: string;
+  goldCost: number;
+  sells: string[];
+}
+
 /** Creeps achetables, par shop. Le stock les debloque progressivement. */
-export const shops = (raw.shops as Array<Record<string, unknown>>).map((s) => ({
-  id: s.id as string,
-  name: s.name as string,
-  goldCost: (s.goldCost as number) ?? 0,
-  sells: (s.sells as Array<{ id: string }>).map((x) => x.id),
-}));
+const shopsMap = new Map<string, Shop>(
+  (raw.shops as Array<Record<string, unknown>>).map((s) => [
+    s.id as string,
+    {
+      id: s.id as string,
+      name: s.name as string,
+      world: '',
+      goldCost: (s.goldCost as number) ?? 0,
+      sells: (s.sells as Array<{ id: string }>).map((x) => x.id),
+    },
+  ]),
+);
+applyOverrides(shopsMap, (balance.shops ?? {}) as Record<string, Partial<Shop>>);
+export const shops: Shop[] = [...shopsMap.values()];
 
 export const lanes: Lane[] = (raw.lanes as Array<Record<string, unknown>>).map((l) => ({
   player: l.player as number,
