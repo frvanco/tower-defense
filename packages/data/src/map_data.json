@@ -69,6 +69,7 @@
       "id": "h005",
       "baseId": "hgtw",
       "name": "Lightning Tower",
+      "goldCost": 100,
       "pointValue": 56,
       "atk1DamageBase": 149,
       "atk1Sides": 1,

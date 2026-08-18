@@ -15,16 +15,7 @@
     "h007": { "chain": { "bounces": 4, "falloff": 0.75 } },
     "h011": { "chain": { "bounces": 6, "falloff": 0.82 } }
   },
-  "creeps": {
-    "u001": { "isAir": true },
-    "u002": { "isAir": true },
-    "u005": { "isAir": true },
-    "u006": { "isAir": true },
-    "u007": { "isAir": true },
-    "u008": { "isAir": true },
-    "u00A": { "isAir": true },
-    "u00B": { "isAir": true }
-  },
+  "creeps": {},
   "rules": {
     "bountyPct": 0.05
   }

@@ -165,7 +165,13 @@ function buildCreep(c: Record<string, unknown>): CreepDef {
     armor: (c.armor as number) ?? 0,
     armorType: pick(id, base, 'armorType', c.armorType as ArmorType, 'armorType'),
     moveSpeed: pick(id, base, 'moveSpeed', c.moveSpeed as number, 'moveSpeed'),
-    isAir: (c.moveType as string) === 'fly',
+    // moveType n'est jamais "fly" dans les donnees source (regenerees) pour
+    // aucune unite, meme les manifestement aeriennes (baseId "ugar" — c'est
+    // l'unite aerienne de base de l'original). Sans ce fallback, la branche
+    // anti-air n'a plus aucune cible et les tours sol-uniquement touchent
+    // tout. Deja corrige puis reperdu une fois : c'est une regle sur
+    // baseId, pas une liste d'ids a maintenir a la main.
+    isAir: (c.moveType as string) === 'fly' || base === 'ugar',
     stockStartDelay: (c.stockStartDelaySec as number) ?? 0,
     stockReplenishInterval: (c.stockReplenishIntervalSec as number) ?? 8,
     stockMaximum: Math.max(1, Math.round((c.stockMaximum as number) ?? 1)),
