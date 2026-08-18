@@ -141,7 +141,7 @@ export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Fram
   controls.maxDistance = Math.max(frame.halfWidth, frame.halfHeight) * 4;
 
   const span = Math.max(frame.halfWidth, frame.halfHeight);
-  camera.position.set(0, span * 0.9, span * 1.05);
+  camera.position.set(0, span * 1.5, -span * 1.75);
   controls.target.set(0, 0, 0);
   controls.update();
 
