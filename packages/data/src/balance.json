@@ -25,5 +25,7 @@
     "u00A": { "isAir": true },
     "u00B": { "isAir": true }
   },
-  "rules": {}
+  "rules": {
+    "bountyPct": 0.05
+  }
 }

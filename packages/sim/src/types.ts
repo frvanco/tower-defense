@@ -42,6 +42,10 @@ export interface Creep {
   /** Champs plats, serialisables tels quels — pas de logique, juste l'etat. */
   ice?: IceDebuff;
   poison?: PoisonDebuff;
+  /** true si engendre par la mort d'un autre creep (ex. Goblin Zeppelin ->
+   * Demon Hunter) : n'a pas de cout en or propre, ne rapporte aucune prime
+   * a sa propre mort (packages/sim/src/sim.ts, handleDeaths). */
+  freeSpawn?: true;
 }
 
 export interface StockEntry {
@@ -69,6 +73,11 @@ export interface Arena {
   killed: number;
   goldSpentOnTowers: number;
   goldSpentOnCreeps: number;
+  /** Or cumule recu en primes de mise a mort (packages/sim/src/sim.ts). */
+  goldFromBounty: number;
+  /** Or cumule recu en income de round — denominateur naturel pour mesurer
+   * la part du revenu venant des primes (apps/headless). */
+  goldFromIncome: number;
 }
 
 export interface GameState {

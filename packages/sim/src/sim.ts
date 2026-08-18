@@ -52,6 +52,8 @@ export function createGame(seed: number, playerCount = rules.maxPlayers): GameSt
       killed: 0,
       goldSpentOnTowers: 0,
       goldSpentOnCreeps: 0,
+      goldFromBounty: 0,
+      goldFromIncome: 0,
     });
   }
   return {
@@ -420,6 +422,15 @@ function handleDeaths(s: GameState, arena: Arena): void {
     const cd = creeps.get(c.defId)!;
     arena.creeps.splice(i, 1);
     arena.killed += 1;
+    // Prime versee au proprietaire de l'arene ou le creep meurt (c'est lui
+    // qui defend), jamais a l'envoyeur. Rien pour un joueur deja elimine.
+    // Rien non plus pour un creep engendre par la mort d'un autre (pas de
+    // cout en or propre) — sinon un Goblin Zeppelin paierait deux fois.
+    if (arena.alive && !c.freeSpawn) {
+      const bounty = Math.max(1, Math.ceil(cd.goldCost * rules.bountyPct));
+      arena.gold += bounty;
+      arena.goldFromBounty += bounty;
+    }
     if (cd.spawnsOnDeath) {
       const spawn = creeps.get(cd.spawnsOnDeath.id);
       if (spawn) {
@@ -432,6 +443,7 @@ function handleDeaths(s: GameState, arena: Arena): void {
             hp: spawn.hitPoints,
             wp: c.wp,
             sender: c.sender,
+            freeSpawn: true,
           });
         }
       }
@@ -475,7 +487,11 @@ export function tick(s: GameState, commands: Command[] = []): SimEvent[] {
   if (s.tick >= s.nextRoundAt) {
     s.round += 1;
     s.nextRoundAt = s.tick + secToTicks(rules.roundIntervalSec);
-    for (const a of s.arenas) if (a.alive) a.gold += a.income;
+    for (const a of s.arenas) {
+      if (!a.alive) continue;
+      a.gold += a.income;
+      a.goldFromIncome += a.income;
+    }
     events.push({ type: 'roundStart', round: s.round });
   }
 

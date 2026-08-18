@@ -12,6 +12,8 @@ interface Result {
   rootOfWinner: string | null;
   aggressionOfWinner: number | null;
   totalLeaks: number;
+  totalBounty: number;
+  totalIncome: number;
 }
 
 function playOne(seed: number): Result {
@@ -39,6 +41,8 @@ function playOne(seed: number): Result {
     rootOfWinner: wc?.preferredRoot ?? null,
     aggressionOfWinner: wc?.aggression ?? null,
     totalLeaks: s.arenas.reduce((acc, a) => acc + a.leaked, 0),
+    totalBounty: s.arenas.reduce((acc, a) => acc + a.goldFromBounty, 0),
+    totalIncome: s.arenas.reduce((acc, a) => acc + a.goldFromIncome, 0),
   };
 }
 
@@ -60,6 +64,13 @@ console.log(
   `duree moyenne : ${(results.reduce((a, r) => a + r.ticks, 0) / GAMES / TICK_RATE / 60).toFixed(1)} min`,
 );
 console.log(`parties sans vainqueur (timeout) : ${results.filter((r) => r.winner === null).length}`);
+
+const totalBounty = results.reduce((a, r) => a + r.totalBounty, 0);
+const totalIncome = results.reduce((a, r) => a + r.totalIncome, 0);
+const bountyShare = totalBounty / (totalBounty + totalIncome);
+console.log(
+  `part du revenu venant des primes de mise a mort : ${(bountyShare * 100).toFixed(1)}% (${totalBounty} or de primes / ${totalIncome} or d'income sur ${GAMES} parties)`,
+);
 
 console.log('\nvictoires par branche de tours :');
 for (const [root, n] of [...byRoot].sort((a, b) => b[1] - a[1])) {

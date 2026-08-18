@@ -91,6 +91,9 @@ export interface Rules {
   roundIntervalSec: number;
   firstRoundDelaySec: number;
   maxPlayers: number;
+  /** Part du cout en or d'un creep versee en prime a sa mort (packages/sim).
+   * Absente des donnees d'origine (regeneree) — reglee via balance.json. */
+  bountyPct: number;
 }
 
 /**
@@ -208,6 +211,7 @@ export const rules: Rules = {
   roundIntervalSec: (rawRules.roundIntervalSec as number) ?? 30,
   firstRoundDelaySec: (rawRules.firstRoundDelaySec as number) ?? 2,
   maxPlayers: (raw.map as Record<string, unknown>).maxPlayers as number ?? 8,
+  bountyPct: 0.05,
   ...((balance.rules ?? {}) as Partial<Rules>),
 };
 

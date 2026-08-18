@@ -56,19 +56,36 @@ dégâts de zone à trois paliers, table de dégâts (type d'attaque × type
 d'armure + réduction par armure), leaks, défaite, victoire, construction /
 upgrade / vente de tours, et un bot heuristique.
 
+Les abilities de trois branches sur six sont implémentées (`packages/sim/src/status.ts`) :
+ralentissement de zone (Ice, deux sources différentes s'additionnent, plafond
+nommé `SLOW_CAP`), poison mono-cible à dégâts sur la durée qui ignore
+l'armure (Poison), chaîne d'éclair à rebonds décroissants sur cibles
+aériennes uniquement (Lightning). Valeurs par palier dans `balance.json`.
+
+### Économie
+
+Le revenu d'un joueur a deux sources : l'income versé à chaque round (le
+gros du revenu), et une **prime de mise à mort** — quand un creep meurt dans
+l'arène d'un joueur, ce joueur reçoit 5 % du coût en or du creep (arrondi au
+supérieur, minimum 1 ; taux dans `balance.json`, `rules.bountyPct`). C'est le
+propriétaire de l'arène qui est payé, jamais l'envoyeur du creep ; un creep
+qui leak, ou qui est engendré par la mort d'un autre (Goblin Zeppelin), ne
+rapporte rien. `arena.goldFromBounty` et `arena.goldFromIncome` cumulent
+chaque source séparément — c'est ce que `pnpm headless` utilise pour afficher
+la part du revenu qui vient de la défense plutôt que de l'income pur.
+
 ## Emplacements de construction
 
 Une tour ne se pose pas n'importe où dans la zone constructible : elle se
-pose sur un **emplacement** précis, défini à la main dans
-`packages/data/src/build_slots.json` (une quarantaine par arène, regroupés en
-rangées nommées). C'est un choix de design, pas une limite technique — avec
-une zone continue ou une grille trop fine, il y a toujours de la place, donc
-poser une tour n'est jamais une décision. Avec peu d'emplacements comptés,
-chaque case est un arbitrage et la portée des tours reprend du sens.
+pose sur un **emplacement** précis, défini dans
+`packages/data/src/build_slots.json` (plus de 300 par arène, regroupés en
+rangées/colonnes nommées — grille pleine à l'intérieur du U, bandes collées
+au chemin sur les bras et le connecteur).
 
-- `packages/data/scripts/gen_slots.ts` génère le layout de départ (rangées
-  parallèles au couloir de la lane 0) ; le JSON produit est ensuite modifiable
-  à la main sans toucher au code.
+- `packages/data/scripts/gen_slots.ts` régénère le layout à partir de
+  `packages/data/src/zoneFootprints.ts` (géométrie du couloir de la lane 0,
+  les 8 arènes sont des copies translatées) ; le JSON produit peut aussi être
+  modifié à la main sans toucher au code.
 - `packages/data/src/slots.ts` expose `buildSlots(player)` (emplacements
   d'une arène, coordonnées déjà translatées — les 8 arènes du jeu d'origine
   sont des copies congruentes du même couloir) et `nearestSlot(player, x, y)`
@@ -81,10 +98,6 @@ chaque case est un arbitrage et la portée des tours reprend du sens.
   `"milieu-gauche-r1-3"`), libérée à la vente.
 
 ## Ce qui ne l'est pas
-
-Les abilities (poison, slow, chaîne d'éclairs) ne sont pas définies dans les
-données sources. Les tours Ice et Poison tapent donc actuellement sans leur
-effet. Il faut décider de leurs valeurs nous-mêmes.
 
 Les tours ne bloquent pas le passage (pas de maze dans l'original), le Peasant
 n'est pas modélisé (la construction est directe), et les prérequis de Keep /
