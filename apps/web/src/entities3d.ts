@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Arena, Tower, Creep } from '@tower-defense/sim';
+import { totalSlowPct } from '@tower-defense/sim';
 import { buildableTowers, towers as towerDefs, creeps as creepDefs, type TowerDef, type CreepDef } from '@tower-defense/data';
 import {
   makeCannonTower,
@@ -14,6 +15,15 @@ import { branchInfo, branchHue } from './branches.js';
 import { ARMOR_COLORS } from './colors.js';
 import { worldToScene, type Frame3D } from './world3d.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
+import {
+  ICE_TINT_COLOR,
+  ICE_TINT_MAX_PCT,
+  ICE_TINT_MAX_MIX,
+  BOB_BASE_HZ,
+  BOB_AMPLITUDE_RATIO,
+  FROST_SHARD_SLOW_THRESHOLD,
+  FROST_SHARD_COLOR,
+} from './iceEffects.js';
 
 /** Meme vitesse de rotation que la galerie de demo validee (packages/renderer/demo). */
 const TURN_RATE = 2.6;
@@ -194,10 +204,31 @@ function paintHpBar(sprite: THREE.Sprite, frac: number): void {
   texture.needsUpdate = true;
 }
 
+/** Trois petits eclats coniques autour du corps, masques par defaut — bascules
+ * visibles quand le ralentissement total approche du plafond (voir sync()). */
+function buildFrostShards(r: number): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'frost';
+  const mat = new THREE.MeshBasicMaterial({ color: FROST_SHARD_COLOR });
+  for (let i = 0; i < 3; i++) {
+    const shard = new THREE.Mesh(new THREE.ConeGeometry(r * 0.22, r * 0.6, 4), mat);
+    const angle = (i / 3) * Math.PI * 2;
+    shard.position.set(Math.cos(angle) * r * 0.7, r * 0.2, Math.sin(angle) * r * 0.7);
+    shard.rotation.z = angle;
+    g.add(shard);
+  }
+  return g;
+}
+
 interface TrackedCreep {
   body: THREE.Mesh;
   ring: THREE.Mesh;
   bar: THREE.Sprite;
+  baseColor: THREE.Color;
+  frost: THREE.Group;
+  /** Phase du bob de marche (radians) — avance a une vitesse proportionnelle
+   * a la vitesse reelle du creep, donc ralentit avec lui (gel/poison). */
+  phase: number;
 }
 
 export class CreepEntities {
@@ -211,11 +242,15 @@ export class CreepEntities {
 
   private spawn(c: Creep, def: CreepDef): TrackedCreep {
     const r = creepRadius(def);
-    const color = ARMOR_COLORS[def.armorType];
+    const baseColor = new THREE.Color(ARMOR_COLORS[def.armorType]);
     const geo = def.isAir ? new THREE.ConeGeometry(r, r * 2.1, 8) : new THREE.SphereGeometry(r, 10, 8);
-    const body = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color }));
+    const body = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: baseColor.clone() }));
     body.castShadow = true;
     this.layer.add(body);
+
+    const frost = buildFrostShards(r);
+    frost.visible = false;
+    body.add(frost);
 
     const ringColor = this.laneColorByPlayer.get(c.sender) ?? '#888888';
     const ring = new THREE.Mesh(
@@ -228,10 +263,12 @@ export class CreepEntities {
     const bar = makeHpBar();
     this.layer.add(bar);
 
-    return { body, ring, bar };
+    return { body, ring, bar, baseColor, frost, phase: Math.random() * Math.PI * 2 };
   }
 
-  sync(arena: Arena): void {
+  /** A appeler une fois par frame de rendu (pas seulement par tick sim) : sync
+   * position/vie ET fait vivre les effets d'ability (teinte, bob, particules). */
+  sync(arena: Arena, tick: number, dt: number): void {
     const seen = new Set<number>();
     for (const c of arena.creeps) {
       seen.add(c.eid);
@@ -242,12 +279,29 @@ export class CreepEntities {
         tracked = this.spawn(c, def);
         this.byEid.set(c.eid, tracked);
       }
+
+      const icePct = c.ice && c.ice.untilTick > tick ? c.ice.pct : 0;
+      const slow = totalSlowPct(c, tick);
+
+      // Cadence de marche proportionnelle a la vitesse reelle (meme facteur
+      // 1-slow que packages/sim/src/sim.ts moveCreeps) — ralentit avec le creep.
+      tracked.phase += dt * BOB_BASE_HZ * Math.PI * 2 * (1 - slow);
+      const r = creepRadius(def);
+      const bob = Math.sin(tracked.phase) * r * BOB_AMPLITUDE_RATIO;
+
       const [sx, sz] = worldToScene(this.frame, c.x, c.y);
       const h = creepHeight(def);
-      tracked.body.position.set(sx, h, sz);
+      tracked.body.position.set(sx, h + bob, sz);
       tracked.ring.position.set(sx, 0.02, sz);
-      tracked.bar.position.set(sx, h + creepRadius(def) + 0.16, sz);
+      tracked.bar.position.set(sx, h + bob + r + 0.16, sz);
       paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
+
+      // Teinte de gel : seul canal sur la couleur de base du corps.
+      const mat = tracked.body.material as THREE.MeshLambertMaterial;
+      const iceMix = Math.min(1, icePct / ICE_TINT_MAX_PCT) * ICE_TINT_MAX_MIX;
+      mat.color.copy(tracked.baseColor).lerp(ICE_TINT_COLOR, iceMix);
+
+      tracked.frost.visible = slow >= FROST_SHARD_SLOW_THRESHOLD;
     }
     for (const [eid, tracked] of this.byEid) {
       if (!seen.has(eid)) {

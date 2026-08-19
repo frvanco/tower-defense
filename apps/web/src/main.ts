@@ -292,7 +292,7 @@ function frame3d(now: number): void {
 
   if (arena0) {
     towerEntities.sync(arena0);
-    creepEntities.sync(arena0);
+    creepEntities.sync(arena0, state.tick, animDt);
     towerEntities.update(arena0, animDt, selectedTowerEid, hoveredTowerEid);
     slotMarkers.update(arena0, hoveredSlot?.id ?? null);
 
