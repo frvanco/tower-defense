@@ -15,7 +15,11 @@ export class AuthController {
 
   // La sequence joinNumber est un element de produit assume (anciennete du
   // compte) : sans limite, un script pourrait la faire gonfler a volonte.
-  @Throttle({ default: { limit: 5, ttl: hours(1) } })
+  // 20/h protege la sequence sans viser un abus massif — largement suffisant
+  // pour ca — tout en restant calibre pour ne jamais gener des joueurs
+  // legitimes derriere une IP partagee (CGNAT mobile, reseau d'entreprise ou
+  // universitaire).
+  @Throttle({ default: { limit: 20, ttl: hours(1) } })
   @Post('guest')
   guest(@Body() body: GuestDto, @Res({ passthrough: true }) res: Response) {
     return this.auth.guest(body.pseudo, res);
