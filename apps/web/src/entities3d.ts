@@ -24,6 +24,7 @@ import {
   FROST_SHARD_SLOW_THRESHOLD,
   FROST_SHARD_COLOR,
 } from './iceEffects.js';
+import { PoisonBubbles, POISON_EMISSIVE_COLOR, POISON_PULSE_HZ, POISON_PULSE_MIN } from './poisonEffects.js';
 
 /** Meme vitesse de rotation que la galerie de demo validee (packages/renderer/demo). */
 const TURN_RATE = 2.6;
@@ -233,12 +234,17 @@ interface TrackedCreep {
 
 export class CreepEntities {
   private byEid = new Map<number, TrackedCreep>();
+  private poisonBubbles = new PoisonBubbles();
+  private clock = 0;
+  private tmpColor = new THREE.Color();
 
   constructor(
     private layer: THREE.Group,
     private frame: Frame3D,
     private laneColorByPlayer: Map<number, string>,
-  ) {}
+  ) {
+    this.layer.add(this.poisonBubbles.mesh);
+  }
 
   private spawn(c: Creep, def: CreepDef): TrackedCreep {
     const r = creepRadius(def);
@@ -269,6 +275,7 @@ export class CreepEntities {
   /** A appeler une fois par frame de rendu (pas seulement par tick sim) : sync
    * position/vie ET fait vivre les effets d'ability (teinte, bob, particules). */
   sync(arena: Arena, tick: number, dt: number): void {
+    this.clock += dt;
     const seen = new Set<number>();
     for (const c of arena.creeps) {
       seen.add(c.eid);
@@ -281,6 +288,7 @@ export class CreepEntities {
       }
 
       const icePct = c.ice && c.ice.untilTick > tick ? c.ice.pct : 0;
+      const poisonDps = c.poison && c.poison.untilTick > tick ? c.poison.dps : 0;
       const slow = totalSlowPct(c, tick);
 
       // Cadence de marche proportionnelle a la vitesse reelle (meme facteur
@@ -301,18 +309,33 @@ export class CreepEntities {
       const iceMix = Math.min(1, icePct / ICE_TINT_MAX_PCT) * ICE_TINT_MAX_MIX;
       mat.color.copy(tracked.baseColor).lerp(ICE_TINT_COLOR, iceMix);
 
+      // Pulsation de poison : canal emissif separe, se compose sans jamais
+      // entrer en conflit avec la teinte de gel ci-dessus.
+      if (poisonDps > 0) {
+        const pulse =
+          POISON_PULSE_MIN + (1 - POISON_PULSE_MIN) * (0.5 + 0.5 * Math.sin(this.clock * POISON_PULSE_HZ * Math.PI * 2));
+        mat.emissive.copy(this.tmpColor.copy(POISON_EMISSIVE_COLOR).multiplyScalar(pulse));
+        this.poisonBubbles.requestSpawn(c.eid, sx, h, sz, poisonDps, dt);
+      } else {
+        mat.emissive.setRGB(0, 0, 0);
+        this.poisonBubbles.clearAccumulator(c.eid);
+      }
+
       tracked.frost.visible = slow >= FROST_SHARD_SLOW_THRESHOLD;
     }
     for (const [eid, tracked] of this.byEid) {
       if (!seen.has(eid)) {
         this.layer.remove(tracked.body, tracked.ring, tracked.bar);
+        this.poisonBubbles.clearAccumulator(eid);
         this.byEid.delete(eid);
       }
     }
+    this.poisonBubbles.update(dt);
   }
 
   clear(): void {
     for (const { body, ring, bar } of this.byEid.values()) this.layer.remove(body, ring, bar);
     this.byEid.clear();
+    this.poisonBubbles.clear();
   }
 }
