@@ -30,6 +30,10 @@ button {
   flex-direction: column;
 }
 
+#app[hidden] {
+  display: none;
+}
+
 #topbar {
   display: flex;
   align-items: center;
@@ -412,4 +416,194 @@ button {
 #sell-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+#launcher[hidden] {
+  display: none;
+}
+
+#launcher {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(179, 154, 104, 0.16), transparent 55%),
+    radial-gradient(circle at 12% 88%, rgba(107, 84, 50, 0.22), transparent 50%),
+    radial-gradient(circle at 88% 12%, rgba(40, 55, 70, 0.18), transparent 50%),
+    linear-gradient(180deg, #0b0805 0%, #14100c 55%, #0b0805 100%);
+  transition: background 0.4s ease;
+}
+
+/* Ecran menu (apres identification) : meme habillage, lueur virant vers l'ambre/braise
+   plutot que le bleu froid de l'ecran d'entree — on est pret pour la bataille. */
+#launcher[data-screen='menu'],
+#launcher[data-screen='menu-claim'] {
+  background:
+    radial-gradient(circle at 50% 24%, rgba(208, 80, 60, 0.14), transparent 55%),
+    radial-gradient(circle at 88% 85%, rgba(179, 154, 104, 0.2), transparent 50%),
+    radial-gradient(circle at 10% 15%, rgba(107, 84, 50, 0.2), transparent 50%),
+    linear-gradient(180deg, #0b0805 0%, #14100c 55%, #0b0805 100%);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.launcher-screen {
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  background: linear-gradient(180deg, #221a13 0%, #17120d 100%);
+  border: 1px solid #8a6f3f;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(179, 154, 104, 0.15),
+    0 20px 60px rgba(0, 0, 0, 0.5);
+  clip-path: polygon(6% 0%, 94% 0%, 100% 5%, 100% 95%, 94% 100%, 6% 100%, 0% 95%, 0% 5%);
+  padding: 34px 30px 30px;
+}
+
+.launcher-screen h1 {
+  margin: 0;
+  text-align: center;
+  font-family: Georgia, 'Palatino Linotype', 'Book Antiqua', serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(180deg, #f6ecd2 10%, #b39a68 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.launcher-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 4px;
+}
+
+.launcher-divider::before,
+.launcher-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #6b5432, transparent);
+}
+
+.launcher-divider span {
+  width: 6px;
+  height: 6px;
+  background: #b39a68;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+
+.launcher-loading {
+  text-align: center;
+  color: #b39a68;
+}
+
+.launcher-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.launcher-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #14100c;
+  border: 1px solid #6b5432;
+  border-radius: 4px;
+  padding: 0 12px;
+}
+
+.launcher-input:focus-within {
+  border-color: #cdb27a;
+  box-shadow: 0 0 0 1px rgba(205, 178, 122, 0.35);
+}
+
+.launcher-input-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #8a7550;
+}
+
+.launcher-input input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 11px 0;
+  color: #e9e2d3;
+  font: inherit;
+}
+
+.launcher-input input::placeholder {
+  color: #7a6a4c;
+}
+
+.launcher-form button,
+.launcher-play {
+  margin-top: 8px;
+  border: none;
+  clip-path: polygon(3% 0%, 97% 0%, 100% 50%, 97% 100%, 3% 100%, 0% 50%);
+  background: linear-gradient(180deg, #d9c08a, #92742f);
+  color: #1a1208;
+  padding: 13px 20px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+}
+
+.launcher-form button:hover,
+.launcher-play:hover {
+  filter: brightness(1.08);
+}
+
+.launcher-screen a {
+  text-align: center;
+  font-size: 12.5px;
+  color: #b39a68;
+}
+
+.launcher-player {
+  text-align: center;
+  color: #f1e6c8;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.launcher-error {
+  color: #d0503c;
+  font-size: 12.5px;
+  margin: 0;
+  text-align: center;
+}
+
+.launcher-logout {
+  margin-top: 4px;
 }

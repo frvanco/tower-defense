@@ -66,264 +66,278 @@ function newGame(seedBase: number, botCount: number): { state: GameState; bots: 
   return { state, bots };
 }
 
-const lane0 = must(lanes[0], 'lane 0 introuvable dans @tower-defense/data');
-const frame: Frame3D = computeFrame(lane0);
+/** Lance une partie locale contre bots dans le markup #app existant.
+ * Retourne une fonction d'arret (annule la boucle de rendu et les listeners
+ * globaux). Appele au clic sur "Jouer" par le launcher — voir launcher.ts. */
+export function startGame(onGameOver: () => void): () => void {
+  const lane0 = must(lanes[0], 'lane 0 introuvable dans @tower-defense/data');
+  const frame: Frame3D = computeFrame(lane0);
 
-const laneColorByPlayer = new Map(lanes.map((l) => [l.player, laneColor(l.color)]));
+  const laneColorByPlayer = new Map(lanes.map((l) => [l.player, laneColor(l.color)]));
 
-const canvasWrap = byId<HTMLDivElement>('canvas-wrap');
-const canvas = byId<HTMLCanvasElement>('game-canvas');
-const s3d: Scene3D = createScene3D(canvas, lane0, frame);
+  const canvasWrap = byId<HTMLDivElement>('canvas-wrap');
+  const canvas = byId<HTMLCanvasElement>('game-canvas');
+  const s3d: Scene3D = createScene3D(canvas, lane0, frame);
 
-const towerEntities = new TowerEntities(s3d.towerLayer, frame, TEAM_COLOR);
-const creepEntities = new CreepEntities(s3d.creepLayer, frame, laneColorByPlayer);
+  const towerEntities = new TowerEntities(s3d.towerLayer, frame, TEAM_COLOR);
+  const creepEntities = new CreepEntities(s3d.creepLayer, frame, laneColorByPlayer);
 
-const lightningArcs = new LightningArcs();
-s3d.scene.add(lightningArcs.group);
+  const lightningArcs = new LightningArcs();
+  s3d.scene.add(lightningArcs.group);
 
-const slotMarkers = createSlotMarkers(frame);
-s3d.scene.add(slotMarkers.group);
+  const slotMarkers = createSlotMarkers(frame);
+  s3d.scene.add(slotMarkers.group);
 
-// Fantome de placement : positionne exactement sur l'emplacement survole
-// (jamais sur la position brute du curseur) pendant qu'une tour est armee.
-// Vert = libre, rouge = deja occupe. Taille = MAX_RADIUS
-// (packages/renderer/src/footprint.ts) pour que le joueur voie l'emprise
-// reelle avant de poser.
-const ghost = new THREE.Mesh(
-  new THREE.CircleGeometry(MAX_RADIUS, 24),
-  new THREE.MeshBasicMaterial({ color: 0x4a9e5c, transparent: true, opacity: 0.4, side: THREE.DoubleSide }),
-);
-ghost.rotation.x = -Math.PI / 2;
-ghost.visible = false;
-s3d.scene.add(ghost);
+  // Fantome de placement : positionne exactement sur l'emplacement survole
+  // (jamais sur la position brute du curseur) pendant qu'une tour est armee.
+  // Vert = libre, rouge = deja occupe. Taille = MAX_RADIUS
+  // (packages/renderer/src/footprint.ts) pour que le joueur voie l'emprise
+  // reelle avant de poser.
+  const ghost = new THREE.Mesh(
+    new THREE.CircleGeometry(MAX_RADIUS, 24),
+    new THREE.MeshBasicMaterial({ color: 0x4a9e5c, transparent: true, opacity: 0.4, side: THREE.DoubleSide }),
+  );
+  ghost.rotation.x = -Math.PI / 2;
+  ghost.visible = false;
+  s3d.scene.add(ghost);
 
-const topbarRefs: TopbarRefs = {
-  gold: byId('stat-gold'),
-  income: byId('stat-income'),
-  lives: byId('stat-lives'),
-  round: byId('stat-round'),
-  countdown: byId('stat-countdown'),
-};
+  const topbarRefs: TopbarRefs = {
+    gold: byId('stat-gold'),
+    income: byId('stat-income'),
+    lives: byId('stat-lives'),
+    round: byId('stat-round'),
+    countdown: byId('stat-countdown'),
+  };
 
-const buildList = byId<HTMLDivElement>('build-list');
-const shopList = byId<HTMLDivElement>('shop-list');
-const arenasList = byId<HTMLDivElement>('arenas-list');
-initToasts(byId('toasts'));
+  const buildList = byId<HTMLDivElement>('build-list');
+  const shopList = byId<HTMLDivElement>('shop-list');
+  const arenasList = byId<HTMLDivElement>('arenas-list');
+  initToasts(byId('toasts'));
 
-const selectedRefs: SelectedRefs = {
-  section: byId('panel-selected'),
-  name: byId('selected-name'),
-  info: byId('selected-info'),
-  upgradeBtn: byId('upgrade-btn'),
-  sellBtn: byId('sell-btn'),
-};
+  const selectedRefs: SelectedRefs = {
+    section: byId('panel-selected'),
+    name: byId('selected-name'),
+    info: byId('selected-info'),
+    upgradeBtn: byId('upgrade-btn'),
+    sellBtn: byId('sell-btn'),
+  };
 
-const gameOverEl = byId<HTMLDivElement>('game-over');
-const gameOverTitle = byId('game-over-title');
-const gameOverDetail = byId('game-over-detail');
-const restartBtn = byId<HTMLButtonElement>('restart-btn');
+  const gameOverEl = byId<HTMLDivElement>('game-over');
+  const gameOverTitle = byId('game-over-title');
+  const gameOverDetail = byId('game-over-detail');
+  const restartBtn = byId<HTMLButtonElement>('restart-btn');
 
-const botCountSelect = byId<HTMLSelectElement>('bot-count');
+  const botCountSelect = byId<HTMLSelectElement>('bot-count');
 
-let selectedTowerEid: number | null = null;
-let hoveredTowerEid: number | null = null;
-let armedBuildDefId: string | null = null;
-let mouseWorld: [number, number] | null = null;
+  let selectedTowerEid: number | null = null;
+  let hoveredTowerEid: number | null = null;
+  let armedBuildDefId: string | null = null;
+  let mouseWorld: [number, number] | null = null;
 
-const pendingHuman: Command[] = [];
-let botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
-let { state, bots } = newGame(Date.now() | 0, botCount);
-let speed = 1;
+  const pendingHuman: Command[] = [];
+  let botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
+  let { state, bots } = newGame(Date.now() | 0, botCount);
+  let speed = 1;
 
-const buildButtons = buildBuildPanel(buildList, (defId) => {
-  armedBuildDefId = armedBuildDefId === defId ? null : defId;
-  selectedTowerEid = null;
-});
-
-const shopRows = buildShopPanel(shopList, (defId) => {
-  pendingHuman.push({ type: 'sendCreep', player: 0, defId });
-});
-
-let arenaRows = buildArenasPanel(arenasList, botCount + 1);
-
-function startNewGame(): void {
-  const next = newGame(Date.now() | 0, botCount);
-  state = next.state;
-  bots = next.bots;
-  pendingHuman.length = 0;
-  selectedTowerEid = null;
-  armedBuildDefId = null;
-  gameOverEl.hidden = true;
-  towerEntities.clear();
-  creepEntities.clear();
-  lightningArcs.clear();
-  arenasList.innerHTML = '';
-  arenaRows = buildArenasPanel(arenasList, botCount + 1);
-}
-
-botCountSelect.addEventListener('change', () => {
-  botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
-  startNewGame();
-});
-
-selectedRefs.upgradeBtn.addEventListener('click', () => {
-  const arena = state.arenas[0];
-  const eid = selectedTowerEid;
-  if (!arena || eid === null) return;
-  const t = arena.towers.find((x) => x.eid === eid);
-  const nextId = t && towers.get(t.defId)?.upgradesTo[0];
-  if (!nextId) return;
-  pendingHuman.push({ type: 'upgradeTower', player: 0, eid, defId: nextId });
-});
-
-selectedRefs.sellBtn.addEventListener('click', () => {
-  const eid = selectedTowerEid;
-  if (eid === null) return;
-  pendingHuman.push({ type: 'sellTower', player: 0, eid });
-  selectedTowerEid = null;
-});
-
-restartBtn.addEventListener('click', startNewGame);
-
-const speedButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.speed-btn'));
-for (const btn of speedButtons) {
-  btn.addEventListener('click', () => {
-    speed = Number(btn.dataset.speed ?? '1');
-    for (const b of speedButtons) b.classList.toggle('active', b === btn);
+  const buildButtons = buildBuildPanel(buildList, (defId) => {
+    armedBuildDefId = armedBuildDefId === defId ? null : defId;
+    selectedTowerEid = null;
   });
-}
 
-function eventToNdc(ev: MouseEvent): [number, number] {
-  const rect = canvas.getBoundingClientRect();
-  const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-  const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
-  return [x, y];
-}
+  const shopRows = buildShopPanel(shopList, (defId) => {
+    pendingHuman.push({ type: 'sendCreep', player: 0, defId });
+  });
 
-canvas.addEventListener('mousemove', (ev) => {
-  const [ndcX, ndcY] = eventToNdc(ev);
-  mouseWorld = pickGroundWorld(s3d, frame, ndcX, ndcY);
-  hoveredTowerEid = pickTowerEid(s3d, ndcX, ndcY);
-});
+  let arenaRows = buildArenasPanel(arenasList, botCount + 1);
 
-canvas.addEventListener('mouseleave', () => {
-  mouseWorld = null;
-  hoveredTowerEid = null;
-});
+  function startNewGame(): void {
+    const next = newGame(Date.now() | 0, botCount);
+    state = next.state;
+    bots = next.bots;
+    pendingHuman.length = 0;
+    selectedTowerEid = null;
+    armedBuildDefId = null;
+    gameOverEl.hidden = true;
+    towerEntities.clear();
+    creepEntities.clear();
+    lightningArcs.clear();
+    arenasList.innerHTML = '';
+    arenaRows = buildArenasPanel(arenasList, botCount + 1);
+  }
 
-canvas.addEventListener('click', (ev) => {
-  const [ndcX, ndcY] = eventToNdc(ev);
+  botCountSelect.addEventListener('change', () => {
+    botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
+    startNewGame();
+  });
 
-  if (armedBuildDefId) {
-    const world = pickGroundWorld(s3d, frame, ndcX, ndcY);
-    const slot = world && nearestSlot(0, world[0], world[1]);
-    if (!slot) {
-      toast('No slot here', 'warn');
+  selectedRefs.upgradeBtn.addEventListener('click', () => {
+    const arena = state.arenas[0];
+    const eid = selectedTowerEid;
+    if (!arena || eid === null) return;
+    const t = arena.towers.find((x) => x.eid === eid);
+    const nextId = t && towers.get(t.defId)?.upgradesTo[0];
+    if (!nextId) return;
+    pendingHuman.push({ type: 'upgradeTower', player: 0, eid, defId: nextId });
+  });
+
+  selectedRefs.sellBtn.addEventListener('click', () => {
+    const eid = selectedTowerEid;
+    if (eid === null) return;
+    pendingHuman.push({ type: 'sellTower', player: 0, eid });
+    selectedTowerEid = null;
+  });
+
+  restartBtn.addEventListener('click', startNewGame);
+
+  const speedButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.speed-btn'));
+  for (const btn of speedButtons) {
+    btn.addEventListener('click', () => {
+      speed = Number(btn.dataset.speed ?? '1');
+      for (const b of speedButtons) b.classList.toggle('active', b === btn);
+    });
+  }
+
+  function eventToNdc(ev: MouseEvent): [number, number] {
+    const rect = canvas.getBoundingClientRect();
+    const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+    return [x, y];
+  }
+
+  canvas.addEventListener('mousemove', (ev) => {
+    const [ndcX, ndcY] = eventToNdc(ev);
+    mouseWorld = pickGroundWorld(s3d, frame, ndcX, ndcY);
+    hoveredTowerEid = pickTowerEid(s3d, ndcX, ndcY);
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    mouseWorld = null;
+    hoveredTowerEid = null;
+  });
+
+  canvas.addEventListener('click', (ev) => {
+    const [ndcX, ndcY] = eventToNdc(ev);
+
+    if (armedBuildDefId) {
+      const world = pickGroundWorld(s3d, frame, ndcX, ndcY);
+      const slot = world && nearestSlot(0, world[0], world[1]);
+      if (!slot) {
+        toast('No slot here', 'warn');
+        return;
+      }
+      pendingHuman.push({ type: 'buildTower', player: 0, defId: armedBuildDefId, x: slot.x, y: slot.y });
+      armedBuildDefId = null;
       return;
     }
-    pendingHuman.push({ type: 'buildTower', player: 0, defId: armedBuildDefId, x: slot.x, y: slot.y });
+
+    selectedTowerEid = pickTowerEid(s3d, ndcX, ndcY);
+  });
+
+  canvas.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
     armedBuildDefId = null;
-    return;
+    selectedTowerEid = null;
+  });
+
+  function onKeydown(ev: KeyboardEvent): void {
+    if (ev.key !== 'Escape') return;
+    armedBuildDefId = null;
+    selectedTowerEid = null;
   }
+  window.addEventListener('keydown', onKeydown);
 
-  selectedTowerEid = pickTowerEid(s3d, ndcX, ndcY);
-});
+  function resize(): void {
+    const rect = canvasWrap.getBoundingClientRect();
+    resizeScene3D(s3d, rect.width, rect.height);
+  }
+  window.addEventListener('resize', resize);
+  resize();
 
-canvas.addEventListener('contextmenu', (ev) => {
-  ev.preventDefault();
-  armedBuildDefId = null;
-  selectedTowerEid = null;
-});
-
-window.addEventListener('keydown', (ev) => {
-  if (ev.key !== 'Escape') return;
-  armedBuildDefId = null;
-  selectedTowerEid = null;
-});
-
-function resize(): void {
-  const rect = canvasWrap.getBoundingClientRect();
-  resizeScene3D(s3d, rect.width, rect.height);
-}
-window.addEventListener('resize', resize);
-resize();
-
-function handleEvents(events: SimEvent[]): void {
-  for (const ev of events) {
-    if (ev.type === 'rejected' && ev.player === 0) {
-      toast(ev.reason, 'warn');
-    } else if (ev.type === 'defeat' && ev.player === 0) {
-      toast('You have been eliminated', 'danger');
-    } else if (ev.type === 'lightningChain' && ev.player === 0) {
-      lightningArcs.spawn(ev.points.map(([x, y]) => worldToScene(frame, x, y)));
-    } else if (ev.type === 'gameOver') {
-      const you = ev.winner === 0;
-      gameOverTitle.textContent =
-        ev.winner === null ? 'Game over' : you ? 'Victory!' : `Player ${ev.winner} wins`;
-      gameOverDetail.textContent =
-        ev.winner === null ? 'No one survived.' : you ? 'You outlasted everyone.' : 'Better luck next time.';
-      gameOverEl.hidden = false;
+  function handleEvents(events: SimEvent[]): void {
+    for (const ev of events) {
+      if (ev.type === 'rejected' && ev.player === 0) {
+        toast(ev.reason, 'warn');
+      } else if (ev.type === 'defeat' && ev.player === 0) {
+        toast('You have been eliminated', 'danger');
+      } else if (ev.type === 'lightningChain' && ev.player === 0) {
+        lightningArcs.spawn(ev.points.map(([x, y]) => worldToScene(frame, x, y)));
+      } else if (ev.type === 'gameOver') {
+        const you = ev.winner === 0;
+        gameOverTitle.textContent =
+          ev.winner === null ? 'Game over' : you ? 'Victory!' : `Player ${ev.winner} wins`;
+        gameOverDetail.textContent =
+          ev.winner === null ? 'No one survived.' : you ? 'You outlasted everyone.' : 'Better luck next time.';
+        gameOverEl.hidden = false;
+        onGameOver();
+      }
     }
   }
-}
 
-let acc = 0;
-let last = performance.now();
+  let acc = 0;
+  let last = performance.now();
+  let rafId = 0;
 
-function frame3d(now: number): void {
-  const rawDt = Math.min(now - last, 250);
-  last = now;
-  acc += rawDt * speed;
+  function frame3d(now: number): void {
+    const rawDt = Math.min(now - last, 250);
+    last = now;
+    acc += rawDt * speed;
 
-  let steps = 0;
-  let firstIter = true;
-  while (acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
-    const cmds: Command[] = firstIter ? pendingHuman.splice(0) : [];
-    firstIter = false;
-    for (const b of bots) cmds.push(...b.decide(state));
-    handleEvents(tick(state, cmds));
-    acc -= STEP_MS;
-    steps += 1;
-  }
-  if (steps === MAX_STEPS_PER_FRAME) acc = 0;
-
-  // Les animations (construction, visee) tournent en temps reel MULTIPLIE par
-  // la vitesse de simulation choisie : a 4x, la partie va 4x plus vite, donc
-  // une tour ne doit pas rester 2 secondes pleines en chantier pendant que 4x
-  // plus de ticks s'écoulent derriere — sinon elle pourrait deja etre revendue
-  // avant la fin de sa propre animation de construction.
-  const animDt = (rawDt / 1000) * speed;
-
-  const arena0 = state.arenas[0];
-  const hoveredSlot = mouseWorld ? nearestSlot(0, mouseWorld[0], mouseWorld[1]) : null;
-
-  if (arena0) {
-    towerEntities.sync(arena0);
-    creepEntities.sync(arena0, state.tick, animDt);
-    towerEntities.update(arena0, animDt, selectedTowerEid, hoveredTowerEid);
-    slotMarkers.update(arena0, hoveredSlot?.id ?? null);
-
-    updateTopbar(topbarRefs, state);
-    updateBuildPanel(buildButtons, arena0, armedBuildDefId);
-    updateShopPanel(shopRows, state, arena0);
-    updateSelectedPanel(selectedRefs, arena0, selectedTowerEid);
-
-    if (armedBuildDefId && hoveredSlot) {
-      const occupied = !!arena0.occupied[hoveredSlot.id];
-      const [gx, gz] = worldToScene(frame, hoveredSlot.x, hoveredSlot.y);
-      ghost.position.set(gx, PLATFORM_HEIGHT + 0.03, gz);
-      (ghost.material as THREE.MeshBasicMaterial).color.set(occupied ? 0xd0503c : 0x4a9e5c);
-      ghost.visible = true;
-    } else {
-      ghost.visible = false;
+    let steps = 0;
+    let firstIter = true;
+    while (acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
+      const cmds: Command[] = firstIter ? pendingHuman.splice(0) : [];
+      firstIter = false;
+      for (const b of bots) cmds.push(...b.decide(state));
+      handleEvents(tick(state, cmds));
+      acc -= STEP_MS;
+      steps += 1;
     }
+    if (steps === MAX_STEPS_PER_FRAME) acc = 0;
+
+    // Les animations (construction, visee) tournent en temps reel MULTIPLIE par
+    // la vitesse de simulation choisie : a 4x, la partie va 4x plus vite, donc
+    // une tour ne doit pas rester 2 secondes pleines en chantier pendant que 4x
+    // plus de ticks s'écoulent derriere — sinon elle pourrait deja etre revendue
+    // avant la fin de sa propre animation de construction.
+    const animDt = (rawDt / 1000) * speed;
+
+    const arena0 = state.arenas[0];
+    const hoveredSlot = mouseWorld ? nearestSlot(0, mouseWorld[0], mouseWorld[1]) : null;
+
+    if (arena0) {
+      towerEntities.sync(arena0);
+      creepEntities.sync(arena0, state.tick, animDt);
+      towerEntities.update(arena0, animDt, selectedTowerEid, hoveredTowerEid);
+      slotMarkers.update(arena0, hoveredSlot?.id ?? null);
+
+      updateTopbar(topbarRefs, state);
+      updateBuildPanel(buildButtons, arena0, armedBuildDefId);
+      updateShopPanel(shopRows, state, arena0);
+      updateSelectedPanel(selectedRefs, arena0, selectedTowerEid);
+
+      if (armedBuildDefId && hoveredSlot) {
+        const occupied = !!arena0.occupied[hoveredSlot.id];
+        const [gx, gz] = worldToScene(frame, hoveredSlot.x, hoveredSlot.y);
+        ghost.position.set(gx, PLATFORM_HEIGHT + 0.03, gz);
+        (ghost.material as THREE.MeshBasicMaterial).color.set(occupied ? 0xd0503c : 0x4a9e5c);
+        ghost.visible = true;
+      } else {
+        ghost.visible = false;
+      }
+    }
+    updateArenasPanel(arenaRows, state);
+    lightningArcs.update(animDt);
+
+    s3d.controls.update();
+    s3d.renderer.render(s3d.scene, s3d.camera);
+
+    rafId = requestAnimationFrame(frame3d);
   }
-  updateArenasPanel(arenaRows, state);
-  lightningArcs.update(animDt);
+  rafId = requestAnimationFrame(frame3d);
 
-  s3d.controls.update();
-  s3d.renderer.render(s3d.scene, s3d.camera);
-
-  requestAnimationFrame(frame3d);
+  return () => {
+    cancelAnimationFrame(rafId);
+    window.removeEventListener('resize', resize);
+    window.removeEventListener('keydown', onKeydown);
+  };
 }
-requestAnimationFrame(frame3d);
