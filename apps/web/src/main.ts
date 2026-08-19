@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createGame, tick, Bot, TICK_RATE, type Command, type GameState, type SimEvent } from '@tower-defense/sim';
 import { buildableTowers, lanes, towers, rules, nearestSlot } from '@tower-defense/data';
 import { MAX_RADIUS } from '@tower-defense/renderer';
-import { createScene3D, resizeScene3D, type Scene3D } from './scene3d.js';
+import { createScene3D, resizeScene3D, disposeScene3D, type Scene3D } from './scene3d.js';
 import { computeFrame, worldToScene, type Frame3D } from './world3d.js';
 import { pickGroundWorld, pickTowerEid } from './pick3d.js';
 import { TowerEntities, CreepEntities } from './entities3d.js';
@@ -66,10 +66,29 @@ function newGame(seedBase: number, botCount: number): { state: GameState; bots: 
   return { state, bots };
 }
 
+export interface GameCallbacks {
+  /** Appele a chaque fin de partie (victoire, defaite ou match nul). */
+  onGameOver: () => void;
+  /** Appele au clic sur "Retour a l'accueil" dans l'ecran de fin de partie —
+   * le launcher decide de l'arret effectif (voir la fonction retournee). */
+  onExitToMenu: () => void;
+}
+
 /** Lance une partie locale contre bots dans le markup #app existant.
- * Retourne une fonction d'arret (annule la boucle de rendu et les listeners
- * globaux). Appele au clic sur "Jouer" par le launcher — voir launcher.ts. */
-export function startGame(onGameOver: () => void): () => void {
+ * Retourne une fonction d'arret qui annule la boucle de rendu, les listeners
+ * globaux et libere la scene 3D (voir disposeScene3D) — a appeler avant tout
+ * nouvel appel a startGame() sur le meme canvas. Appele au clic sur "Jouer"
+ * par le launcher — voir launcher.ts. */
+export function startGame(callbacks: GameCallbacks): () => void {
+  // canvas et boutons (build/shop/HUD/game-over) sont le markup statique de
+  // #app, jamais recree entre deux appels de startGame() — sans un moyen de
+  // retirer PRECISEMENT les listeners de CETTE partie, rejouer empilerait un
+  // nouveau jeu de listeners par-dessus l'ancien a chaque cycle (fuite, et
+  // les listeners perimes reagiraient encore avec un state deja disparu).
+  // Un seul controller pour tout, aboli d'un coup dans la fonction d'arret.
+  const controller = new AbortController();
+  const listenerOpts = { signal: controller.signal };
+
   const lane0 = must(lanes[0], 'lane 0 introuvable dans @tower-defense/data');
   const frame: Frame3D = computeFrame(lane0);
 
@@ -109,10 +128,19 @@ export function startGame(onGameOver: () => void): () => void {
     countdown: byId('stat-countdown'),
   };
 
+  // Ces conteneurs sont le markup statique de #app, reutilise a chaque appel
+  // de startGame() (retour au menu puis Jouer a nouveau) : on repart d'un DOM
+  // vide plutot que d'empiler les rangees du build/shop/arenas de la partie
+  // precedente par-dessus les nouvelles.
   const buildList = byId<HTMLDivElement>('build-list');
+  buildList.innerHTML = '';
   const shopList = byId<HTMLDivElement>('shop-list');
+  shopList.innerHTML = '';
   const arenasList = byId<HTMLDivElement>('arenas-list');
-  initToasts(byId('toasts'));
+  arenasList.innerHTML = '';
+  const toastsEl = byId('toasts');
+  toastsEl.innerHTML = '';
+  initToasts(toastsEl);
 
   const selectedRefs: SelectedRefs = {
     section: byId('panel-selected'),
@@ -123,9 +151,11 @@ export function startGame(onGameOver: () => void): () => void {
   };
 
   const gameOverEl = byId<HTMLDivElement>('game-over');
+  gameOverEl.hidden = true;
   const gameOverTitle = byId('game-over-title');
   const gameOverDetail = byId('game-over-detail');
   const restartBtn = byId<HTMLButtonElement>('restart-btn');
+  const exitToMenuBtn = byId<HTMLButtonElement>('exit-to-menu-btn');
 
   const botCountSelect = byId<HTMLSelectElement>('bot-count');
 
@@ -165,36 +195,53 @@ export function startGame(onGameOver: () => void): () => void {
     arenaRows = buildArenasPanel(arenasList, botCount + 1);
   }
 
-  botCountSelect.addEventListener('change', () => {
-    botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
-    startNewGame();
-  });
+  botCountSelect.addEventListener(
+    'change',
+    () => {
+      botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
+      startNewGame();
+    },
+    listenerOpts,
+  );
 
-  selectedRefs.upgradeBtn.addEventListener('click', () => {
-    const arena = state.arenas[0];
-    const eid = selectedTowerEid;
-    if (!arena || eid === null) return;
-    const t = arena.towers.find((x) => x.eid === eid);
-    const nextId = t && towers.get(t.defId)?.upgradesTo[0];
-    if (!nextId) return;
-    pendingHuman.push({ type: 'upgradeTower', player: 0, eid, defId: nextId });
-  });
+  selectedRefs.upgradeBtn.addEventListener(
+    'click',
+    () => {
+      const arena = state.arenas[0];
+      const eid = selectedTowerEid;
+      if (!arena || eid === null) return;
+      const t = arena.towers.find((x) => x.eid === eid);
+      const nextId = t && towers.get(t.defId)?.upgradesTo[0];
+      if (!nextId) return;
+      pendingHuman.push({ type: 'upgradeTower', player: 0, eid, defId: nextId });
+    },
+    listenerOpts,
+  );
 
-  selectedRefs.sellBtn.addEventListener('click', () => {
-    const eid = selectedTowerEid;
-    if (eid === null) return;
-    pendingHuman.push({ type: 'sellTower', player: 0, eid });
-    selectedTowerEid = null;
-  });
+  selectedRefs.sellBtn.addEventListener(
+    'click',
+    () => {
+      const eid = selectedTowerEid;
+      if (eid === null) return;
+      pendingHuman.push({ type: 'sellTower', player: 0, eid });
+      selectedTowerEid = null;
+    },
+    listenerOpts,
+  );
 
-  restartBtn.addEventListener('click', startNewGame);
+  restartBtn.addEventListener('click', startNewGame, listenerOpts);
+  exitToMenuBtn.addEventListener('click', () => callbacks.onExitToMenu(), listenerOpts);
 
   const speedButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.speed-btn'));
   for (const btn of speedButtons) {
-    btn.addEventListener('click', () => {
-      speed = Number(btn.dataset.speed ?? '1');
-      for (const b of speedButtons) b.classList.toggle('active', b === btn);
-    });
+    btn.addEventListener(
+      'click',
+      () => {
+        speed = Number(btn.dataset.speed ?? '1');
+        for (const b of speedButtons) b.classList.toggle('active', b === btn);
+      },
+      listenerOpts,
+    );
   }
 
   function eventToNdc(ev: MouseEvent): [number, number] {
@@ -204,53 +251,69 @@ export function startGame(onGameOver: () => void): () => void {
     return [x, y];
   }
 
-  canvas.addEventListener('mousemove', (ev) => {
-    const [ndcX, ndcY] = eventToNdc(ev);
-    mouseWorld = pickGroundWorld(s3d, frame, ndcX, ndcY);
-    hoveredTowerEid = pickTowerEid(s3d, ndcX, ndcY);
-  });
+  canvas.addEventListener(
+    'mousemove',
+    (ev) => {
+      const [ndcX, ndcY] = eventToNdc(ev);
+      mouseWorld = pickGroundWorld(s3d, frame, ndcX, ndcY);
+      hoveredTowerEid = pickTowerEid(s3d, ndcX, ndcY);
+    },
+    listenerOpts,
+  );
 
-  canvas.addEventListener('mouseleave', () => {
-    mouseWorld = null;
-    hoveredTowerEid = null;
-  });
+  canvas.addEventListener(
+    'mouseleave',
+    () => {
+      mouseWorld = null;
+      hoveredTowerEid = null;
+    },
+    listenerOpts,
+  );
 
-  canvas.addEventListener('click', (ev) => {
-    const [ndcX, ndcY] = eventToNdc(ev);
+  canvas.addEventListener(
+    'click',
+    (ev) => {
+      const [ndcX, ndcY] = eventToNdc(ev);
 
-    if (armedBuildDefId) {
-      const world = pickGroundWorld(s3d, frame, ndcX, ndcY);
-      const slot = world && nearestSlot(0, world[0], world[1]);
-      if (!slot) {
-        toast('No slot here', 'warn');
+      if (armedBuildDefId) {
+        const world = pickGroundWorld(s3d, frame, ndcX, ndcY);
+        const slot = world && nearestSlot(0, world[0], world[1]);
+        if (!slot) {
+          toast('No slot here', 'warn');
+          return;
+        }
+        pendingHuman.push({ type: 'buildTower', player: 0, defId: armedBuildDefId, x: slot.x, y: slot.y });
+        armedBuildDefId = null;
         return;
       }
-      pendingHuman.push({ type: 'buildTower', player: 0, defId: armedBuildDefId, x: slot.x, y: slot.y });
+
+      selectedTowerEid = pickTowerEid(s3d, ndcX, ndcY);
+    },
+    listenerOpts,
+  );
+
+  canvas.addEventListener(
+    'contextmenu',
+    (ev) => {
+      ev.preventDefault();
       armedBuildDefId = null;
-      return;
-    }
-
-    selectedTowerEid = pickTowerEid(s3d, ndcX, ndcY);
-  });
-
-  canvas.addEventListener('contextmenu', (ev) => {
-    ev.preventDefault();
-    armedBuildDefId = null;
-    selectedTowerEid = null;
-  });
+      selectedTowerEid = null;
+    },
+    listenerOpts,
+  );
 
   function onKeydown(ev: KeyboardEvent): void {
     if (ev.key !== 'Escape') return;
     armedBuildDefId = null;
     selectedTowerEid = null;
   }
-  window.addEventListener('keydown', onKeydown);
+  window.addEventListener('keydown', onKeydown, listenerOpts);
 
   function resize(): void {
     const rect = canvasWrap.getBoundingClientRect();
     resizeScene3D(s3d, rect.width, rect.height);
   }
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', resize, listenerOpts);
   resize();
 
   function handleEvents(events: SimEvent[]): void {
@@ -268,7 +331,7 @@ export function startGame(onGameOver: () => void): () => void {
         gameOverDetail.textContent =
           ev.winner === null ? 'No one survived.' : you ? 'You outlasted everyone.' : 'Better luck next time.';
         gameOverEl.hidden = false;
-        onGameOver();
+        callbacks.onGameOver();
       }
     }
   }
@@ -337,7 +400,7 @@ export function startGame(onGameOver: () => void): () => void {
 
   return () => {
     cancelAnimationFrame(rafId);
-    window.removeEventListener('resize', resize);
-    window.removeEventListener('keydown', onKeydown);
+    controller.abort();
+    disposeScene3D(s3d);
   };
 }

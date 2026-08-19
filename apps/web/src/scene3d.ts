@@ -188,3 +188,29 @@ export function resizeScene3D(s3d: Scene3D, width: number, height: number): void
   s3d.camera.updateProjectionMatrix();
   s3d.renderer.setSize(width, height, false);
 }
+
+function disposeMaterial(material: THREE.Material): void {
+  for (const value of Object.values(material)) {
+    if (value instanceof THREE.Texture) value.dispose();
+  }
+  material.dispose();
+}
+
+/** Libere le contexte WebGL et toute la geometrie/matieres/textures de la
+ * scene avant qu'un nouveau `createScene3D` ne reutilise le meme canvas —
+ * sans ca, quitter puis relancer une partie fuit un WebGLRenderer et un jeu
+ * complet de meshes a chaque cycle. Parcourt le graphe de scene generiquement
+ * plutot que d'ajouter un dispose() a chaque module qui cree des meshes
+ * (entities3d, terrain3d, slots3d, lightningEffects...). */
+export function disposeScene3D(s3d: Scene3D): void {
+  s3d.scene.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (mesh.geometry) mesh.geometry.dispose();
+    const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+    if (Array.isArray(material)) material.forEach(disposeMaterial);
+    else if (material) disposeMaterial(material);
+  });
+  s3d.scene.clear();
+  s3d.controls.dispose();
+  s3d.renderer.dispose();
+}

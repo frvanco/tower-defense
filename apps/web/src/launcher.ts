@@ -10,6 +10,7 @@ if (!appEl) throw new Error('missing #app');
 
 let user: PublicUser | null = null;
 let beforeUnloadHandler: ((ev: BeforeUnloadEvent) => void) | null = null;
+let stopGame: (() => void) | null = null;
 
 const ICON_USER =
   '<svg class="launcher-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-4 4.2-6 7.5-6s6.1 2 7.5 6"/></svg>';
@@ -177,11 +178,24 @@ async function startGameScreen(): Promise<void> {
   };
   window.addEventListener('beforeunload', beforeUnloadHandler);
 
-  startGame(() => {
-    if (beforeUnloadHandler) {
-      window.removeEventListener('beforeunload', beforeUnloadHandler);
-      beforeUnloadHandler = null;
-    }
+  stopGame = startGame({
+    onGameOver: () => {
+      if (beforeUnloadHandler) {
+        window.removeEventListener('beforeunload', beforeUnloadHandler);
+        beforeUnloadHandler = null;
+      }
+    },
+    onExitToMenu: () => {
+      stopGame?.();
+      stopGame = null;
+      if (beforeUnloadHandler) {
+        window.removeEventListener('beforeunload', beforeUnloadHandler);
+        beforeUnloadHandler = null;
+      }
+      appEl!.hidden = true;
+      root!.hidden = false;
+      render('menu');
+    },
   });
 }
 
