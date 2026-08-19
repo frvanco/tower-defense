@@ -238,7 +238,7 @@ function progress(c: Creep, arena: Arena): number {
   return c.wp * 100000 - d;
 }
 
-function fireTowers(s: GameState, arena: Arena): void {
+function fireTowers(s: GameState, arena: Arena, events: SimEvent[]): void {
   // Creeps sent in the same tick advance in perfect synchronism (identical
   // progress() every tick, since they share moveSpeed/spawn point/path) : without
   // this, every tower in range independently re-derives the same "most advanced"
@@ -280,7 +280,7 @@ function fireTowers(s: GameState, arena: Arena): void {
     const bestEid = best.eid;
     const bestX = best.x;
     const bestY = best.y;
-    applyDamage(s, arena, def, bestEid, bestX, bestY, roll.value);
+    applyDamage(s, arena, def, bestEid, bestX, bestY, roll.value, events);
     // Les abilites (ralentissement, poison) s'appliquent apres les degats —
     // une cible achevee par le coup lui-meme n'a plus rien a ralentir ou
     // empoisonner (splice l'a deja retiree de arena.creeps).
@@ -332,9 +332,10 @@ function applyDamage(
   cx: number,
   cy: number,
   raw: number,
+  events: SimEvent[],
 ): void {
   if (def.chain) {
-    applyChainDamage(s, arena, def.chain, def, targetEid, raw);
+    applyChainDamage(s, arena, def.chain, def, targetEid, raw, events);
     return;
   }
 
@@ -379,15 +380,21 @@ function applyChainDamage(
   def: TowerDef,
   startEid: number,
   raw: number,
+  events: SimEvent[],
 ): void {
   const hitEids = new Set<number>();
   const range2 = CHAIN_RANGE * CHAIN_RANGE;
   let currentEid: number | undefined = startEid;
+  // Positions au moment de l'impact, dans l'ordre reel des rebonds — capturees
+  // avant handleDeaths() (qui peut retirer une cible achevee par son propre
+  // rebond) pour que le rendu puisse tracer l'arc meme si une cible meurt.
+  const points: Array<[number, number]> = [];
 
   for (let n = 0; n <= chain.bounces; n++) {
     const target = arena.creeps.find((c) => c.eid === currentEid);
     if (!target) break;
     hitEids.add(target.eid);
+    points.push([target.x, target.y]);
     const cd = creeps.get(target.defId)!;
     target.hp -= finalDamage(raw * Math.pow(chain.falloff, n), def.attackType, cd.armorType, cd.armor);
 
@@ -409,6 +416,7 @@ function applyChainDamage(
     currentEid = next.eid;
   }
 
+  if (points.length >= 2) events.push({ type: 'lightningChain', player: arena.player, points });
   handleDeaths(s, arena);
 }
 
@@ -501,7 +509,7 @@ export function tick(s: GameState, commands: Command[] = []): SimEvent[] {
 
   for (const arena of s.arenas) {
     if (!arena.alive) continue;
-    fireTowers(s, arena);
+    fireTowers(s, arena, events);
     applyPoisonTicks(s, arena);
     moveCreeps(s, arena, events);
   }

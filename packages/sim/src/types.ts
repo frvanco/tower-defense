@@ -104,4 +104,8 @@ export type SimEvent =
   | { type: 'defeat'; player: number }
   | { type: 'creepSent'; player: number; defId: string }
   | { type: 'gameOver'; winner: number | null }
-  | { type: 'rejected'; player: number; reason: string };
+  | { type: 'rejected'; player: number; reason: string }
+  /** Chaine d'eclair (branche Lightning) : positions des cibles touchees, dans
+   * l'ordre reel des rebonds — purement informatif, pour le rendu (l'arc
+   * visuel). Pas de logique de jeu ne depend de cet evenement. */
+  | { type: 'lightningChain'; player: number; points: Array<[number, number]> };

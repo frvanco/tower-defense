@@ -6,6 +6,7 @@ import { createScene3D, resizeScene3D, type Scene3D } from './scene3d.js';
 import { computeFrame, worldToScene, type Frame3D } from './world3d.js';
 import { pickGroundWorld, pickTowerEid } from './pick3d.js';
 import { TowerEntities, CreepEntities } from './entities3d.js';
+import { LightningArcs } from './lightningEffects.js';
 import { createSlotMarkers } from './slots3d.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
 import { laneColor } from './colors.js';
@@ -76,6 +77,9 @@ const s3d: Scene3D = createScene3D(canvas, lane0, frame);
 
 const towerEntities = new TowerEntities(s3d.towerLayer, frame, TEAM_COLOR);
 const creepEntities = new CreepEntities(s3d.creepLayer, frame, laneColorByPlayer);
+
+const lightningArcs = new LightningArcs();
+s3d.scene.add(lightningArcs.group);
 
 const slotMarkers = createSlotMarkers(frame);
 s3d.scene.add(slotMarkers.group);
@@ -152,6 +156,7 @@ function startNewGame(): void {
   gameOverEl.hidden = true;
   towerEntities.clear();
   creepEntities.clear();
+  lightningArcs.clear();
   arenasList.innerHTML = '';
   arenaRows = buildArenasPanel(arenasList, botCount + 1);
 }
@@ -249,6 +254,8 @@ function handleEvents(events: SimEvent[]): void {
       toast(ev.reason, 'warn');
     } else if (ev.type === 'defeat' && ev.player === 0) {
       toast('You have been eliminated', 'danger');
+    } else if (ev.type === 'lightningChain' && ev.player === 0) {
+      lightningArcs.spawn(ev.points.map(([x, y]) => worldToScene(frame, x, y)));
     } else if (ev.type === 'gameOver') {
       const you = ev.winner === 0;
       gameOverTitle.textContent =
@@ -312,6 +319,7 @@ function frame3d(now: number): void {
     }
   }
   updateArenasPanel(arenaRows, state);
+  lightningArcs.update(animDt);
 
   s3d.controls.update();
   s3d.renderer.render(s3d.scene, s3d.camera);
