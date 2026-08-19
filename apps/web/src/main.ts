@@ -180,6 +180,25 @@ export function startGame(callbacks: GameCallbacks): () => void {
 
   let arenaRows = buildArenasPanel(arenasList, botCount + 1);
 
+  // main.ts est le seul module qui sait si une partie est en cours — c'est
+  // donc lui, et non le launcher, qui possede la garde de fermeture
+  // accidentelle. Idempotentes : armer deux fois de suite ne pose qu'un seul
+  // handler.
+  let exitGuardHandler: ((ev: BeforeUnloadEvent) => void) | null = null;
+  function armExitGuard(): void {
+    if (exitGuardHandler) return;
+    exitGuardHandler = (ev) => {
+      ev.preventDefault();
+    };
+    window.addEventListener('beforeunload', exitGuardHandler, listenerOpts);
+  }
+  function disarmExitGuard(): void {
+    if (!exitGuardHandler) return;
+    window.removeEventListener('beforeunload', exitGuardHandler);
+    exitGuardHandler = null;
+  }
+  armExitGuard();
+
   function startNewGame(): void {
     const next = newGame(Date.now() | 0, botCount);
     state = next.state;
@@ -193,6 +212,10 @@ export function startGame(callbacks: GameCallbacks): () => void {
     lightningArcs.clear();
     arenasList.innerHTML = '';
     arenaRows = buildArenasPanel(arenasList, botCount + 1);
+    // "Rejouer" relance une partie sans repasser par le launcher : sans ce
+    // rearm, une partie relancee apres une premiere fin de partie perdrait la
+    // confirmation de fermeture accidentelle.
+    armExitGuard();
   }
 
   botCountSelect.addEventListener(
@@ -331,6 +354,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
         gameOverDetail.textContent =
           ev.winner === null ? 'No one survived.' : you ? 'You outlasted everyone.' : 'Better luck next time.';
         gameOverEl.hidden = false;
+        disarmExitGuard();
         callbacks.onGameOver();
       }
     }
@@ -400,6 +424,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
 
   return () => {
     cancelAnimationFrame(rafId);
+    disarmExitGuard();
     controller.abort();
     disposeScene3D(s3d);
   };

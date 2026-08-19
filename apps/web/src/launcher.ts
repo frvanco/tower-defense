@@ -9,7 +9,6 @@ const appEl = document.getElementById('app');
 if (!appEl) throw new Error('missing #app');
 
 let user: PublicUser | null = null;
-let beforeUnloadHandler: ((ev: BeforeUnloadEvent) => void) | null = null;
 let stopGame: (() => void) | null = null;
 
 const ICON_USER =
@@ -173,25 +172,16 @@ async function startGameScreen(): Promise<void> {
   root!.hidden = true;
   appEl!.hidden = false;
 
-  beforeUnloadHandler = (ev) => {
-    ev.preventDefault();
-  };
-  window.addEventListener('beforeunload', beforeUnloadHandler);
-
   stopGame = startGame({
-    onGameOver: () => {
-      if (beforeUnloadHandler) {
-        window.removeEventListener('beforeunload', beforeUnloadHandler);
-        beforeUnloadHandler = null;
-      }
-    },
+    // La garde de fermeture accidentelle (beforeunload) est entierement geree
+    // par main.ts, seul module a savoir si une partie est en cours (couvre
+    // aussi "Rejouer", qui ne repasse pas par le launcher). Ce callback reste
+    // dans l'interface pour l'invitation "Sauvegarder ta progression ?" a la
+    // fin d'une partie gagnee, prevue dans un lot ulterieur.
+    onGameOver: () => {},
     onExitToMenu: () => {
       stopGame?.();
       stopGame = null;
-      if (beforeUnloadHandler) {
-        window.removeEventListener('beforeunload', beforeUnloadHandler);
-        beforeUnloadHandler = null;
-      }
       appEl!.hidden = true;
       root!.hidden = false;
       render('menu');
