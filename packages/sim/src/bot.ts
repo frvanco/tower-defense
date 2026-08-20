@@ -20,8 +20,21 @@ export class Bot {
   private rng: number;
   private slots: Slot[] | null = null;
 
+  /** Decalage de phase propre a ce bot (tire une fois, a la construction) :
+   * evite que tous les bots decident au meme tick et envoient leurs creeps en
+   * salve synchronisee (ce qu'on n'observerait jamais face a des humains). */
+  private readonly phase: number;
+  /** Prochain tick auquel ce bot doit decider. Un compteur d'etat plutot
+   * qu'un simple `(tick + phase) % period` : la periode elle-meme varie
+   * legerement d'une decision a l'autre (jitter, ci-dessous), et un modulo a
+   * periode fixe ne recale pas correctement quand la periode change — le
+   * compteur, lui, avance toujours depuis la derniere decision reelle. */
+  private nextDecisionTick: number;
+
   constructor(private cfg: BotConfig) {
     this.rng = cfg.seed | 0;
+    this.phase = Math.floor(this.rand() * TICK_RATE);
+    this.nextDecisionTick = this.phase;
   }
 
   private rand(): number {
@@ -35,8 +48,11 @@ export class Bot {
     if (!arena || !arena.alive) return [];
     if (!this.slots) this.slots = buildSlots(this.cfg.player);
 
-    // Une decision par seconde : evite de spammer 20 commandes/sec pour rien.
-    if (s.tick % TICK_RATE !== 0) return [];
+    if (s.tick < this.nextDecisionTick) return [];
+    // +-20% de gigue par decision : evite un rythme parfaitement mecanique
+    // tout en restant seede/deterministe (RNG interne du bot uniquement).
+    const jitter = 0.8 + this.rand() * 0.4;
+    this.nextDecisionTick = s.tick + Math.max(1, Math.round(TICK_RATE * jitter));
 
     const cmds: Command[] = [];
     const creepBudget = arena.gold * this.cfg.aggression;
