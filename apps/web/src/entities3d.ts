@@ -20,6 +20,7 @@ import {
   ICE_TINT_MAX_PCT,
   ICE_TINT_MAX_MIX,
   BOB_BASE_HZ,
+  NOMINAL_MOVE_SPEED,
   BOB_AMPLITUDE_RATIO,
   FROST_SHARD_SLOW_THRESHOLD,
   FROST_SHARD_COLOR,
@@ -228,7 +229,8 @@ interface TrackedCreep {
   baseColor: THREE.Color;
   frost: THREE.Group;
   /** Phase du bob de marche (radians) — avance a une vitesse proportionnelle
-   * a la vitesse reelle du creep, donc ralentit avec lui (gel/poison). */
+   * a la vitesse reelle du creep (moveSpeed ET ralentissement gel/poison actif),
+   * donc suit tout changement de l'une ou l'autre. */
   phase: number;
 }
 
@@ -291,9 +293,12 @@ export class CreepEntities {
       const poisonDps = c.poison && c.poison.untilTick > tick ? c.poison.dps : 0;
       const slow = totalSlowPct(c, tick);
 
-      // Cadence de marche proportionnelle a la vitesse reelle (meme facteur
-      // 1-slow que packages/sim/src/sim.ts moveCreeps) — ralentit avec le creep.
-      tracked.phase += dt * BOB_BASE_HZ * Math.PI * 2 * (1 - slow);
+      // Cadence de marche proportionnelle a la vitesse reelle : moveSpeed du
+      // creep (relatif a NOMINAL_MOVE_SPEED — suit donc creepSpeedMultiplier
+      // de balance.json) ET meme facteur 1-slow que packages/sim/src/sim.ts
+      // moveCreeps pour le ralentissement gel/poison actif.
+      const speedRatio = def.moveSpeed / NOMINAL_MOVE_SPEED;
+      tracked.phase += dt * BOB_BASE_HZ * speedRatio * Math.PI * 2 * (1 - slow);
       const r = creepRadius(def);
       const bob = Math.sin(tracked.phase) * r * BOB_AMPLITUDE_RATIO;
 

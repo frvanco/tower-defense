@@ -14,8 +14,16 @@ export const ICE_TINT_MAX_PCT = 0.38;
  * volontairement < 1 pour que la couleur d'armure reste devinable. */
 export const ICE_TINT_MAX_MIX = 0.8;
 
-/** Frequence du cycle de "marche" (bob vertical) a vitesse pleine, en Hz. */
+/** Frequence du cycle de "marche" (bob vertical) pour un creep a la vitesse
+ * de reference NOMINAL_MOVE_SPEED, en Hz. */
 export const BOB_BASE_HZ = 2.4;
+/** Vitesse (moveSpeed, @tower-defense/data) pour laquelle BOB_BASE_HZ est
+ * calibree — mediane des 39 creeps. La cadence reelle appliquee est
+ * BOB_BASE_HZ * (def.moveSpeed / NOMINAL_MOVE_SPEED) : elle suit donc tout
+ * changement de moveSpeed (creepSpeedMultiplier de balance.json compris) au
+ * lieu d'etre fixe pour tous les creeps — sinon la marche "patine" des que
+ * la vitesse reelle diverge de ce pour quoi l'anim avait ete reglee a l'oeil. */
+export const NOMINAL_MOVE_SPEED = 320;
 /** Amplitude du bob, en fraction du rayon du creep. */
 export const BOB_AMPLITUDE_RATIO = 0.32;
 

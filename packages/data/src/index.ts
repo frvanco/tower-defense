@@ -94,6 +94,10 @@ export interface Rules {
   /** Part du cout en or d'un creep versee en prime a sa mort (packages/sim).
    * Absente des donnees d'origine (regeneree) — reglee via balance.json. */
   bountyPct: number;
+  /** Multiplicateur applique une seule fois a la moveSpeed de chaque creep
+   * (voir plus bas) — un seul reglage dans balance.json plutot que 39
+   * surcharges individuelles. 1 = vitesses d'origine inchangees. */
+  creepSpeedMultiplier: number;
 }
 
 /**
@@ -236,8 +240,18 @@ export const rules: Rules = {
   firstRoundDelaySec: (rawRules.firstRoundDelaySec as number) ?? 2,
   maxPlayers: (raw.map as Record<string, unknown>).maxPlayers as number ?? 8,
   bountyPct: 0.05,
+  creepSpeedMultiplier: 1,
   ...((balance.rules ?? {}) as Partial<Rules>),
 };
+
+// Applique le multiplicateur global de vitesse une seule fois ici, sur la
+// moveSpeed deja resolue (donnees source + eventuelles surcharges par creep
+// dans balance.json) : c'est le seul reglage a tourner pour ajuster la
+// vitesse de tous les creeps a la fois. Arrondi a l'entier — moveSpeed est
+// traite comme un entier partout ailleurs dans le jeu.
+for (const c of creeps.values()) {
+  c.moveSpeed = Math.round(c.moveSpeed * rules.creepSpeedMultiplier);
+}
 
 /** Tours constructibles directement par le Peasant (racines des 6 branches). */
 export const buildableTowers = ['h000', 'o001', 'o003', 'h005', 'h008', 'o008'];

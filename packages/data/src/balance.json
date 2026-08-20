@@ -30,6 +30,7 @@
   },
   "rules": {
     "bountyPct": 0.15,
-    "startIncome": 60
+    "startIncome": 60,
+    "creepSpeedMultiplier": 0.7
   }
 }
