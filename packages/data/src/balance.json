@@ -13,7 +13,14 @@
     "h005": { "chain": { "bounces": 2, "falloff": 0.60 } },
     "h006": { "chain": { "bounces": 3, "falloff": 0.68 } },
     "h007": { "chain": { "bounces": 4, "falloff": 0.75 } },
-    "h011": { "chain": { "bounces": 6, "falloff": 0.82 } }
+    "h011": { "chain": { "bounces": 6, "falloff": 0.82 } },
+
+    "h000": { "damageBase": 23 },
+    "h003": { "damageBase": 71 },
+    "h004": { "damageBase": 155 },
+    "h002": { "damageBase": 335 },
+    "h012": { "damageBase": 720 },
+    "h010": { "damageBase": 1440 }
   },
   "creeps": {},
   "shops": {
@@ -22,6 +29,7 @@
     "hcas": { "world": "Les Machines" }
   },
   "rules": {
-    "bountyPct": 0.05
+    "bountyPct": 0.15,
+    "startIncome": 60
   }
 }

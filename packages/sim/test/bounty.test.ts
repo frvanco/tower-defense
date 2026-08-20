@@ -7,8 +7,8 @@ function makeCreep(overrides: Partial<Creep> & { eid: number; defId: string; x: 
 }
 
 describe('prime de mise a mort', () => {
-  it('le taux est defini dans les donnees, a 5%', () => {
-    expect(rules.bountyPct).toBe(0.05);
+  it('le taux est defini dans les donnees, a 15%', () => {
+    expect(rules.bountyPct).toBe(0.15);
   });
 
   it('tuer un creep credite le proprietaire de l\'arene ou il meurt, pas l\'envoyeur', () => {
@@ -46,11 +46,11 @@ describe('prime de mise a mort', () => {
     expect(arena.goldFromBounty).toBe(0);
   });
 
-  it('la prime vaut 5% du cout, arrondie a l\'entier superieur, minimum 1', () => {
+  it('la prime vaut 15% du cout, arrondie a l\'entier superieur, minimum 1', () => {
     const s = createGame(1, 2);
     const arena = s.arenas[0]!;
     const def = creeps.get('n000')!;
-    const expectedBounty = Math.max(1, Math.ceil(def.goldCost * 0.05));
+    const expectedBounty = Math.max(1, Math.ceil(def.goldCost * 0.15));
 
     const c = makeCreep({ eid: 1, defId: 'n000', x: 0, y: 0, hp: -1, wp: 0 });
     arena.creeps.push(c);
@@ -72,7 +72,7 @@ describe('prime de mise a mort', () => {
     arena.creeps.push(c);
     tick(s); // le porte-essaim meurt, engendre 4 drones d'essaim, paie sa propre prime
 
-    const porteEssaimBounty = Math.max(1, Math.ceil(porteEssaim.goldCost * 0.05));
+    const porteEssaimBounty = Math.max(1, Math.ceil(porteEssaim.goldCost * 0.15));
     expect(arena.goldFromBounty).toBe(porteEssaimBounty);
     const spawned = arena.creeps.filter((x) => x.defId === 'h00Y');
     expect(spawned.length).toBe(4);
@@ -96,7 +96,7 @@ describe('prime de mise a mort', () => {
     tick(s);
 
     expect(arena.creeps.find((x) => x.eid === 1)).toBeUndefined();
-    const expectedBounty = Math.max(1, Math.ceil(creeps.get('n000')!.goldCost * 0.05));
+    const expectedBounty = Math.max(1, Math.ceil(creeps.get('n000')!.goldCost * 0.15));
     expect(arena.goldFromBounty).toBe(expectedBounty);
   });
 
@@ -114,7 +114,7 @@ describe('prime de mise a mort', () => {
 
     tick(s);
 
-    const expectedEach = Math.max(1, Math.ceil(creeps.get('n000')!.goldCost * 0.05));
+    const expectedEach = Math.max(1, Math.ceil(creeps.get('n000')!.goldCost * 0.15));
     expect(arena.goldFromBounty).toBe(expectedEach * 2);
     expect(arena.creeps.length).toBe(0);
   });
