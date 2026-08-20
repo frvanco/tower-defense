@@ -67,7 +67,8 @@ button {
   flex: 1;
 }
 
-#bot-count-control {
+#bot-count-control,
+#bot-difficulty-control {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -76,7 +77,8 @@ button {
   color: #b39a68;
 }
 
-#bot-count-control select {
+#bot-count-control select,
+#bot-difficulty-control select {
   background: #2a2118;
   border: 1px solid #6b5432;
   color: #e9e2d3;

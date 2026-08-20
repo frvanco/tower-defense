@@ -1,7 +1,14 @@
-import { createGame, tick, Bot, TICK_RATE, type Command } from '@tower-defense/sim';
-import { buildableTowers, towers, defaultsUsed } from '@tower-defense/data';
+import { createGame, tick, Bot, TICK_RATE, type Command, type Difficulty } from '@tower-defense/sim';
+import { towers, defaultsUsed } from '@tower-defense/data';
 
 const GAMES = Number(process.argv[2] ?? 50);
+const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
+const difficultyArg = process.argv[3];
+if (difficultyArg && !DIFFICULTIES.includes(difficultyArg as Difficulty)) {
+  throw new Error(`difficulte inconnue "${difficultyArg}" — attendu : ${DIFFICULTIES.join(', ')}`);
+}
+const DIFFICULTY: Difficulty = (difficultyArg as Difficulty) ?? 'medium';
+
 const MAX_MINUTES = 25;
 const MAX_TICKS = MAX_MINUTES * 60 * TICK_RATE;
 
@@ -18,13 +25,7 @@ interface Result {
 
 function playOne(seed: number): Result {
   const s = createGame(seed, 8);
-  const configs = s.arenas.map((a, i) => ({
-    player: a.player,
-    aggression: 0.2 + (i % 4) * 0.2,
-    preferredRoot: buildableTowers[i % buildableTowers.length]!,
-    seed: seed + i * 7919,
-  }));
-  const bots = configs.map((c) => new Bot(c));
+  const bots = s.arenas.map((a, i) => new Bot({ player: a.player, seed: seed + i * 7919, difficulty: DIFFICULTY }));
 
   let t = 0;
   for (; t < MAX_TICKS && !s.finished; t++) {
@@ -33,13 +34,17 @@ function playOne(seed: number): Result {
     tick(s, cmds);
   }
 
-  const wc = s.winner !== null ? configs[s.winner] : null;
+  // aggression/preferredRoot sont desormais tires du RNG interne de chaque
+  // bot (personnalite, cf. packages/sim/src/bot.ts) : on ne les lit plus
+  // depuis une config qu'on aurait nous-memes calculee, mais depuis l'objet
+  // Bot du gagnant, seul a les connaitre.
+  const winnerBot = s.winner !== null ? bots[s.winner] : null;
   return {
     seed,
     winner: s.winner,
     ticks: t,
-    rootOfWinner: wc?.preferredRoot ?? null,
-    aggressionOfWinner: wc?.aggression ?? null,
+    rootOfWinner: winnerBot?.preferredRoot ?? null,
+    aggressionOfWinner: winnerBot?.aggression ?? null,
     totalLeaks: s.arenas.reduce((acc, a) => acc + a.leaked, 0),
     totalBounty: s.arenas.reduce((acc, a) => acc + a.goldFromBounty, 0),
     totalIncome: s.arenas.reduce((acc, a) => acc + a.goldFromIncome, 0),
@@ -59,6 +64,7 @@ for (const r of results) {
     byAggr.set(r.aggressionOfWinner, (byAggr.get(r.aggressionOfWinner) ?? 0) + 1);
 }
 
+console.log(`difficulte : ${DIFFICULTY}`);
 console.log(`${GAMES} parties en ${elapsed.toFixed(1)}s (${(GAMES / elapsed).toFixed(1)} parties/s)`);
 console.log(
   `duree moyenne : ${(results.reduce((a, r) => a + r.ticks, 0) / GAMES / TICK_RATE / 60).toFixed(1)} min`,
@@ -78,7 +84,7 @@ for (const [root, n] of [...byRoot].sort((a, b) => b[1] - a[1])) {
   console.log(`  ${name.padEnd(22)} ${String(n).padStart(3)}  ${((n / GAMES) * 100).toFixed(0)}%`);
 }
 
-console.log('\nvictoires par agressivite (part de l or en creeps) :');
+console.log('\nvictoires par agressivite (part de l or en creeps, personnalite tiree du RNG de chaque bot) :');
 for (const [a, n] of [...byAggr].sort((x, y) => x[0] - y[0])) {
   console.log(`  ${(a * 100).toFixed(0).padStart(3)}%  ${String(n).padStart(3)}`);
 }

@@ -1,6 +1,15 @@
 import * as THREE from 'three';
-import { createGame, tick, Bot, TICK_RATE, type Command, type GameState, type SimEvent } from '@tower-defense/sim';
-import { buildableTowers, lanes, towers, rules, nearestSlot } from '@tower-defense/data';
+import {
+  createGame,
+  tick,
+  Bot,
+  TICK_RATE,
+  type Command,
+  type Difficulty,
+  type GameState,
+  type SimEvent,
+} from '@tower-defense/sim';
+import { lanes, towers, rules, nearestSlot } from '@tower-defense/data';
 import { MAX_RADIUS } from '@tower-defense/renderer';
 import { createScene3D, resizeScene3D, disposeScene3D, type Scene3D } from './scene3d.js';
 import { computeFrame, worldToScene, type Frame3D } from './world3d.js';
@@ -50,17 +59,18 @@ function must<T>(v: T | undefined, message: string): T {
   return v;
 }
 
-function newGame(seedBase: number, botCount: number): { state: GameState; bots: Bot[] } {
+function newGame(seedBase: number, botCount: number, difficulty: Difficulty): { state: GameState; bots: Bot[] } {
   const state = createGame(seedBase, botCount + 1);
   const bots = state.arenas
     .filter((a) => a.player !== 0)
     .map(
       (a) =>
+        // aggression/preferredRoot ne sont pas fournis : le bot les tire de
+        // son propre RNG (personnalite), independamment du niveau choisi ici.
         new Bot({
           player: a.player,
-          aggression: 0.2 + (a.player % 4) * 0.2,
-          preferredRoot: buildableTowers[a.player % buildableTowers.length]!,
           seed: seedBase + a.player * 7919,
+          difficulty,
         }),
     );
   return { state, bots };
@@ -173,6 +183,21 @@ export function startGame(callbacks: GameCallbacks): () => void {
     botCountSelect.appendChild(opt);
   }
 
+  // Meme traitement que le selecteur de bots ci-dessus : conteneur vide dans
+  // index.html, options generees ici, repeuplees a chaque appel de
+  // startGame() sans dupliquer.
+  const difficultySelect = byId<HTMLSelectElement>('bot-difficulty');
+  difficultySelect.innerHTML = '';
+  const DEFAULT_DIFFICULTY: Difficulty = 'medium';
+  const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Facile', medium: 'Moyen', hard: 'Difficile' };
+  for (const d of ['easy', 'medium', 'hard'] as const) {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = DIFFICULTY_LABELS[d];
+    opt.selected = d === DEFAULT_DIFFICULTY;
+    difficultySelect.appendChild(opt);
+  }
+
   let selectedTowerEid: number | null = null;
   let hoveredTowerEid: number | null = null;
   let armedBuildDefId: string | null = null;
@@ -180,7 +205,8 @@ export function startGame(callbacks: GameCallbacks): () => void {
 
   const pendingHuman: Command[] = [];
   let botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
-  let { state, bots } = newGame(Date.now() | 0, botCount);
+  let difficulty = difficultySelect.value as Difficulty;
+  let { state, bots } = newGame(Date.now() | 0, botCount, difficulty);
   let speed = 1;
 
   const buildButtons = buildBuildPanel(buildList, (defId) => {
@@ -214,7 +240,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
   armExitGuard();
 
   function startNewGame(): void {
-    const next = newGame(Date.now() | 0, botCount);
+    const next = newGame(Date.now() | 0, botCount, difficulty);
     state = next.state;
     bots = next.bots;
     pendingHuman.length = 0;
@@ -236,6 +262,15 @@ export function startGame(callbacks: GameCallbacks): () => void {
     'change',
     () => {
       botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
+      startNewGame();
+    },
+    listenerOpts,
+  );
+
+  difficultySelect.addEventListener(
+    'change',
+    () => {
+      difficulty = difficultySelect.value as Difficulty;
       startNewGame();
     },
     listenerOpts,
