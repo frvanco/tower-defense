@@ -1,4 +1,4 @@
-import { towers, creeps, buildableTowers, buildSlots, type Slot } from '@tower-defense/data';
+import { towers, creeps, buildableTowers, buildSlots, lanes, type Slot, type Lane } from '@tower-defense/data';
 import { nextRandom } from './rng.js';
 import { TICK_RATE, type Command, type GameState } from './types.js';
 
@@ -9,6 +9,30 @@ export interface BotConfig {
   /** Branche de tours privilegiee (id de la tour racine). */
   preferredRoot: string;
   seed: number;
+}
+
+/** Part de creeps aeriens dans l'arene au-dela de laquelle le bot reagit s'il
+ * n'a aucune tour capable de cibler l'air (voir decide()). Choix heuristique
+ * du bot, pas une valeur d'equilibrage — n'a rien a faire dans balance.json. */
+const AIR_THREAT_SHARE = 0.3;
+
+/** Distance d'un point a un segment [a, b] — plus petite distance a la
+ * portion de chemin, pas seulement aux waypoints. Fonction pure, sans etat. */
+function pointToSegmentDistance(
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  const t = lenSq > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq)) : 0;
+  const cx = ax + t * dx;
+  const cy = ay + t * dy;
+  return Math.hypot(px - cx, py - cy);
 }
 
 /**
@@ -43,10 +67,34 @@ export class Bot {
     return r.value;
   }
 
+  /** Trie les emplacements par distance croissante au chemin (les plus utiles
+   * — portee vraiment exploitee — en premier). Egalites departagees par un
+   * tirage du RNG du bot, pour que deux bots ne remplissent pas dans le meme
+   * ordre. Calcule une seule fois, au premier decide(). */
+  private rankSlotsByPath(slots: Slot[], lane: Lane): Slot[] {
+    const points: Array<[number, number]> = [lane.spawn, ...lane.waypoints];
+    const scored = slots.map((slot) => {
+      let dist = Infinity;
+      for (let i = 0; i < points.length - 1; i++) {
+        const [ax, ay] = points[i]!;
+        const [bx, by] = points[i + 1]!;
+        const d = pointToSegmentDistance(slot.x, slot.y, ax, ay, bx, by);
+        if (d < dist) dist = d;
+      }
+      return { slot, dist, tiebreak: this.rand() };
+    });
+    scored.sort((a, b) => a.dist - b.dist || a.tiebreak - b.tiebreak);
+    return scored.map((x) => x.slot);
+  }
+
   decide(s: GameState): Command[] {
     const arena = s.arenas[this.cfg.player];
     if (!arena || !arena.alive) return [];
-    if (!this.slots) this.slots = buildSlots(this.cfg.player);
+    if (!this.slots) {
+      const raw = buildSlots(this.cfg.player);
+      const lane = lanes.find((l) => l.player === this.cfg.player);
+      this.slots = lane ? this.rankSlotsByPath(raw, lane) : raw;
+    }
 
     if (s.tick < this.nextDecisionTick) return [];
     // +-20% de gigue par decision : evite un rythme parfaitement mecanique
@@ -86,7 +134,19 @@ export class Bot {
       towerBudget -= up.next.goldCost;
     }
 
-    const root = towers.get(this.cfg.preferredRoot) ?? towers.get(buildableTowers[0]!)!;
+    // Reaction a l'aerien : si une part significative des creeps presents
+    // dans l'arene est aerienne et qu'aucune tour actuelle ne peut la cibler,
+    // le bot construit temporairement sur une racine anti-air plutot que sur
+    // sa preference habituelle — jusqu'a en posseder au moins une.
+    let rootId = this.cfg.preferredRoot;
+    const airCreepCount = arena.creeps.filter((c) => creeps.get(c.defId)?.isAir).length;
+    const airShare = arena.creeps.length > 0 ? airCreepCount / arena.creeps.length : 0;
+    const hasAntiAir = arena.towers.some((t) => towers.get(t.defId)?.targets.includes('air'));
+    if (airShare > AIR_THREAT_SHARE && !hasAntiAir) {
+      const airRoot = buildableTowers.find((id) => towers.get(id)?.targets.includes('air'));
+      if (airRoot) rootId = airRoot;
+    }
+    const root = towers.get(rootId) ?? towers.get(buildableTowers[0]!)!;
     // Garde-fou : une tour a cout nul ferait boucler le bot a l infini.
     const rootCost = Math.max(1, root.goldCost);
     // `arena.occupied` ne reflete que les commandes deja traitees par tick() —
