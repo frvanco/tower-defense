@@ -454,15 +454,26 @@ button {
   transition: background 0.4s ease;
 }
 
-/* Ecran menu (apres identification) : meme habillage, lueur virant vers l'ambre/braise
-   plutot que le bleu froid de l'ecran d'entree — on est pret pour la bataille. */
+/* Ecran d'accueil (menu, bouton Jouer) : illustration en fond, a peine
+   assombrie pour rester vive — juste un leger degrade en bas pour que le
+   lien "Se deconnecter" reste lisible quel que soit l'endroit de l'image. */
 #launcher[data-screen='menu'],
 #launcher[data-screen='menu-claim'] {
   background:
-    radial-gradient(circle at 50% 24%, rgba(208, 80, 60, 0.14), transparent 55%),
-    radial-gradient(circle at 88% 85%, rgba(179, 154, 104, 0.2), transparent 50%),
-    radial-gradient(circle at 10% 15%, rgba(107, 84, 50, 0.2), transparent 50%),
-    linear-gradient(180deg, #0b0805 0%, #14100c 55%, #0b0805 100%);
+    linear-gradient(180deg, rgba(11, 8, 5, 0.05) 0%, rgba(11, 8, 5, 0.15) 55%, rgba(11, 8, 5, 0.35) 100%),
+    url('/images/bg-accueil.jpg') center / cover no-repeat;
+}
+
+/* Ecrans pseudo et connexion (email/mot de passe) : meme traitement. */
+#launcher[data-screen='pseudo'],
+#launcher[data-screen='pseudo-login'] {
+  background:
+    linear-gradient(180deg, rgba(11, 8, 5, 0.05) 0%, rgba(11, 8, 5, 0.15) 55%, rgba(11, 8, 5, 0.35) 100%),
+    /* Position ancree en bas : le logo/texte de l'illustration est colle au
+       bord inferieur — avec `cover` sur une fenetre plus large que l'image,
+       il ne faut jamais le rogner. C'est le haut du decor qui perd un peu
+       de champ a la place. */
+    url('/images/bg-connexion.jpg') center bottom / cover no-repeat;
 }
 
 .sr-only {
