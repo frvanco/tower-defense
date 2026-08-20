@@ -157,7 +157,21 @@ export function startGame(callbacks: GameCallbacks): () => void {
   const restartBtn = byId<HTMLButtonElement>('restart-btn');
   const exitToMenuBtn = byId<HTMLButtonElement>('exit-to-menu-btn');
 
+  // Genere depuis MAX_BOTS plutot que code en dur dans index.html : les deux
+  // sources pouvaient diverger (le HTML listait 1-7 sans lien avec
+  // rules.maxPlayers). Vide le <select> avant de le remplir : startGame()
+  // peut etre rappelee sur le meme DOM (retour a l'accueil puis Jouer), il ne
+  // faut pas empiler les <option>.
   const botCountSelect = byId<HTMLSelectElement>('bot-count');
+  botCountSelect.innerHTML = '';
+  const defaultBotCount = Math.min(5, MAX_BOTS);
+  for (let n = 1; n <= MAX_BOTS; n++) {
+    const opt = document.createElement('option');
+    opt.value = String(n);
+    opt.textContent = String(n);
+    opt.selected = n === defaultBotCount;
+    botCountSelect.appendChild(opt);
+  }
 
   let selectedTowerEid: number | null = null;
   let hoveredTowerEid: number | null = null;
