@@ -20,7 +20,12 @@
     "h004": { "damageBase": 155 },
     "h002": { "damageBase": 335 },
     "h012": { "damageBase": 720 },
-    "h010": { "damageBase": 1440 }
+    "h010": { "damageBase": 1440 },
+
+    "o008": { "targets": ["ground"], "damageBase": 36, "cooldown": 0.25, "range": 600 },
+    "o009": { "targets": ["ground"], "damageBase": 72, "cooldown": 0.22, "range": 700 },
+    "o00A": { "targets": ["ground"], "damageBase": 149, "cooldown": 0.20, "range": 800 },
+    "o00B": { "targets": ["ground"], "damageBase": 370, "cooldown": 0.18, "range": 900 }
   },
   "creeps": {},
   "shops": {
