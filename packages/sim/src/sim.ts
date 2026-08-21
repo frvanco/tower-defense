@@ -80,19 +80,19 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
 
   if (cmd.type === 'buildTower') {
     const def = towers.get(cmd.defId);
-    if (!def) return events.push({ type: 'rejected', player: cmd.player, reason: 'unknown tower' });
+    if (!def) return void events.push({ type: 'rejected', player: cmd.player, reason: 'unknown tower' });
     if (!buildableTowers.includes(cmd.defId))
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not directly buildable' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not directly buildable' });
     if (arena.gold < def.goldCost)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
     // Le clic est snap sur l'emplacement le plus proche (a SLOT_SIZE pres) :
     // la tour prend la position exacte de l'emplacement, jamais celle du
     // clic — c'est ce qui garde la sim deterministe (le meme clic approximatif
     // d'un client rejoue toujours sur la meme case).
     const slot = nearestSlot(cmd.player, cmd.x, cmd.y);
-    if (!slot) return events.push({ type: 'rejected', player: cmd.player, reason: 'no slot here' });
+    if (!slot) return void events.push({ type: 'rejected', player: cmd.player, reason: 'no slot here' });
     if (arena.occupied[slot.id])
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'occupied' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'occupied' });
     arena.gold -= def.goldCost;
     arena.goldSpentOnTowers += def.goldCost;
     arena.occupied[slot.id] = true;
@@ -107,9 +107,9 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
     const to = towers.get(cmd.defId);
     if (!from || !to) return;
     if (!from.upgradesTo.includes(cmd.defId))
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'invalid upgrade' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'invalid upgrade' });
     if (arena.gold < to.goldCost)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
     arena.gold -= to.goldCost;
     arena.goldSpentOnTowers += to.goldCost;
     t.defId = to.id;
@@ -129,14 +129,14 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
 
   if (cmd.type === 'sendCreep') {
     const def = creeps.get(cmd.defId);
-    if (!def) return events.push({ type: 'rejected', player: cmd.player, reason: 'unknown creep' });
+    if (!def) return void events.push({ type: 'rejected', player: cmd.player, reason: 'unknown creep' });
     const st = arena.stock[cmd.defId];
     if (!st || s.tick < st.availableAt)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not unlocked' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not unlocked' });
     if (st.count < 1)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'out of stock' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'out of stock' });
     if (arena.gold < def.goldCost)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
 
     arena.gold -= def.goldCost;
     arena.goldSpentOnCreeps += def.goldCost;
