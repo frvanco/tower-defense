@@ -10,7 +10,7 @@
     "o000": { "poison": { "slowPct": 0.20, "dps": 45, "durationSec": 9 } },
     "o006": { "poison": { "slowPct": 0.25, "dps": 90, "durationSec": 12 } },
 
-    "h005": { "chain": { "bounces": 2, "falloff": 0.60 } },
+    "h005": { "goldCost": 60, "chain": { "bounces": 2, "falloff": 0.60 } },
     "h006": { "chain": { "bounces": 3, "falloff": 0.68 } },
     "h007": { "chain": { "bounces": 4, "falloff": 0.75 } },
     "h011": { "chain": { "bounces": 6, "falloff": 0.82 } },
