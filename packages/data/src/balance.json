@@ -7,8 +7,8 @@
 
     "o001": { "attackType": "pierce", "poison": { "slowPct": 0.10, "dps": 8, "durationSec": 5 } },
     "o002": { "attackType": "pierce", "poison": { "slowPct": 0.15, "dps": 20, "durationSec": 7 } },
-    "o000": { "attackType": "pierce", "poison": { "slowPct": 0.20, "dps": 45, "durationSec": 9 } },
-    "o006": { "attackType": "pierce", "poison": { "slowPct": 0.25, "dps": 90, "durationSec": 12 } },
+    "o000": { "attackType": "pierce", "damageBase": 50, "cooldown": 0.25, "poison": { "slowPct": 0.20, "dps": 45, "durationSec": 9 } },
+    "o006": { "attackType": "pierce", "damageBase": 80, "cooldown": 0.20, "poison": { "slowPct": 0.25, "dps": 90, "durationSec": 12 } },
 
     "h005": { "attackType": "pierce", "goldCost": 60, "chain": { "bounces": 2, "falloff": 0.60 } },
     "h006": { "attackType": "pierce", "chain": { "bounces": 3, "falloff": 0.68 } },
