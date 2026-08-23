@@ -22,10 +22,10 @@
     "h012": { "damageBase": 828 },
     "h010": { "damageBase": 1534 },
 
-    "o008": { "targets": ["ground"], "damageBase": 36, "cooldown": 0.25, "range": 600 },
-    "o009": { "targets": ["ground"], "damageBase": 72, "cooldown": 0.22, "range": 700 },
-    "o00A": { "targets": ["ground"], "damageBase": 149, "cooldown": 0.20, "range": 800 },
-    "o00B": { "targets": ["ground"], "damageBase": 370, "cooldown": 0.18, "range": 900 }
+    "o008": { "targets": ["ground"], "damageBase": 50, "cooldown": 0.25, "range": 600 },
+    "o009": { "targets": ["ground"], "damageBase": 101, "cooldown": 0.22, "range": 700 },
+    "o00A": { "targets": ["ground"], "damageBase": 209, "cooldown": 0.20, "range": 800 },
+    "o00B": { "targets": ["ground"], "damageBase": 518, "cooldown": 0.18, "range": 900 }
   },
   "creeps": {},
   "shops": {
@@ -37,5 +37,8 @@
     "bountyPct": 0.15,
     "startIncome": 60,
     "creepSpeedMultiplier": 0.7
+  },
+  "_notes": {
+    "mitrailleuseVsCannon": "o008-o00B calee a 2.4x le DPS de la branche Cannon (h000/h003/h004/h002/h012/h010) a palier comparable, contre 2x lors du reequilibrage precedent de la mitrailleuse. Deplacement volontaire en sa faveur (elle est mono-cible la ou le Cannon frappe en zone) -- pas une derive a corriger. Champ ignore au chargement (voir packages/data/src/index.ts), present uniquement pour la documentation."
   }
 }
