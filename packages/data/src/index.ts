@@ -116,10 +116,10 @@ const BASE_DEFAULTS: Record<string, Partial<TowerDef & CreepDef>> = {
 
 export const defaultsUsed: Array<{ id: string; field: string }> = [];
 
-function pick<T>(id: string, base: string, field: string, value: T | undefined, fallbackKey: string): T {
+function pick<T>(id: string, base: string, field: string, value: T | undefined, fallbackKey: string, track = true): T {
   if (value !== undefined && value !== null && value !== '') return value;
   const d = BASE_DEFAULTS[base]?.[fallbackKey as keyof typeof BASE_DEFAULTS[string]];
-  defaultsUsed.push({ id, field });
+  if (track) defaultsUsed.push({ id, field });
   return d as T;
 }
 
@@ -146,7 +146,11 @@ function buildTower(t: Record<string, unknown>): TowerDef {
     cooldown: (t.atk1Cooldown as number) ?? 1,
     range: pick(id, base, 'range', t.atk1Range as number, 'range'),
     acquisitionRange: (t.acquisitionRange as number) ?? pick(id, base, 'acquisitionRange', undefined, 'acquisitionRange'),
-    attackType: pick(id, base, 'attackType', t.atk1AttackType as AttackType, 'attackType'),
+    // Non trackee dans defaultsUsed (dernier argument false) : attackType
+    // n'est plus une lacune des donnees source a verifier, c'est un choix de
+    // design assume, ecrit explicitement pour chaque tour dans balance.json
+    // (voir _notes.attackType) et qui l'ecrasera de toute facon ci-dessous.
+    attackType: pick(id, base, 'attackType', t.atk1AttackType as AttackType, 'attackType', false),
     targets: targets.length ? targets : ['ground'],
     aoeFull: (t.atk1AoeFull as number) ?? 0,
     aoeMedium: (t.atk1AoeMedium as number) ?? 0,
