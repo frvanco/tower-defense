@@ -1,14 +1,34 @@
 {
   "towers": {
-    "o003": { "attackType": "pierce", "slow": { "pct": 0.15, "maxTargets": 2, "durationSec": 3 } },
-    "o004": { "attackType": "pierce", "slow": { "pct": 0.22, "maxTargets": 3, "durationSec": 3.5 } },
-    "o005": { "attackType": "pierce", "slow": { "pct": 0.30, "maxTargets": 4, "durationSec": 4 } },
-    "o007": { "attackType": "pierce", "slow": { "pct": 0.38, "maxTargets": 6, "durationSec": 4.5 } },
+    "o003": { "attackType": "pierce", "slow": { "pct": 0.12, "maxTargets": 2, "durationSec": 3 } },
+    "o004": { "attackType": "pierce", "slow": { "pct": 0.19, "maxTargets": 3, "durationSec": 3.5 } },
+    "o005": { "attackType": "pierce", "slow": { "pct": 0.26, "maxTargets": 4, "durationSec": 4 } },
+    "o007": { "attackType": "pierce", "slow": { "pct": 0.33, "maxTargets": 6, "durationSec": 4.5 }, "upgradesTo": ["o00C"] },
+    "o00C": {
+      "id": "o00C", "name": "Absolute Zero Tower",
+      "goldCost": 1200, "refund": 1200,
+      "damageBase": 500, "dice": 0, "sides": 1, "cooldown": 0.60,
+      "range": 1500, "acquisitionRange": 700,
+      "attackType": "pierce", "targets": ["air", "ground"],
+      "aoeFull": 80, "aoeMedium": 160, "aoeSmall": 200,
+      "upgradesTo": [], "requires": [], "abilities": ["Afrb"],
+      "slow": { "pct": 0.40, "maxTargets": 10, "durationSec": 5.0 }
+    },
 
-    "o001": { "attackType": "pierce", "poison": { "slowPct": 0.10, "dps": 8, "durationSec": 5 } },
-    "o002": { "attackType": "pierce", "poison": { "slowPct": 0.15, "dps": 20, "durationSec": 7 } },
+    "o001": { "attackType": "pierce", "poison": { "slowPct": 0.08, "dps": 8, "durationSec": 5 } },
+    "o002": { "attackType": "pierce", "poison": { "slowPct": 0.14, "dps": 20, "durationSec": 7 } },
     "o000": { "attackType": "pierce", "damageBase": 50, "cooldown": 0.25, "poison": { "slowPct": 0.20, "dps": 45, "durationSec": 9 } },
-    "o006": { "attackType": "pierce", "damageBase": 80, "cooldown": 0.20, "poison": { "slowPct": 0.25, "dps": 90, "durationSec": 12 } },
+    "o006": { "attackType": "pierce", "damageBase": 80, "cooldown": 0.20, "poison": { "slowPct": 0.25, "dps": 90, "durationSec": 12 }, "upgradesTo": ["o00D"] },
+    "o00D": {
+      "id": "o00D", "name": "Pandemic Tower",
+      "goldCost": 4000, "refund": 4000,
+      "damageBase": 110, "dice": 0, "sides": 1, "cooldown": 0.20,
+      "range": 1500, "acquisitionRange": 1000,
+      "attackType": "pierce", "targets": ["air", "ground"],
+      "aoeFull": 10, "aoeMedium": 20, "aoeSmall": 30,
+      "upgradesTo": [], "requires": [], "abilities": ["Aspo"],
+      "poison": { "slowPct": 0.30, "dps": 162, "durationSec": 15 }
+    },
 
     "h005": { "attackType": "pierce", "goldCost": 60, "chain": { "bounces": 2, "falloff": 0.60 } },
     "h006": { "attackType": "pierce", "chain": { "bounces": 3, "falloff": 0.68 } },
@@ -43,6 +63,7 @@
   },
   "_notes": {
     "mitrailleuseVsCannon": "o008-o00B calee a 2.4x le DPS de la branche Cannon (h000/h003/h004/h002/h012/h010) a palier comparable, contre 2x lors du reequilibrage precedent de la mitrailleuse. Deplacement volontaire en sa faveur (elle est mono-cible la ou le Cannon frappe en zone) -- pas une derive a corriger. Champ ignore au chargement (voir packages/data/src/index.ts), present uniquement pour la documentation.",
-    "attackType": "Choix de design assume, plus une lacune des donnees source (voir packages/sim/src/sim.ts pour la table de degats par type x armure). siege (Cannon, Nuclear) : x1.5 contre fort, x0.5 contre medium -- la reponse aux creeps blindes (5/12 en Forge, 4/12 en Fonderie). pierce (Ice, Poison, Lightning) : x1.5 contre normal, x2 contre small, x0.35 contre fort -- bon contre la pietaille, mauvais contre le blindage. normal (mitrailleuse) : neutre partout. Exception assumee : h000 (Arrow Tower, palier 1 de Cannon) est pierce et non siege comme le reste de sa branche -- c'etait deja sa valeur par defaut avant ce lot (heritee d'un baseId different des paliers superieurs dans la map d'origine), conservee telle quelle plutot que forcee a siege pour coller au resume par branche."
+    "attackType": "Choix de design assume, plus une lacune des donnees source (voir packages/sim/src/sim.ts pour la table de degats par type x armure). siege (Cannon, Nuclear) : x1.5 contre fort, x0.5 contre medium -- la reponse aux creeps blindes (5/12 en Forge, 4/12 en Fonderie). pierce (Ice, Poison, Lightning) : x1.5 contre normal, x2 contre small, x0.35 contre fort -- bon contre la pietaille, mauvais contre le blindage. normal (mitrailleuse) : neutre partout. Exception assumee : h000 (Arrow Tower, palier 1 de Cannon) est pierce et non siege comme le reste de sa branche -- c'etait deja sa valeur par defaut avant ce lot (heritee d'un baseId different des paliers superieurs dans la map d'origine), conservee telle quelle plutot que forcee a siege pour coller au resume par branche.",
+    "fifthTiers": "o00C (Absolute Zero Tower, Ice) et o00D (Pandemic Tower, Poison) : premieres tours n'existant dans aucune donnee source -- creees entierement via balance.json (voir applyOverrides dans packages/data/src/index.ts, qui cree desormais l'entree si l'id est absent des donnees d'origine plutot que de se contenter d'ignorer une surcharge sans cible). Noms proposes en continuite de la branche : Ice Tower -> Super Ice Tower -> Freeze Tower -> Ultra Freeze Tower -> Absolute Zero Tower ; Poison Tower -> Super Poison Tower -> Disease Tower -> Ultra Disease Tower -> Pandemic Tower. A confirmer, faciles a renommer ici si un autre nom est prefere. Ralentissement cumule lisse sur 5 paliers pour tomber pile sur SLOW_CAP (0.70) quand les DEUX branches sont montees a fond (voir packages/sim/src/status.ts) : Ice 12/19/26/33/40%, Poison 8/14/20/25/30% (o000 et o006 etaient deja a 20/25%, inchanges). Prix : 1200 (Ice, palier 4 actuel 300, ratio x4 contre x1.5-2 sur les paliers precedents de la branche) et 4000 (Poison, palier 4 actuel 1000, ratio x4, coherent avec le dernier saut de la branche qui etait deja x4). Le saut Ice est plus abrupt que l'historique de sa propre branche, mais reste tres en-dessous du sommet des autres branches a ce stade de partie (o00B 1500, h011 8000, h010 20000) -- 300 en palier 4 etait l'exception basse, pas 1200 en palier 5 ; a ajuster si ca semble encore trop bas ou trop haut une fois mesure en jeu. Palier 5 n'apporte plus de ralentissement supplementaire (deja plafonne au niveau du jeu) mais autre chose : Ice gagne en rayon (aoeFull 10 -> 80, o007 avait une valeur anormalement basse dans les donnees source, ecart deja present avant ce lot et non corrige ici) et en cibles simultanees (6 -> 10) plus une duree de ralentissement prolongee (4.5 -> 5.0s) ; Poison gagne en duree du DoT (12 -> 15s) et en degats par seconde du DoT (90 -> 162), tandis que les degats directs restent volontairement moderes (110 base, cooldown 0.20s inchange = 550 DPS direct contre 400 en palier 4, une hausse bien plus faible que le x4 du prix) pour rester coherent avec l'esprit du nerf Poison de ce meme lot : la valeur du palier 5 vient du DoT, pas du coup direct."
   }
 }

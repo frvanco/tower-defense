@@ -191,6 +191,13 @@ function applyOverrides<T extends object>(defs: Map<string, T>, over: Record<str
   for (const [id, patch] of Object.entries(over)) {
     const d = defs.get(id);
     if (d) Object.assign(d, patch);
+    // Aucune entree source pour cet id (map_data.json n'en a jamais eu
+    // connaissance) : balance.json peut aussi definir une tour entierement
+    // nouvelle, pas seulement surcharger une existante. Le patch doit alors
+    // fournir tous les champs requis lui-meme (pas de defauts a heriter).
+    // Sert aux 5emes paliers Ice/Poison (o00C, o00D), inexistants dans la
+    // map d'origine.
+    else defs.set(id, patch as T);
   }
 }
 
