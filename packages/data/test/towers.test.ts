@@ -41,4 +41,14 @@ describe('garde-fous generaux sur les tours', () => {
       expect(def.range, `${id} : portee ${def.range}`).toBeLessThanOrEqual(2000);
     }
   });
+
+  // buildTower() dans packages/data/src/index.ts retombe sur l'id comme nom
+  // quand les donnees source n'en fournissent pas (`name: t.name ?? id`) —
+  // c'etait deja arrive une fois (h003, corrige via balance.json). Empeche
+  // qu'une regeneration future des donnees le reperde sans qu'on le voie.
+  it('aucune tour n\'a un name egal a son id (nom manquant)', () => {
+    for (const [id, def] of towers) {
+      expect(def.name, `${id} n'a pas de nom propre`).not.toBe(id);
+    }
+  });
 });
