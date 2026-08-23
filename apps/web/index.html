@@ -31,10 +31,16 @@
           <button class="speed-btn" data-speed="4">4x</button>
         </div>
       </header>
+      <div id="arena-bar">
+        <button id="arena-prev" class="arena-arrow" type="button" aria-label="Arène précédente">‹</button>
+        <div id="arena-pills"></div>
+        <button id="arena-next" class="arena-arrow" type="button" aria-label="Arène suivante">›</button>
+      </div>
       <main id="main">
         <div id="canvas-wrap">
           <canvas id="game-canvas"></canvas>
           <div id="toasts"></div>
+          <button id="back-to-own-arena-btn" hidden>Accueil</button>
           <div id="game-over" hidden>
             <div id="game-over-box">
               <h2 id="game-over-title">Game over</h2>

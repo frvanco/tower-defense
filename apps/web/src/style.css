@@ -107,6 +107,134 @@ button {
   font-weight: 600;
 }
 
+/* ---------- barre d'arenes ---------- */
+
+#arena-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: #1a140f;
+  border-bottom: 1px solid #3a2f1c;
+  flex-shrink: 0;
+}
+
+.arena-arrow {
+  background: #2a2118;
+  border: 1px solid #6b5432;
+  color: #e9e2d3;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  line-height: 1;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.arena-arrow:hover {
+  background: #3a2f1c;
+}
+
+#arena-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.arena-pill {
+  --pill-color: #9aa0ab;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #221a13;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  padding: 4px 10px 4px 6px;
+  color: #e9e2d3;
+  cursor: pointer;
+}
+
+.arena-pill:hover:not(:disabled) {
+  background: #2f2519;
+}
+
+.arena-pill:disabled {
+  cursor: not-allowed;
+}
+
+/* La sienne : liseré permanent, meme quand une autre arene est observee. */
+.arena-pill.own {
+  border-color: var(--pill-color);
+}
+
+/* Celle qu'on regarde actuellement : mise en evidence forte, prend le pas
+   sur le liseré "own" ci-dessus si c'est la meme pastille. */
+.arena-pill.viewed {
+  border-color: #f2d24b;
+  box-shadow: 0 0 0 1px #f2d24b;
+  background: #362a17;
+}
+
+.arena-pill-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--pill-color);
+  flex-shrink: 0;
+}
+
+.arena-pill-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.arena-pill-lives {
+  font-size: 12px;
+  color: #b39a68;
+  min-width: 1.4em;
+  text-align: right;
+}
+
+.arena-pill.dead {
+  opacity: 0.5;
+}
+
+.arena-pill.dead .arena-pill-label {
+  text-decoration: line-through;
+}
+
+.arena-pill.dead .arena-pill-lives::after {
+  content: '✕';
+}
+
+/* ---------- liseré d'observation autour de la vue ---------- */
+
+#canvas-wrap.observing {
+  /* inset : ne decale rien (contrairement a border), la case reste identique */
+  box-shadow: inset 0 0 0 5px var(--observed-color, #f2d24b);
+}
+
+#back-to-own-arena-btn {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  background: #221a13;
+  border: 2px solid var(--observed-color, #f2d24b);
+  color: #e9e2d3;
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#back-to-own-arena-btn:hover {
+  background: #2f2519;
+}
+
 #main {
   display: flex;
   flex: 1;

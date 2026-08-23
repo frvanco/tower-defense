@@ -19,6 +19,7 @@ import { LightningArcs } from './lightningEffects.js';
 import { createSlotMarkers } from './slots3d.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
 import { laneColor } from './colors.js';
+import { buildArenaBar, updateArenaBar, stepLivingPlayer, type ArenaBarRefs } from './arenaBar.js';
 import {
   buildBuildPanel,
   updateBuildPanel,
@@ -220,6 +221,36 @@ export function startGame(callbacks: GameCallbacks): () => void {
 
   let arenaRows = buildArenasPanel(arenasList, botCount + 1);
 
+  // Barre d'arenes : navigation entre les 6+ arenes (observation seule, voir
+  // setViewedPlayer plus bas — le joueur humain est toujours le player 0).
+  const arenaPillsEl = byId<HTMLDivElement>('arena-pills');
+  const arenaPrevBtn = byId<HTMLButtonElement>('arena-prev');
+  const arenaNextBtn = byId<HTMLButtonElement>('arena-next');
+  let viewedPlayer = 0;
+
+  function setViewedPlayer(player: number): void {
+    viewedPlayer = player;
+  }
+
+  let arenaBarRefs = buildArenaBar(arenaPillsEl, botCount + 1, setViewedPlayer);
+
+  arenaPrevBtn.addEventListener(
+    'click',
+    () => {
+      const next = stepLivingPlayer(state, viewedPlayer, -1);
+      if (next !== null) setViewedPlayer(next);
+    },
+    listenerOpts,
+  );
+  arenaNextBtn.addEventListener(
+    'click',
+    () => {
+      const next = stepLivingPlayer(state, viewedPlayer, 1);
+      if (next !== null) setViewedPlayer(next);
+    },
+    listenerOpts,
+  );
+
   // main.ts est le seul module qui sait si une partie est en cours — c'est
   // donc lui, et non le launcher, qui possede la garde de fermeture
   // accidentelle. Idempotentes : armer deux fois de suite ne pose qu'un seul
@@ -252,6 +283,8 @@ export function startGame(callbacks: GameCallbacks): () => void {
     lightningArcs.clear();
     arenasList.innerHTML = '';
     arenaRows = buildArenasPanel(arenasList, botCount + 1);
+    viewedPlayer = 0;
+    arenaBarRefs = buildArenaBar(arenaPillsEl, botCount + 1, setViewedPlayer);
     // "Rejouer" relance une partie sans repasser par le launcher : sans ce
     // rearm, une partie relancee apres une premiere fin de partie perdrait la
     // confirmation de fermeture accidentelle.
@@ -462,6 +495,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
       }
     }
     updateArenasPanel(arenaRows, state);
+    updateArenaBar(arenaBarRefs, state, viewedPlayer, 0);
     lightningArcs.update(animDt);
 
     s3d.controls.update();

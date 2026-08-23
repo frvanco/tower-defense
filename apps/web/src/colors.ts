@@ -29,6 +29,39 @@ export function laneColor(name: string | undefined): string {
   return LANE_COLORS[name] ?? '#9aa0ab';
 }
 
+/**
+ * Identite visuelle d'un joueur (barre d'arenes, liseres, teinte des tours) —
+ * concept distinct de LANE_COLORS ci-dessus (qui identifie "qui a envoye ce
+ * creep", pas "de quelle arene s'agit-il"). Indexee par player (0-based) :
+ * P1=rouge (meme rouge que l'ancien TEAM_COLOR de main.ts, pour ne rien
+ * changer visuellement sur sa propre arene) ... P6=orange, comme specifie.
+ * P7/P8 ajoutes pour rester correct au-dela de 6 joueurs (le selecteur de
+ * bots va jusqu'a 7, soit 8 joueurs) — non specifies, choisis dans l'esprit
+ * des teintes deja utilisees ailleurs dans le projet.
+ */
+export const PLAYER_COLORS: readonly string[] = [
+  '#c0392b', // P1 rouge
+  '#4b8fe2', // P2 bleu
+  '#4fbf4f', // P3 vert
+  '#a259d9', // P4 violet
+  '#e26fc0', // P5 rose
+  '#e2903f', // P6 orange
+  '#29c3b0', // P7 sarcelle
+  '#d9c93f', // P8 jaune
+];
+
+/** Gris neutre pour un joueur elimine — jamais reutilise dans PLAYER_COLORS
+ * ci-dessus (c'est justement la convention "mort" que P6 orange doit eviter). */
+export const ELIMINATED_COLOR = '#5a5f6b';
+
+export function playerColor(player: number): string {
+  return PLAYER_COLORS[player % PLAYER_COLORS.length]!;
+}
+
+export function playerLabel(player: number): string {
+  return `P${player + 1}`;
+}
+
 /** Blends a #rrggbb color toward white — used for gradient highlights on flat armor-type fills. */
 export function lighten(hex: string, amt: number): string {
   const n = parseInt(hex.slice(1), 16);
