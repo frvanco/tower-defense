@@ -18,7 +18,7 @@ import { TowerEntities, CreepEntities } from './entities3d.js';
 import { LightningArcs } from './lightningEffects.js';
 import { createSlotMarkers } from './slots3d.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
-import { laneColor } from './colors.js';
+import { laneColor, playerColor, toHexNumber } from './colors.js';
 import { buildArenaBar, updateArenaBar, stepLivingPlayer, type ArenaBarRefs } from './arenaBar.js';
 import {
   buildBuildPanel,
@@ -40,10 +40,6 @@ const STEP_MS = 1000 / TICK_RATE;
 // ticks one frame will catch up on so the game skips forward instead of freezing
 // the UI while it replays minutes of simulation.
 const MAX_STEPS_PER_FRAME = 8;
-
-/** Couleur d'equipe du joueur humain — memes conventions que le prototype
- * (reference/cannon-branch-v5.html) et sa demo portee (packages/renderer/demo). */
-const TEAM_COLOR = 0xc0392b;
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -101,7 +97,14 @@ export function startGame(callbacks: GameCallbacks): () => void {
   const listenerOpts = { signal: controller.signal };
 
   const lane0 = must(lanes[0], 'lane 0 introuvable dans @tower-defense/data');
-  const frame: Frame3D = computeFrame(lane0);
+  // Une seule arene sert a construire le decor (terrain/lumieres/camera) :
+  // les 8 sont geometriquement identiques (meme couloir, memes emplacements),
+  // seule leur position monde BRUTE differe — computeFrame() de CHAQUE lane
+  // recentre deja sa propre boite englobante sur l'origine de la scene (voir
+  // world3d.ts), donc convertir les entites d'une autre arene ne demande que
+  // de changer QUEL frame on utilise, jamais de reconstruire le decor.
+  const frames: Frame3D[] = lanes.map((l) => computeFrame(l));
+  const frame: Frame3D = must(frames[0], 'frame 0 introuvable');
 
   const laneColorByPlayer = new Map(lanes.map((l) => [l.player, laneColor(l.color)]));
 
@@ -109,8 +112,35 @@ export function startGame(callbacks: GameCallbacks): () => void {
   const canvas = byId<HTMLCanvasElement>('game-canvas');
   const s3d: Scene3D = createScene3D(canvas, lane0, frame);
 
-  const towerEntities = new TowerEntities(s3d.towerLayer, frame, TEAM_COLOR);
-  const creepEntities = new CreepEntities(s3d.creepLayer, frame, laneColorByPlayer);
+  // Une instance TowerEntities/CreepEntities PAR JOUEUR (jusqu'a 8, la borne
+  // haute du selecteur de bots), chacune avec son propre sous-Group toujours
+  // synchronisee — meme quand elle n'est pas affichee. C'est ce qui garantit
+  // qu'aucune geometrie ne se cree/detruit AU MOMENT de basculer d'arene :
+  // les meshes apparaissent/disparaissent au fil du jeu (un bot construit,
+  // un creep meurt), etalés dans le temps plutot qu'en rafale au clic.
+  // Basculer = inverser deux `.visible`, cout nul. Pas un pool a taille fixe
+  // avec reaffectation de slots (voir le commit de cablage du rendu) : pour
+  // les tours, changer de "type" change la geometrie procedurale elle-meme
+  // (packages/renderer/src/towers/types.ts), un pool n'aurait rien economise
+  // de plus que ces N jeux d'entites permanents.
+  const towerGroups: THREE.Group[] = [];
+  const creepGroups: THREE.Group[] = [];
+  const towerEntitiesByPlayer: TowerEntities[] = [];
+  const creepEntitiesByPlayer: CreepEntities[] = [];
+  for (let p = 0; p < frames.length; p++) {
+    const pFrame = frames[p]!;
+    const towerGroup = new THREE.Group();
+    towerGroup.visible = p === 0;
+    s3d.towerLayer.add(towerGroup);
+    towerGroups.push(towerGroup);
+    towerEntitiesByPlayer.push(new TowerEntities(towerGroup, pFrame, toHexNumber(playerColor(p))));
+
+    const creepGroup = new THREE.Group();
+    creepGroup.visible = p === 0;
+    s3d.creepLayer.add(creepGroup);
+    creepGroups.push(creepGroup);
+    creepEntitiesByPlayer.push(new CreepEntities(creepGroup, pFrame, laneColorByPlayer));
+  }
 
   const lightningArcs = new LightningArcs();
   s3d.scene.add(lightningArcs.group);
@@ -229,7 +259,12 @@ export function startGame(callbacks: GameCallbacks): () => void {
   let viewedPlayer = 0;
 
   function setViewedPlayer(player: number): void {
+    if (player === viewedPlayer) return;
+    towerGroups[viewedPlayer]!.visible = false;
+    creepGroups[viewedPlayer]!.visible = false;
     viewedPlayer = player;
+    towerGroups[viewedPlayer]!.visible = true;
+    creepGroups[viewedPlayer]!.visible = true;
   }
 
   let arenaBarRefs = buildArenaBar(arenaPillsEl, botCount + 1, setViewedPlayer);
@@ -278,12 +313,19 @@ export function startGame(callbacks: GameCallbacks): () => void {
     selectedTowerEid = null;
     armedBuildDefId = null;
     gameOverEl.hidden = true;
-    towerEntities.clear();
-    creepEntities.clear();
+    for (const te of towerEntitiesByPlayer) te.clear();
+    for (const ce of creepEntitiesByPlayer) ce.clear();
     lightningArcs.clear();
     arenasList.innerHTML = '';
     arenaRows = buildArenasPanel(arenasList, botCount + 1);
+    // Revient toujours a sa propre arene au lancement d'une nouvelle partie —
+    // botCount peut avoir change, un ancien viewedPlayer pourrait ne plus
+    // exister.
+    for (const g of towerGroups) g.visible = false;
+    for (const g of creepGroups) g.visible = false;
     viewedPlayer = 0;
+    towerGroups[0]!.visible = true;
+    creepGroups[0]!.visible = true;
     arenaBarRefs = buildArenaBar(arenaPillsEl, botCount + 1, setViewedPlayer);
     // "Rejouer" relance une partie sans repasser par le launcher : sans ce
     // rearm, une partie relancee apres une premiere fin de partie perdrait la
@@ -361,7 +403,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
     (ev) => {
       const [ndcX, ndcY] = eventToNdc(ev);
       mouseWorld = pickGroundWorld(s3d, frame, ndcX, ndcY);
-      hoveredTowerEid = pickTowerEid(s3d, ndcX, ndcY);
+      hoveredTowerEid = pickTowerEid(s3d, towerGroups[viewedPlayer]!, ndcX, ndcY);
     },
     listenerOpts,
   );
@@ -392,7 +434,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
         return;
       }
 
-      selectedTowerEid = pickTowerEid(s3d, ndcX, ndcY);
+      selectedTowerEid = pickTowerEid(s3d, towerGroups[viewedPlayer]!, ndcX, ndcY);
     },
     listenerOpts,
   );
@@ -473,12 +515,21 @@ export function startGame(callbacks: GameCallbacks): () => void {
     const arena0 = state.arenas[0];
     const hoveredSlot = mouseWorld ? nearestSlot(0, mouseWorld[0], mouseWorld[1]) : null;
 
+    // Les 6+ arenes sont synchronisees a CHAQUE frame, pas seulement celle
+    // affichee : c'est ce qui garantit qu'aucun mesh ne se cree/detruit au
+    // moment de basculer (voir la construction des tableaux plus haut). Le
+    // rendu GPU, lui, reste sur une seule arene (les groupes non visibles
+    // sont ignores au draw).
+    for (let p = 0; p < state.arenas.length; p++) {
+      const arena = state.arenas[p];
+      if (!arena) continue;
+      const isViewed = p === viewedPlayer;
+      towerEntitiesByPlayer[p]!.sync(arena);
+      creepEntitiesByPlayer[p]!.sync(arena, state.tick, animDt);
+      towerEntitiesByPlayer[p]!.update(arena, animDt, isViewed ? selectedTowerEid : null, isViewed ? hoveredTowerEid : null);
+    }
     if (arena0) {
-      towerEntities.sync(arena0);
-      creepEntities.sync(arena0, state.tick, animDt);
-      towerEntities.update(arena0, animDt, selectedTowerEid, hoveredTowerEid);
-      slotMarkers.update(arena0, hoveredSlot?.id ?? null);
-
+      slotMarkers.update(state.arenas[viewedPlayer] ?? arena0, hoveredSlot?.id ?? null);
       updateTopbar(topbarRefs, state);
       updateBuildPanel(buildButtons, arena0, armedBuildDefId);
       updateShopPanel(shopRows, state, arena0);

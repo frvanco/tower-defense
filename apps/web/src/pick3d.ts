@@ -21,14 +21,18 @@ export function pickGroundWorld(s3d: Scene3D, frame: Frame3D, ndcX: number, ndcY
 }
 
 /** eid de la tour sous le pointeur, ou null. Les meshes portent leur eid dans
- * `userData.eid` sur le Group racine (pose par TowerEntities). */
-export function pickTowerEid(s3d: Scene3D, ndcX: number, ndcY: number): number | null {
+ * `userData.eid` sur le Group racine (pose par TowerEntities).
+ *
+ * `layer` est le sous-groupe du joueur actuellement observe (main.ts en a un
+ * par joueur, empiles sous s3d.towerLayer — voir la bascule d'arenes) : sans
+ * le preciser, on risquerait de toucher les tours d'une arene non affichee. */
+export function pickTowerEid(s3d: Scene3D, layer: THREE.Object3D, ndcX: number, ndcY: number): number | null {
   ndc.set(ndcX, ndcY);
   raycaster.setFromCamera(ndc, s3d.camera);
-  const hits = raycaster.intersectObjects(s3d.towerLayer.children, true);
+  const hits = raycaster.intersectObjects(layer.children, true);
   for (const hit of hits) {
     let o: THREE.Object3D | null = hit.object;
-    while (o && o.parent !== s3d.towerLayer) o = o.parent;
+    while (o && o.parent !== layer) o = o.parent;
     if (o && typeof o.userData.eid === 'number') return o.userData.eid as number;
   }
   return null;

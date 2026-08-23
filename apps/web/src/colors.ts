@@ -62,6 +62,12 @@ export function playerLabel(player: number): string {
   return `P${player + 1}`;
 }
 
+/** '#rrggbb' -> 0xrrggbb, pour les APIs Three.js qui attendent un nombre
+ * (THREE.Color, materiaux...) plutot qu'une chaine CSS. */
+export function toHexNumber(hex: string): number {
+  return parseInt(hex.slice(1), 16);
+}
+
 /** Blends a #rrggbb color toward white — used for gradient highlights on flat armor-type fills. */
 export function lighten(hex: string, amt: number): string {
   const n = parseInt(hex.slice(1), 16);
