@@ -382,6 +382,16 @@ button {
   color: #8a7550;
 }
 
+/* Observation : aucune action possible (voir main.ts, isObserving()).
+   #panel-arenas n'a pas de bouton, non affecte. */
+#sidebar.observing #panel-build button,
+#sidebar.observing #panel-shop button,
+#sidebar.observing #panel-selected button {
+  pointer-events: none;
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 #sidebar h4:first-child {
   margin-top: 0;
 }

@@ -241,11 +241,13 @@ export function startGame(callbacks: GameCallbacks): () => void {
   let speed = 1;
 
   const buildButtons = buildBuildPanel(buildList, (defId) => {
+    if (isObserving()) return;
     armedBuildDefId = armedBuildDefId === defId ? null : defId;
     selectedTowerEid = null;
   });
 
   const shopRows = buildShopPanel(shopList, (defId) => {
+    if (isObserving()) return;
     pendingHuman.push({ type: 'sendCreep', player: 0, defId });
   });
 
@@ -256,18 +258,48 @@ export function startGame(callbacks: GameCallbacks): () => void {
   const arenaPillsEl = byId<HTMLDivElement>('arena-pills');
   const arenaPrevBtn = byId<HTMLButtonElement>('arena-prev');
   const arenaNextBtn = byId<HTMLButtonElement>('arena-next');
+  const sidebarEl = byId<HTMLElement>('sidebar');
+  const backToOwnArenaBtn = byId<HTMLButtonElement>('back-to-own-arena-btn');
   let viewedPlayer = 0;
 
+  /** true des qu'on regarde une arene qui n'est pas la sienne : aucune action
+   * n'est possible dans cet etat (ni construire, ni ameliorer, ni vendre, ni
+   * envoyer — voir les gardes sur les handlers de clic plus bas). */
+  function isObserving(): boolean {
+    return viewedPlayer !== 0;
+  }
+
   function setViewedPlayer(player: number): void {
-    if (player === viewedPlayer) return;
+    // Meme si player === viewedPlayer (ex. reclique sur la sienne), on repasse
+    // par la remise a plat ci-dessous : inoffensif et evite un etat "arme"
+    // fantome si jamais un appel externe changeait ces refs entre-temps.
     towerGroups[viewedPlayer]!.visible = false;
     creepGroups[viewedPlayer]!.visible = false;
     viewedPlayer = player;
     towerGroups[viewedPlayer]!.visible = true;
     creepGroups[viewedPlayer]!.visible = true;
+
+    // Rien ne doit rester arme/selectionne en changeant de vue — que ce soit
+    // en partant observer (fantome de pose fantome sur la mauvaise arene) ou
+    // en revenant (selection perimee d'avant le depart).
+    armedBuildDefId = null;
+    selectedTowerEid = null;
+    mouseWorld = null;
+    hoveredTowerEid = null;
+
+    const observing = isObserving();
+    sidebarEl.classList.toggle('observing', observing);
+    backToOwnArenaBtn.hidden = !observing;
+    canvasWrap.classList.toggle('observing', observing);
+    canvasWrap.style.setProperty('--observed-color', playerColor(viewedPlayer));
   }
 
   let arenaBarRefs = buildArenaBar(arenaPillsEl, botCount + 1, setViewedPlayer);
+
+  // Toujours actif meme si sa propre arene est eliminee (contrairement aux
+  // pastilles/fleches, qui sautent les elimines) : c'est un raccourci dedie
+  // "revenir chez moi", pas une navigation dans la liste des vivants.
+  backToOwnArenaBtn.addEventListener('click', () => setViewedPlayer(0), listenerOpts);
 
   arenaPrevBtn.addEventListener(
     'click',
@@ -354,6 +386,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
   selectedRefs.upgradeBtn.addEventListener(
     'click',
     () => {
+      if (isObserving()) return;
       const arena = state.arenas[0];
       const eid = selectedTowerEid;
       if (!arena || eid === null) return;
@@ -368,6 +401,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
   selectedRefs.sellBtn.addEventListener(
     'click',
     () => {
+      if (isObserving()) return;
       const eid = selectedTowerEid;
       if (eid === null) return;
       pendingHuman.push({ type: 'sellTower', player: 0, eid });
@@ -420,6 +454,10 @@ export function startGame(callbacks: GameCallbacks): () => void {
   canvas.addEventListener(
     'click',
     (ev) => {
+      // Aucune action possible en observation : ni construire, ni
+      // selectionner une tour (qui ouvrirait un panneau upgrade/vendre inerte
+      // sur une tour qu'on ne controle pas).
+      if (isObserving()) return;
       const [ndcX, ndcY] = eventToNdc(ev);
 
       if (armedBuildDefId) {
