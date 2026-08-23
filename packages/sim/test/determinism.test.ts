@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, tick, hashState, Bot, type Command } from '../src/index.js';
-import { buildableTowers } from '@tower-defense/data';
+import { createGame, tick, hashState, Bot, type Command, type Personality } from '../src/index.js';
+
+const PERSONALITIES: Personality[] = ['damage', 'control', 'balanced'];
 
 function runGame(seed: number, ticks: number): { hash: string; trace: string[] } {
   const s = createGame(seed, 4);
@@ -9,7 +10,7 @@ function runGame(seed: number, ticks: number): { hash: string; trace: string[] }
       new Bot({
         player: a.player,
         aggression: 0.3 + i * 0.15,
-        preferredRoot: buildableTowers[i % buildableTowers.length]!,
+        personality: PERSONALITIES[i % PERSONALITIES.length]!,
         seed: seed + i * 7919,
       }),
   );

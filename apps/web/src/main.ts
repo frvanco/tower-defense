@@ -62,7 +62,7 @@ function newGame(seedBase: number, botCount: number, difficulty: Difficulty): { 
     .filter((a) => a.player !== 0)
     .map(
       (a) =>
-        // aggression/preferredRoot ne sont pas fournis : le bot les tire de
+        // aggression/personality ne sont pas fournis : le bot les tire de
         // son propre RNG (personnalite), independamment du niveau choisi ici.
         new Bot({
           player: a.player,

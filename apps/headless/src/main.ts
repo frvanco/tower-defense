@@ -1,5 +1,30 @@
-import { createGame, tick, Bot, TICK_RATE, type Command, type Difficulty } from '@tower-defense/sim';
+import { createGame, tick, Bot, branchRootOf, TICK_RATE, type Command, type Difficulty, type Arena } from '@tower-defense/sim';
 import { towers, defaultsUsed } from '@tower-defense/data';
+
+// Un bot n'a plus de branche racine unique declaree (voir packages/sim/src/bot.ts,
+// refonte de la composition) : la branche "gagnante" est desormais MESUREE sur
+// l'arene du vainqueur plutot que lue sur une preference qu'il aurait annoncee —
+// plus fiable, et repond directement a la question du brief ("l'Arrow Tower
+// reste-t-elle > 30% des victoires ?"). Retenue : la branche dont les tours
+// presentes en fin de partie representent le plus d'or investi (palier actuel).
+function dominantBranch(arena: Arena): string | null {
+  const goldByRoot = new Map<string, number>();
+  for (const t of arena.towers) {
+    const root = branchRootOf(t.defId);
+    if (!root) continue;
+    const cost = towers.get(t.defId)?.goldCost ?? 0;
+    goldByRoot.set(root, (goldByRoot.get(root) ?? 0) + cost);
+  }
+  let best: string | null = null;
+  let bestGold = -1;
+  for (const [root, gold] of goldByRoot) {
+    if (gold > bestGold) {
+      bestGold = gold;
+      best = root;
+    }
+  }
+  return best;
+}
 
 const GAMES = Number(process.argv[2] ?? 50);
 const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
@@ -34,16 +59,18 @@ function playOne(seed: number): Result {
     tick(s, cmds);
   }
 
-  // aggression/preferredRoot sont desormais tires du RNG interne de chaque
-  // bot (personnalite, cf. packages/sim/src/bot.ts) : on ne les lit plus
-  // depuis une config qu'on aurait nous-memes calculee, mais depuis l'objet
-  // Bot du gagnant, seul a les connaitre.
+  // aggression est tiree du RNG interne de chaque bot (personnalite, cf.
+  // packages/sim/src/bot.ts) : on ne la lit pas depuis une config qu'on
+  // aurait nous-memes calculee, mais depuis l'objet Bot du gagnant, seul a
+  // la connaitre. rootOfWinner est mesure sur l'arene (voir dominantBranch
+  // ci-dessus), pas declare par le bot.
   const winnerBot = s.winner !== null ? bots[s.winner] : null;
+  const winnerArena = s.winner !== null ? s.arenas[s.winner] : null;
   return {
     seed,
     winner: s.winner,
     ticks: t,
-    rootOfWinner: winnerBot?.preferredRoot ?? null,
+    rootOfWinner: winnerArena ? dominantBranch(winnerArena) : null,
     aggressionOfWinner: winnerBot?.aggression ?? null,
     totalLeaks: s.arenas.reduce((acc, a) => acc + a.leaked, 0),
     totalBounty: s.arenas.reduce((acc, a) => acc + a.goldFromBounty, 0),
