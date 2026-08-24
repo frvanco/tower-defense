@@ -91,18 +91,21 @@ function buildPath(lane: Lane, frame: Frame3D): THREE.Group {
     under.rotation.x = -Math.PI / 2;
     under.rotation.z = -angle;
     under.position.copy(mid).setY(0.004);
+    under.receiveShadow = true;
     g.add(under);
 
     const top = new THREE.Mesh(new THREE.PlaneGeometry(len, width * 0.85), bed);
     top.rotation.x = -Math.PI / 2;
     top.rotation.z = -angle;
     top.position.copy(mid).setY(0.006);
+    top.receiveShadow = true;
     g.add(top);
   }
   for (const [x, z] of points) {
     const joint = new THREE.Mesh(new THREE.CircleGeometry(width * 0.42, 16), bed);
     joint.rotation.x = -Math.PI / 2;
     joint.position.set(x, 0.006, z);
+    joint.receiveShadow = true;
     g.add(joint);
   }
   return g;
