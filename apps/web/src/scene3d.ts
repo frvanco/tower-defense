@@ -123,6 +123,16 @@ function glowGate(x: number, z: number, color: number): THREE.Group {
   return g;
 }
 
+/**
+ * Cadrage initial de la camera de jeu — releve manuellement par Antoine sur
+ * sa vue habituelle de reference (l'ancien calcul, base sur la demi-etendue
+ * de l'arene, plaçait la camera trop loin pour un joueur qui decouvre le
+ * jeu : ennemis illisibles tant qu'on n'a pas zoome a la main). Seul
+ * endroit a modifier pour ajuster le cadrage par defaut.
+ */
+const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [0.43, 25.77, -59.23];
+const INITIAL_CAMERA_TARGET: readonly [number, number, number] = [0, 0, 0];
+
 export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Frame3D): Scene3D {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1d24);
@@ -141,8 +151,8 @@ export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Fram
   controls.maxDistance = Math.max(frame.halfWidth, frame.halfHeight) * 4;
 
   const span = Math.max(frame.halfWidth, frame.halfHeight);
-  camera.position.set(0, span * 1.5, -span * 1.75);
-  controls.target.set(0, 0, 0);
+  camera.position.set(...INITIAL_CAMERA_POSITION);
+  controls.target.set(...INITIAL_CAMERA_TARGET);
   controls.update();
 
   scene.add(new THREE.AmbientLight(0x5a6478, 1.5));
