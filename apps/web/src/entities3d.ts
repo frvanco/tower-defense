@@ -182,10 +182,10 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
  * par reference (comportement par defaut de Object3D.clone) : flatShading
  * est donc active une seule fois ici plutot qu'a chaque spawn.
  */
-const TRAVELER_CREEP_ID = 'n000';
-const TRAVELER_MODEL_HEIGHT = 1.8;
-let travelerTemplate: THREE.Group | null = null;
-new GLTFLoader().load('/models/traveller-lv1.glb', (gltf) => {
+const TRAINARD_CREEP_ID = 'n000';
+const TRAINARD_MODEL_HEIGHT = 1.8;
+let trainardTemplate: THREE.Group | null = null;
+new GLTFLoader().load('/models/trainard-lv1.glb', (gltf) => {
   gltf.scene.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if (!mesh.isMesh) return;
@@ -196,7 +196,7 @@ new GLTFLoader().load('/models/traveller-lv1.glb', (gltf) => {
       mat.needsUpdate = true;
     }
   });
-  travelerTemplate = gltf.scene;
+  trainardTemplate = gltf.scene;
 });
 
 function creepRadius(def: CreepDef): number {
@@ -250,12 +250,12 @@ function buildFrostShards(r: number): THREE.Group {
 
 interface TrackedCreep {
   /** Mesh generique (sphere/cone) pour la plupart des creeps, ou clone du
-   * modele traveler pour n000 (voir spawn()) — Object3D couvre les deux. */
+   * modele Trainard pour n000 (voir spawn()) — Object3D couvre les deux. */
   body: THREE.Object3D;
-  /** true si `body` est le modele traveler (Group multi-mesh, origine aux
+  /** true si `body` est le modele Trainard (Group multi-mesh, origine aux
    * pieds) plutot que la sphere/cone generique (Mesh, origine au centre) :
    * conditionne le positionnement et desactive la teinte gel/poison ci-dessous
-   * (materiaux du modele partages entre clones, voir travelerTemplate). */
+   * (materiaux du modele partages entre clones, voir trainardTemplate). */
   isModel: boolean;
   ring: THREE.Mesh;
   bar: THREE.Sprite;
@@ -284,9 +284,9 @@ export class CreepEntities {
   private spawn(c: Creep, def: CreepDef): TrackedCreep {
     const r = creepRadius(def);
     const baseColor = new THREE.Color(ARMOR_COLORS[def.armorType]);
-    const isModel = def.id === TRAVELER_CREEP_ID && travelerTemplate !== null;
+    const isModel = def.id === TRAINARD_CREEP_ID && trainardTemplate !== null;
     const body: THREE.Object3D = isModel
-      ? travelerTemplate!.clone(true)
+      ? trainardTemplate!.clone(true)
       : new THREE.Mesh(
           def.isAir ? new THREE.ConeGeometry(r, r * 2.1, 8) : new THREE.SphereGeometry(r, 10, 8),
           new THREE.MeshLambertMaterial({ color: baseColor.clone() }),
@@ -341,20 +341,20 @@ export class CreepEntities {
       const bob = Math.sin(tracked.phase) * r * BOB_AMPLITUDE_RATIO;
 
       const [sx, sz] = worldToScene(this.frame, c.x, c.y);
-      // Le modele traveler a son origine entre les pieds (deja au sol) ;
+      // Le modele Trainard a son origine entre les pieds (deja au sol) ;
       // les meshes generiques sont centres sur `creepHeight`. Meme
       // distinction pour la barre de vie, posee au-dessus de la tete dans
       // les deux cas.
       const h = tracked.isModel ? 0 : creepHeight(def);
-      const topY = tracked.isModel ? TRAVELER_MODEL_HEIGHT : h + r;
+      const topY = tracked.isModel ? TRAINARD_MODEL_HEIGHT : h + r;
       tracked.body.position.set(sx, h + bob, sz);
       tracked.ring.position.set(sx, 0.02, sz);
       tracked.bar.position.set(sx, topY + bob + 0.16, sz);
       paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
 
       // Teinte gel/poison : materiau unique des meshes generiques uniquement.
-      // Le modele traveler partage ses materiaux entre tous ses clones (voir
-      // travelerTemplate) — les teinter mutuellement affecterait tous les
+      // Le modele Trainard partage ses materiaux entre tous ses clones (voir
+      // trainardTemplate) — les teinter mutuellement affecterait tous les
       // Trainards en jeu a la fois, donc on s'en abstient pour lui.
       if (!tracked.isModel) {
         const mat = (tracked.body as THREE.Mesh).material as THREE.MeshLambertMaterial;
