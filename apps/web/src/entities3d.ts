@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { Arena, Tower, Creep } from '@tower-defense/sim';
 import { totalSlowPct } from '@tower-defense/sim';
 import { buildableTowers, towers as towerDefs, creeps as creepDefs, type TowerDef, type CreepDef } from '@tower-defense/data';
@@ -173,6 +174,31 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
 // Creeps
 // ---------------------------------------------------------------------------
 
+/**
+ * Skin 3D du Traînard (n000, l'unite de creep la moins chere) — modele reel
+ * plutot que la sphere generique, pour en juger la taille en jeu. Charge une
+ * seule fois ; tant qu'il n'est pas pret, spawn() retombe sur la sphere
+ * habituelle (aucun blocage). Les clones partagent les materiaux du template
+ * par reference (comportement par defaut de Object3D.clone) : flatShading
+ * est donc active une seule fois ici plutot qu'a chaque spawn.
+ */
+const TRAVELER_CREEP_ID = 'n000';
+const TRAVELER_MODEL_HEIGHT = 1.8;
+let travelerTemplate: THREE.Group | null = null;
+new GLTFLoader().load('/models/traveller-lv1.glb', (gltf) => {
+  gltf.scene.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.castShadow = true;
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of materials) {
+      (mat as THREE.MeshStandardMaterial).flatShading = true;
+      mat.needsUpdate = true;
+    }
+  });
+  travelerTemplate = gltf.scene;
+});
+
 function creepRadius(def: CreepDef): number {
   return Math.max(0.05, Math.min(0.22, 0.05 + Math.log10(Math.max(1, def.hitPoints)) * 0.045));
 }
@@ -223,7 +249,14 @@ function buildFrostShards(r: number): THREE.Group {
 }
 
 interface TrackedCreep {
-  body: THREE.Mesh;
+  /** Mesh generique (sphere/cone) pour la plupart des creeps, ou clone du
+   * modele traveler pour n000 (voir spawn()) — Object3D couvre les deux. */
+  body: THREE.Object3D;
+  /** true si `body` est le modele traveler (Group multi-mesh, origine aux
+   * pieds) plutot que la sphere/cone generique (Mesh, origine au centre) :
+   * conditionne le positionnement et desactive la teinte gel/poison ci-dessous
+   * (materiaux du modele partages entre clones, voir travelerTemplate). */
+  isModel: boolean;
   ring: THREE.Mesh;
   bar: THREE.Sprite;
   baseColor: THREE.Color;
@@ -251,9 +284,14 @@ export class CreepEntities {
   private spawn(c: Creep, def: CreepDef): TrackedCreep {
     const r = creepRadius(def);
     const baseColor = new THREE.Color(ARMOR_COLORS[def.armorType]);
-    const geo = def.isAir ? new THREE.ConeGeometry(r, r * 2.1, 8) : new THREE.SphereGeometry(r, 10, 8);
-    const body = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: baseColor.clone() }));
-    body.castShadow = true;
+    const isModel = def.id === TRAVELER_CREEP_ID && travelerTemplate !== null;
+    const body: THREE.Object3D = isModel
+      ? travelerTemplate!.clone(true)
+      : new THREE.Mesh(
+          def.isAir ? new THREE.ConeGeometry(r, r * 2.1, 8) : new THREE.SphereGeometry(r, 10, 8),
+          new THREE.MeshLambertMaterial({ color: baseColor.clone() }),
+        );
+    if (!isModel) (body as THREE.Mesh).castShadow = true;
     this.layer.add(body);
 
     const frost = buildFrostShards(r);
@@ -271,7 +309,7 @@ export class CreepEntities {
     const bar = makeHpBar();
     this.layer.add(bar);
 
-    return { body, ring, bar, baseColor, frost, phase: Math.random() * Math.PI * 2 };
+    return { body, isModel, ring, bar, baseColor, frost, phase: Math.random() * Math.PI * 2 };
   }
 
   /** A appeler une fois par frame de rendu (pas seulement par tick sim) : sync
@@ -303,28 +341,38 @@ export class CreepEntities {
       const bob = Math.sin(tracked.phase) * r * BOB_AMPLITUDE_RATIO;
 
       const [sx, sz] = worldToScene(this.frame, c.x, c.y);
-      const h = creepHeight(def);
+      // Le modele traveler a son origine entre les pieds (deja au sol) ;
+      // les meshes generiques sont centres sur `creepHeight`. Meme
+      // distinction pour la barre de vie, posee au-dessus de la tete dans
+      // les deux cas.
+      const h = tracked.isModel ? 0 : creepHeight(def);
+      const topY = tracked.isModel ? TRAVELER_MODEL_HEIGHT : h + r;
       tracked.body.position.set(sx, h + bob, sz);
       tracked.ring.position.set(sx, 0.02, sz);
-      tracked.bar.position.set(sx, h + bob + r + 0.16, sz);
+      tracked.bar.position.set(sx, topY + bob + 0.16, sz);
       paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
 
-      // Teinte de gel : seul canal sur la couleur de base du corps.
-      const mat = tracked.body.material as THREE.MeshLambertMaterial;
-      const iceMix = Math.min(1, icePct / ICE_TINT_MAX_PCT) * ICE_TINT_MAX_MIX;
-      mat.color.copy(tracked.baseColor).lerp(ICE_TINT_COLOR, iceMix);
+      // Teinte gel/poison : materiau unique des meshes generiques uniquement.
+      // Le modele traveler partage ses materiaux entre tous ses clones (voir
+      // travelerTemplate) — les teinter mutuellement affecterait tous les
+      // Trainards en jeu a la fois, donc on s'en abstient pour lui.
+      if (!tracked.isModel) {
+        const mat = (tracked.body as THREE.Mesh).material as THREE.MeshLambertMaterial;
+        const iceMix = Math.min(1, icePct / ICE_TINT_MAX_PCT) * ICE_TINT_MAX_MIX;
+        mat.color.copy(tracked.baseColor).lerp(ICE_TINT_COLOR, iceMix);
 
-      // Pulsation de poison : canal emissif separe, se compose sans jamais
-      // entrer en conflit avec la teinte de gel ci-dessus.
-      if (poisonDps > 0) {
-        const pulse =
-          POISON_PULSE_MIN + (1 - POISON_PULSE_MIN) * (0.5 + 0.5 * Math.sin(this.clock * POISON_PULSE_HZ * Math.PI * 2));
-        mat.emissive.copy(this.tmpColor.copy(POISON_EMISSIVE_COLOR).multiplyScalar(pulse));
-        this.poisonBubbles.requestSpawn(c.eid, sx, h, sz, poisonDps, dt);
-      } else {
-        mat.emissive.setRGB(0, 0, 0);
-        this.poisonBubbles.clearAccumulator(c.eid);
+        // Pulsation de poison : canal emissif separe, se compose sans jamais
+        // entrer en conflit avec la teinte de gel ci-dessus.
+        if (poisonDps > 0) {
+          const pulse =
+            POISON_PULSE_MIN + (1 - POISON_PULSE_MIN) * (0.5 + 0.5 * Math.sin(this.clock * POISON_PULSE_HZ * Math.PI * 2));
+          mat.emissive.copy(this.tmpColor.copy(POISON_EMISSIVE_COLOR).multiplyScalar(pulse));
+        } else {
+          mat.emissive.setRGB(0, 0, 0);
+        }
       }
+      if (poisonDps > 0) this.poisonBubbles.requestSpawn(c.eid, sx, h, sz, poisonDps, dt);
+      else this.poisonBubbles.clearAccumulator(c.eid);
 
       tracked.frost.visible = slow >= FROST_SHARD_SLOW_THRESHOLD;
     }
