@@ -33,6 +33,12 @@ if (difficultyArg && !DIFFICULTIES.includes(difficultyArg as Difficulty)) {
   throw new Error(`difficulte inconnue "${difficultyArg}" — attendu : ${DIFFICULTIES.join(', ')}`);
 }
 const DIFFICULTY: Difficulty = (difficultyArg as Difficulty) ?? 'medium';
+// Taille de lobby retenue pour le jeu (voir apps/web) : 6, pas 8. Avec des
+// envois globaux, la pression subie par joueur est proportionnelle au nombre
+// d'adversaires (n-1 flux) — mesurer a 8 gonflait artificiellement la
+// pression de 40% par rapport a la config reelle. Parametrable pour explorer
+// d'autres effectifs au besoin, mais 6 doit rester le defaut.
+const PLAYER_COUNT = Number(process.argv[4] ?? 6);
 
 const MAX_MINUTES = 25;
 const MAX_TICKS = MAX_MINUTES * 60 * TICK_RATE;
@@ -49,7 +55,7 @@ interface Result {
 }
 
 function playOne(seed: number): Result {
-  const s = createGame(seed, 8);
+  const s = createGame(seed, PLAYER_COUNT);
   const bots = s.arenas.map((a, i) => new Bot({ player: a.player, seed: seed + i * 7919, difficulty: DIFFICULTY }));
 
   let t = 0;
@@ -91,7 +97,7 @@ for (const r of results) {
     byAggr.set(r.aggressionOfWinner, (byAggr.get(r.aggressionOfWinner) ?? 0) + 1);
 }
 
-console.log(`difficulte : ${DIFFICULTY}`);
+console.log(`difficulte : ${DIFFICULTY} — effectif : ${PLAYER_COUNT} joueurs`);
 console.log(`${GAMES} parties en ${elapsed.toFixed(1)}s (${(GAMES / elapsed).toFixed(1)} parties/s)`);
 console.log(
   `duree moyenne : ${(results.reduce((a, r) => a + r.ticks, 0) / GAMES / TICK_RATE / 60).toFixed(1)} min`,

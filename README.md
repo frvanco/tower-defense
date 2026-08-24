@@ -13,7 +13,7 @@ sert à mesurer l'équilibrage en accéléré, sans rendu.
 pnpm install
 
 pnpm test           # tests de déterminisme et de règles
-pnpm headless 200   # 200 parties bot contre bot, en accéléré (2e argument optionnel : easy|medium|hard)
+pnpm headless 200   # 200 parties bot contre bot, en accéléré (2e argument optionnel : easy|medium|hard, 3e : effectif, défaut 6)
 pnpm typecheck
 
 pnpm dev            # client web seul (proxy /api vers le serveur, voir plus bas)
@@ -113,7 +113,8 @@ Tout dans `packages/data/src/balance.json`, jamais dans `map_data.json`.
   par distance au chemin, réaction aux vagues aériennes. La *personnalité*
   (agressivité, branche de tour préférée) est tirée du RNG propre du bot,
   indépendamment du niveau : un bot agressif n'est pas plus fort, juste
-  différent. `pnpm headless [parties] [difficulté]` mesure l'effet.
+  différent. `pnpm headless [parties] [difficulté] [effectif]` mesure
+  l'effet (effectif par défaut : 6, la taille de lobby retenue pour le jeu).
 - **Règles** : vies de départ 30, revenu de départ 60/round, prime de mise à
   mort 15 % du coût du creep tué, vitesse des creeps -30 % par rapport à
   l'original.
