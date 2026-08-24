@@ -10,7 +10,7 @@ import { worldToScene, type Frame3D } from './world3d.js';
  * fantome de pose doivent tous se poser a cette hauteur (les creeps, eux,
  * marchent sur le chemin et restent a Y=0).
  */
-export const PLATFORM_HEIGHT = 0.6;
+export const PLATFORM_HEIGHT = 1.2;
 
 const TOP_COLOR = 0x33431f;
 // Nettement plus sombre que TOP_COLOR (l'inverse etait vrai avant : la paroi
