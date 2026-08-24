@@ -167,6 +167,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
     lives: byId('stat-lives'),
     round: byId('stat-round'),
     countdown: byId('stat-countdown'),
+    elapsed: byId('stat-elapsed'),
   };
 
   // Ces conteneurs sont le markup statique de #app, reutilise a chaque appel

@@ -27,6 +27,7 @@ export interface TopbarRefs {
   lives: HTMLElement;
   round: HTMLElement;
   countdown: HTMLElement;
+  elapsed: HTMLElement;
 }
 
 export function updateTopbar(refs: TopbarRefs, state: GameState): void {
@@ -37,6 +38,9 @@ export function updateTopbar(refs: TopbarRefs, state: GameState): void {
   refs.lives.textContent = arena.alive ? String(arena.lives) : 'dead';
   refs.round.textContent = String(state.round);
   refs.countdown.textContent = fmtClock((state.nextRoundAt - state.tick) / TICK_RATE);
+  // Temps de jeu (state.tick), jamais une horloge murale : reste correct sous
+  // Pause/2x/4x, et le jour ou la partie sera pilotee par un serveur.
+  refs.elapsed.textContent = fmtClock(state.tick / TICK_RATE);
 }
 
 // ---------- build panel ----------
