@@ -197,10 +197,16 @@ button {
   box-shadow: inset 0 0 0 5px var(--observed-color, #f2d24b);
 }
 
+/* Ancre en haut (pas en bas) pour se lire comme suspendu juste sous
+   #arena-bar, adjacent au controle qui mene a l'observation. `position:
+   absolute` en permanence (jamais dans le flux) : le bouton n'est visible
+   qu'en observation, et s'il occupait une place dans le flux normal, son
+   apparition/disparition redimensionnerait #canvas-wrap -> resizeScene3D ->
+   reconfiguration de la camera Three.js a chaque bascule de vue. */
 #back-to-own-arena-btn {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  top: 14px;
   transform: translateX(-50%);
   background: #221a13;
   border: 2px solid var(--observed-color, #f2d24b);
