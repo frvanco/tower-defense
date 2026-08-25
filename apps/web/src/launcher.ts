@@ -1,6 +1,14 @@
+import type { Difficulty } from '@tower-defense/sim';
 import { ApiError, claim, fetchMe, guest, login, logout, type PublicUser } from './api.js';
+import {
+  DIFFICULTY_LABELS,
+  DIFFICULTY_DESCRIPTIONS,
+  DEFAULT_DIFFICULTY,
+  loadStoredDifficulty,
+  storeDifficulty,
+} from './difficulty.js';
 
-type Screen = 'chargement' | 'pseudo' | 'pseudo-login' | 'menu' | 'menu-claim' | 'partie';
+type Screen = 'chargement' | 'pseudo' | 'pseudo-login' | 'menu' | 'menu-claim' | 'difficulte' | 'partie';
 
 const root = document.getElementById('launcher');
 if (!root) throw new Error('missing #launcher');
@@ -10,6 +18,10 @@ if (!appEl) throw new Error('missing #app');
 
 let user: PublicUser | null = null;
 let stopGame: (() => void) | null = null;
+/** Niveau de la partie en cours, a cote de stopGame ci-dessus — la source de
+ * verite pour "Rejouer" reste le closure de main.ts (jamais reassignee tant
+ * que le launcher n'est pas repasse), ceci suit juste quel niveau tourne. */
+let currentDifficulty: Difficulty | null = null;
 
 const ICON_USER =
   '<svg class="launcher-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-4 4.2-6 7.5-6s6.1 2 7.5 6"/></svg>';
@@ -40,7 +52,15 @@ function render(screen: Screen, error?: string): void {
   else if (screen === 'pseudo-login') renderLoginScreen(error);
   else if (screen === 'menu') renderMenuScreen();
   else if (screen === 'menu-claim') renderClaimScreen(error);
+  else if (screen === 'difficulte') renderDifficultyScreen();
 }
+
+// Echap ferme le panneau de difficulte et revient au menu — un seul listener
+// permanent gate par l'ecran courant plutot qu'un ajout/retrait par render(),
+// pour ne jamais risquer de laisser un handler perime derriere soi.
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && root!.dataset.screen === 'difficulte') render('menu');
+});
 
 function renderPseudoScreen(error?: string): void {
   root!.innerHTML = `
@@ -109,13 +129,16 @@ function renderMenuScreen(): void {
       <h1>Tower Defense</h1>
       ${DIVIDER}
       <p class="launcher-player">${escapeHtml(u.pseudo)}#${u.joinNumber}</p>
-      <button id="play-btn" class="launcher-play">Jouer</button>
+      <!-- Libelle deliberement specifique ("contre des bots") plutot que
+           "Jouer" seul : annonce qu'un mode multijoueur existera, et laisse
+           la place a un second bouton plus tard sans redessiner l'ecran. -->
+      <button id="play-btn" class="launcher-play">Jouer contre des bots</button>
       ${u.isGuest ? `<a href="#" id="save-account" class="launcher-save">Sauvegarder mon compte</a>` : ''}
       <a href="#" id="logout-link" class="launcher-logout">Se déconnecter</a>
     </div>
   `;
   root!.querySelector<HTMLButtonElement>('#play-btn')!.addEventListener('click', () => {
-    void startGameScreen();
+    render('difficulte');
   });
   root!.querySelector<HTMLAnchorElement>('#save-account')?.addEventListener('click', (ev) => {
     ev.preventDefault();
@@ -127,6 +150,49 @@ function renderMenuScreen(): void {
       user = null;
       render('pseudo');
     });
+  });
+}
+
+const DIFFICULTY_ORDER: readonly Difficulty[] = ['easy', 'medium', 'hard'];
+
+function renderDifficultyScreen(): void {
+  // Preselectionne le dernier niveau joue (localStorage, survit au rechargement
+  // de page) — relancer une partie est un clic de confirmation, pas un choix a
+  // refaire. Defaut 'medium' au tout premier lancement (aucune valeur stockee).
+  const selected = loadStoredDifficulty();
+  root!.innerHTML = `
+    <div class="launcher-screen">
+      <h1>Choisis un niveau</h1>
+      ${DIVIDER}
+      <form id="difficulty-form" class="launcher-form">
+        <div class="difficulty-options">
+          ${DIFFICULTY_ORDER.map(
+            (d) => `
+            <label class="difficulty-option">
+              <input type="radio" name="difficulty" value="${d}" ${d === selected ? 'checked' : ''} />
+              <span class="difficulty-option-body">
+                <span class="difficulty-option-title">${DIFFICULTY_LABELS[d]}</span>
+                <span class="difficulty-option-desc">${DIFFICULTY_DESCRIPTIONS[d]}</span>
+              </span>
+            </label>
+          `,
+          ).join('')}
+        </div>
+        <button type="submit" class="launcher-play">Jouer</button>
+      </form>
+      <a href="#" id="difficulty-back">Retour</a>
+    </div>
+  `;
+  root!.querySelector<HTMLFormElement>('#difficulty-form')!.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const checked = root!.querySelector<HTMLInputElement>('input[name="difficulty"]:checked');
+    const difficulty = (checked?.value as Difficulty | undefined) ?? DEFAULT_DIFFICULTY;
+    storeDifficulty(difficulty);
+    void startGameScreen(difficulty);
+  });
+  root!.querySelector<HTMLAnchorElement>('#difficulty-back')!.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    render('menu');
   });
 }
 
@@ -167,26 +233,31 @@ function renderClaimScreen(error?: string): void {
   });
 }
 
-async function startGameScreen(): Promise<void> {
+async function startGameScreen(difficulty: Difficulty): Promise<void> {
   const { startGame } = await import('./main.js');
   root!.hidden = true;
   appEl!.hidden = false;
+  currentDifficulty = difficulty;
 
-  stopGame = startGame({
-    // La garde de fermeture accidentelle (beforeunload) est entierement geree
-    // par main.ts, seul module a savoir si une partie est en cours (couvre
-    // aussi "Rejouer", qui ne repasse pas par le launcher). Ce callback reste
-    // dans l'interface pour l'invitation "Sauvegarder ta progression ?" a la
-    // fin d'une partie gagnee, prevue dans un lot ulterieur.
-    onGameOver: () => {},
-    onExitToMenu: () => {
-      stopGame?.();
-      stopGame = null;
-      appEl!.hidden = true;
-      root!.hidden = false;
-      render('menu');
+  stopGame = startGame(
+    {
+      // La garde de fermeture accidentelle (beforeunload) est entierement geree
+      // par main.ts, seul module a savoir si une partie est en cours (couvre
+      // aussi "Rejouer", qui ne repasse pas par le launcher). Ce callback reste
+      // dans l'interface pour l'invitation "Sauvegarder ta progression ?" a la
+      // fin d'une partie gagnee, prevue dans un lot ulterieur.
+      onGameOver: () => {},
+      onExitToMenu: () => {
+        stopGame?.();
+        stopGame = null;
+        currentDifficulty = null;
+        appEl!.hidden = true;
+        root!.hidden = false;
+        render('menu');
+      },
     },
-  });
+    difficulty,
+  );
 }
 
 function errorMessage(err: unknown): string {

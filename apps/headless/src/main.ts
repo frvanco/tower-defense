@@ -1,5 +1,5 @@
 import { createGame, tick, Bot, branchRootOf, TICK_RATE, type Command, type Difficulty, type Arena } from '@tower-defense/sim';
-import { towers, defaultsUsed } from '@tower-defense/data';
+import { towers, defaultsUsed, rules } from '@tower-defense/data';
 
 // Un bot n'a plus de branche racine unique declaree (voir packages/sim/src/bot.ts,
 // refonte de la composition) : la branche "gagnante" est desormais MESUREE sur
@@ -33,12 +33,13 @@ if (difficultyArg && !DIFFICULTIES.includes(difficultyArg as Difficulty)) {
   throw new Error(`difficulte inconnue "${difficultyArg}" — attendu : ${DIFFICULTIES.join(', ')}`);
 }
 const DIFFICULTY: Difficulty = (difficultyArg as Difficulty) ?? 'medium';
-// Taille de lobby retenue pour le jeu (voir apps/web) : 6, pas 8. Avec des
-// envois globaux, la pression subie par joueur est proportionnelle au nombre
-// d'adversaires (n-1 flux) — mesurer a 8 gonflait artificiellement la
-// pression de 40% par rapport a la config reelle. Parametrable pour explorer
-// d'autres effectifs au besoin, mais 6 doit rester le defaut.
-const PLAYER_COUNT = Number(process.argv[4] ?? 6);
+// Aligne par defaut sur rules.maxPlayers (verrouille a 6, voir balance.json)
+// plutot qu'une valeur recopiee ici : reste synchronise si ce format change
+// un jour. Avec des envois globaux, la pression subie par joueur est
+// proportionnelle au nombre d'adversaires (n-1 flux) — mesurer a 8 gonflait
+// artificiellement la pression de 40% par rapport au format reel. Toujours
+// parametrable pour explorer d'autres effectifs au besoin.
+const PLAYER_COUNT = Number(process.argv[4] ?? rules.maxPlayers);
 
 const MAX_MINUTES = 25;
 const MAX_TICKS = MAX_MINUTES * 60 * TICK_RATE;

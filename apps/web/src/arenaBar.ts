@@ -11,9 +11,11 @@ export interface ArenaBarRefs {
   pills: ArenaPill[];
 }
 
-/** (Re)construit la barre pour `playerCount` joueurs — le nombre de joueurs
- * peut changer (selecteur de bots) ; meme pattern que buildArenasPanel
- * (hud.ts) : vide le conteneur avant de le repeupler. */
+/** (Re)construit la barre pour `playerCount` joueurs (rules.maxPlayers, fixe
+ * a 6) — meme pattern que buildArenasPanel (hud.ts) : vide le conteneur
+ * avant de le repeupler, puisque startGame() peut etre appelee plusieurs
+ * fois sur le meme DOM (Retour a l'accueil puis Jouer, ou "Rejouer") et
+ * qu'il ne faut jamais empiler les pastilles d'une partie precedente. */
 export function buildArenaBar(
   container: HTMLElement,
   playerCount: number,

@@ -67,26 +67,6 @@ button {
   flex: 1;
 }
 
-#bot-count-control,
-#bot-difficulty-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-right: 18px;
-  font-size: 12px;
-  color: #b39a68;
-}
-
-#bot-count-control select,
-#bot-difficulty-control select {
-  background: #2a2118;
-  border: 1px solid #6b5432;
-  color: #e9e2d3;
-  border-radius: 6px;
-  padding: 5px 8px;
-  cursor: pointer;
-}
-
 #speed-controls {
   display: flex;
   gap: 6px;
@@ -773,4 +753,51 @@ button {
 
 .launcher-logout {
   margin-top: 4px;
+}
+
+/* ---------- panneau de choix de difficulte ---------- */
+
+.difficulty-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.difficulty-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #14100c;
+  border: 1px solid #6b5432;
+  border-radius: 4px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.difficulty-option:has(input:checked) {
+  border-color: #cdb27a;
+  background: #201a12;
+}
+
+.difficulty-option input {
+  margin-top: 3px;
+  accent-color: #c9a227;
+  flex-shrink: 0;
+}
+
+.difficulty-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.difficulty-option-title {
+  font-weight: 600;
+  color: #f1e6c8;
+}
+
+.difficulty-option-desc {
+  font-size: 12px;
+  color: #b39a68;
+  line-height: 1.35;
 }

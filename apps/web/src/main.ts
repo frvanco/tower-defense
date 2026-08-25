@@ -33,8 +33,8 @@ import {
   type SelectedRefs,
 } from './hud.js';
 import { initToasts, toast } from './toast.js';
+import { DIFFICULTY_LABELS } from './difficulty.js';
 
-const MAX_BOTS = rules.maxPlayers - 1;
 const STEP_MS = 1000 / TICK_RATE;
 // A backgrounded/stalled tab can accumulate a huge dt on refocus; cap how many
 // ticks one frame will catch up on so the game skips forward instead of freezing
@@ -56,8 +56,8 @@ function must<T>(v: T | undefined, message: string): T {
   return v;
 }
 
-function newGame(seedBase: number, botCount: number, difficulty: Difficulty): { state: GameState; bots: Bot[] } {
-  const state = createGame(seedBase, botCount + 1);
+function newGame(seedBase: number, difficulty: Difficulty): { state: GameState; bots: Bot[] } {
+  const state = createGame(seedBase, rules.maxPlayers);
   const bots = state.arenas
     .filter((a) => a.player !== 0)
     .map(
@@ -86,7 +86,7 @@ export interface GameCallbacks {
  * globaux et libere la scene 3D (voir disposeScene3D) — a appeler avant tout
  * nouvel appel a startGame() sur le meme canvas. Appele au clic sur "Jouer"
  * par le launcher — voir launcher.ts. */
-export function startGame(callbacks: GameCallbacks): () => void {
+export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () => void {
   // canvas et boutons (build/shop/HUD/game-over) sont le markup statique de
   // #app, jamais recree entre deux appels de startGame() — sans un moyen de
   // retirer PRECISEMENT les listeners de CETTE partie, rejouer empilerait un
@@ -199,36 +199,12 @@ export function startGame(callbacks: GameCallbacks): () => void {
   const restartBtn = byId<HTMLButtonElement>('restart-btn');
   const exitToMenuBtn = byId<HTMLButtonElement>('exit-to-menu-btn');
 
-  // Genere depuis MAX_BOTS plutot que code en dur dans index.html : les deux
-  // sources pouvaient diverger (le HTML listait 1-7 sans lien avec
-  // rules.maxPlayers). Vide le <select> avant de le remplir : startGame()
-  // peut etre rappelee sur le meme DOM (retour a l'accueil puis Jouer), il ne
-  // faut pas empiler les <option>.
-  const botCountSelect = byId<HTMLSelectElement>('bot-count');
-  botCountSelect.innerHTML = '';
-  const defaultBotCount = Math.min(5, MAX_BOTS);
-  for (let n = 1; n <= MAX_BOTS; n++) {
-    const opt = document.createElement('option');
-    opt.value = String(n);
-    opt.textContent = String(n);
-    opt.selected = n === defaultBotCount;
-    botCountSelect.appendChild(opt);
-  }
-
-  // Meme traitement que le selecteur de bots ci-dessus : conteneur vide dans
-  // index.html, options generees ici, repeuplees a chaque appel de
-  // startGame() sans dupliquer.
-  const difficultySelect = byId<HTMLSelectElement>('bot-difficulty');
-  difficultySelect.innerHTML = '';
-  const DEFAULT_DIFFICULTY: Difficulty = 'medium';
-  const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Facile', medium: 'Moyen', hard: 'Difficile' };
-  for (const d of ['easy', 'medium', 'hard'] as const) {
-    const opt = document.createElement('option');
-    opt.value = d;
-    opt.textContent = DIFFICULTY_LABELS[d];
-    opt.selected = d === DEFAULT_DIFFICULTY;
-    difficultySelect.appendChild(opt);
-  }
+  // Niveau choisi dans le launcher avant l'appel a startGame() (voir le
+  // panneau de difficulte) — fixe pour toute la session de jeu, y compris
+  // "Rejouer" (startNewGame() plus bas la reutilise sans jamais la
+  // reassigner). Libelle statique dans la topbar, jamais recalcule par
+  // frame : il ne change pas en cours de partie.
+  byId('stat-difficulty').textContent = DIFFICULTY_LABELS[difficulty];
 
   let selectedTowerEid: number | null = null;
   let hoveredTowerEid: number | null = null;
@@ -236,9 +212,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
   let mouseWorld: [number, number] | null = null;
 
   const pendingHuman: Command[] = [];
-  let botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
-  let difficulty = difficultySelect.value as Difficulty;
-  let { state, bots } = newGame(Date.now() | 0, botCount, difficulty);
+  let { state, bots } = newGame(Date.now() | 0, difficulty);
   let speed = 1;
 
   const buildButtons = buildBuildPanel(buildList, (defId) => {
@@ -252,7 +226,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
     pendingHuman.push({ type: 'sendCreep', player: 0, defId });
   });
 
-  let arenaRows = buildArenasPanel(arenasList, botCount + 1);
+  let arenaRows = buildArenasPanel(arenasList, rules.maxPlayers);
 
   // Barre d'arenes : navigation entre les 6+ arenes (observation seule, voir
   // setViewedPlayer plus bas — le joueur humain est toujours le player 0).
@@ -295,7 +269,7 @@ export function startGame(callbacks: GameCallbacks): () => void {
     canvasWrap.style.setProperty('--observed-color', playerColor(viewedPlayer));
   }
 
-  let arenaBarRefs = buildArenaBar(arenaPillsEl, botCount + 1, setViewedPlayer);
+  let arenaBarRefs = buildArenaBar(arenaPillsEl, rules.maxPlayers, setViewedPlayer);
 
   // Toujours actif meme si sa propre arene est eliminee (contrairement aux
   // pastilles/fleches, qui sautent les elimines) : c'est un raccourci dedie
@@ -339,7 +313,10 @@ export function startGame(callbacks: GameCallbacks): () => void {
   armExitGuard();
 
   function startNewGame(): void {
-    const next = newGame(Date.now() | 0, botCount, difficulty);
+    // difficulty ne change jamais en cours de session (plus de selecteur
+    // dans le HUD, voir le panneau du launcher) : "Rejouer" relance
+    // implicitement au meme niveau, rien a repasser ici.
+    const next = newGame(Date.now() | 0, difficulty);
     state = next.state;
     bots = next.bots;
     pendingHuman.length = 0;
@@ -350,39 +327,19 @@ export function startGame(callbacks: GameCallbacks): () => void {
     for (const ce of creepEntitiesByPlayer) ce.clear();
     lightningArcs.clear();
     arenasList.innerHTML = '';
-    arenaRows = buildArenasPanel(arenasList, botCount + 1);
-    // Revient toujours a sa propre arene au lancement d'une nouvelle partie —
-    // botCount peut avoir change, un ancien viewedPlayer pourrait ne plus
-    // exister.
+    arenaRows = buildArenasPanel(arenasList, rules.maxPlayers);
+    // Revient toujours a sa propre arene au lancement d'une nouvelle partie.
     for (const g of towerGroups) g.visible = false;
     for (const g of creepGroups) g.visible = false;
     viewedPlayer = 0;
     towerGroups[0]!.visible = true;
     creepGroups[0]!.visible = true;
-    arenaBarRefs = buildArenaBar(arenaPillsEl, botCount + 1, setViewedPlayer);
+    arenaBarRefs = buildArenaBar(arenaPillsEl, rules.maxPlayers, setViewedPlayer);
     // "Rejouer" relance une partie sans repasser par le launcher : sans ce
     // rearm, une partie relancee apres une premiere fin de partie perdrait la
     // confirmation de fermeture accidentelle.
     armExitGuard();
   }
-
-  botCountSelect.addEventListener(
-    'change',
-    () => {
-      botCount = Math.min(MAX_BOTS, Math.max(1, Number(botCountSelect.value)));
-      startNewGame();
-    },
-    listenerOpts,
-  );
-
-  difficultySelect.addEventListener(
-    'change',
-    () => {
-      difficulty = difficultySelect.value as Difficulty;
-      startNewGame();
-    },
-    listenerOpts,
-  );
 
   selectedRefs.upgradeBtn.addEventListener(
     'click',
