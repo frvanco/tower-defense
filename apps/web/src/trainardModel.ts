@@ -246,7 +246,7 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[]): Train
     restMatrices.push(new THREE.Matrix4().multiplyMatrices(rootInverse, bucketNode.matrixWorld));
   }
 
-  const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, fog: false });
 
   // Echantillonnage des animations — APRES la fusion ci-dessus (qui a besoin
   // de la pose de repos), sur la meme hierarchie temporaire. Repart d'une
