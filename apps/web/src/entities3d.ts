@@ -189,6 +189,7 @@ const HUMANOID_CREEP_HEIGHT = 1.8;
 const HUMANOID_MODEL_URLS: Record<string, string> = {
   n000: '/models/trainard-lv1.glb', // Trainard
   h001: '/models/conscrit_lv2.glb', // Conscrit
+  h009: '/models/sapeur_lv3.glb', // Sapeur
 };
 for (const url of Object.values(HUMANOID_MODEL_URLS)) void loadAnimatedCreepModel(url, HUMANOID_CREEP_HEIGHT);
 
