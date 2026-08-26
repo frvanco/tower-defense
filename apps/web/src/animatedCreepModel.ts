@@ -35,10 +35,12 @@ export interface AnimatedCreepModel {
   /** Une geometrie fusionnee, indexee, par noeud (attributs position/normal/
    * color) — a transformer par la matrice du noeud courant a chaque frame. */
   geometries: THREE.BufferGeometry[];
-  /** Materiau unique partage par tous les noeuds/instances (vertexColors +
-   * flatShading, coherent avec packages/renderer/src/materials.ts ; hors
-   * brouillard de scene — un petit personnage detaille s'y delave bien
-   * plus qu'un pan de terrain, voir le fix dedie). */
+  /** Materiau unique partage par tous les noeuds/instances (vertexColors,
+   * non eclaire — les lumieres de scene, notamment l'ambient/rim bleutes de
+   * createScene3D, assombrissaient et teintaient la majeure partie d'un
+   * personnage petit/facette sous MeshLambertMaterial ; voir buildModel.
+   * Hors brouillard de scene aussi — un petit personnage detaille s'y
+   * delave bien plus qu'un pan de terrain). */
   material: THREE.Material;
   /** Pose de repos (rest pose du fichier), une matrice par noeud, relative a
    * la racine du modele — pas encore d'animation echantillonnee. */
@@ -252,7 +254,16 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
     restMatrices.push(new THREE.Matrix4().multiplyMatrices(rootInverse, bucketNode.matrixWorld));
   }
 
-  const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, fog: false });
+  // MeshBasicMaterial (non eclaire), pas MeshLambertMaterial : sur un
+  // personnage petit et facette, la reponse diffuse de Lambert a l'angle des
+  // lumieres de scene (cf. createScene3D — un key chaud, mais un ambient et
+  // un rim tous deux bleutes, 0x5a6478/0x6f9fd8) plonge une bonne partie du
+  // corps dans une ombre gris-bleu qui ecrase les couleurs du GLB (verifie
+  // par comparaison directe sous le meme eclairage : Lambert assombrit/teinte
+  // plus de la moitie d'une sphere de meme couleur, Basic la restitue
+  // fidelement en integralite). L'ombre PORTEE au sol (castShadow) ne depend
+  // pas du type de materiau — elle est intacte avec Basic.
+  const material = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false });
 
   // Echantillonnage des animations — APRES la fusion ci-dessus (qui a besoin
   // de la pose de repos), sur la meme hierarchie temporaire. Repart d'une
