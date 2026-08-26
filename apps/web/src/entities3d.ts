@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { Arena, Tower, Creep } from '@tower-defense/sim';
 import { totalSlowPct } from '@tower-defense/sim';
 import { buildableTowers, towers as towerDefs, creeps as creepDefs, type TowerDef, type CreepDef } from '@tower-defense/data';
@@ -27,6 +26,8 @@ import {
   FROST_SHARD_COLOR,
 } from './iceEffects.js';
 import { PoisonBubbles, POISON_EMISSIVE_COLOR, POISON_PULSE_HZ, POISON_PULSE_MIN } from './poisonEffects.js';
+import { loadTrainardModel, getTrainardModel, TRAINARD_MODEL_HEIGHT } from './trainardModel.js';
+import { TrainardInstancedGroup } from './trainardInstances.js';
 
 /** Meme vitesse de rotation que la galerie de demo validee (packages/renderer/demo). */
 const TURN_RATE = 2.6;
@@ -176,47 +177,14 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
 
 /**
  * Skin 3D du Traînard (n000, l'unite de creep la moins chere) — modele reel
- * plutot que la sphere generique, pour en juger la taille en jeu. Charge une
- * seule fois ; tant qu'il n'est pas pret, spawn() retombe sur la sphere
- * habituelle (aucun blocage). Les clones partagent les materiaux du template
- * par reference (comportement par defaut de Object3D.clone) : flatShading
- * est donc active une seule fois ici plutot qu'a chaque spawn.
+ * plutot que la sphere generique. Chargement + pretraitement (echelle,
+ * fusion par noeud anime, materiau partage) geres par trainardModel.ts ;
+ * rendu instancie par arene gere par trainardInstances.ts. Declenche une
+ * seule fois ici ; tant qu'il n'est pas pret, spawn() retombe sur la sphere
+ * habituelle (aucun blocage).
  */
 const TRAINARD_CREEP_ID = 'n000';
-const TRAINARD_MODEL_HEIGHT = 1.8;
-let trainardTemplate: THREE.Group | null = null;
-/** Decalage vertical (unites de scene) a ajouter a la position au sol pour
- * que les pieds du modele reposent exactement a Y=0 — mesure au chargement
- * ci-dessous, jamais suppose a 0. Necessaire car sync() re-ecrit
- * `body.position` integralement chaque frame (voir plus bas) : un offset
- * laisse sur le seul `template.position` serait perdu au premier sync(). */
-let trainardGroundOffsetY = 0;
-new GLTFLoader().load('/models/trainard-lv1.glb', (gltf) => {
-  const template = gltf.scene;
-
-  // Mesure au chargement plutot qu'un facteur d'echelle ou un decalage ecrits
-  // en dur : le modele livre n'est ni a la bonne echelle (2.81 unites de haut
-  // au lieu de TRAINARD_MODEL_HEIGHT) ni pose au sol (min Y a -0.055, legerement
-  // enfonce). Applique UNE SEULE fois ici, sur le template, avant tout clonage
-  // — un futur remplacement du fichier n'exige aucun ajustement cote code.
-  const box = new THREE.Box3().setFromObject(template);
-  const rawHeight = box.max.y - box.min.y;
-  const scale = rawHeight > 0 ? TRAINARD_MODEL_HEIGHT / rawHeight : 1;
-  template.scale.setScalar(scale);
-  trainardGroundOffsetY = -box.min.y * scale;
-
-  template.traverse((obj) => {
-    const mesh = obj as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    mesh.castShadow = true;
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const mat of materials) {
-      (mat as THREE.MeshStandardMaterial).flatShading = true;
-      mat.needsUpdate = true;
-    }
-  });
-  trainardTemplate = template;
-});
+void loadTrainardModel();
 
 function creepRadius(def: CreepDef): number {
   return Math.max(0.05, Math.min(0.22, 0.05 + Math.log10(Math.max(1, def.hitPoints)) * 0.045));
@@ -267,17 +235,16 @@ function buildFrostShards(r: number): THREE.Group {
   return g;
 }
 
-interface TrackedCreep {
-  /** Mesh generique (sphere/cone) pour la plupart des creeps, ou clone du
-   * modele Trainard pour n000 (voir spawn()) — Object3D couvre les deux. */
-  body: THREE.Object3D;
-  /** true si `body` est le modele Trainard (Group multi-mesh, origine aux
-   * pieds) plutot que la sphere/cone generique (Mesh, origine au centre) :
-   * conditionne le positionnement et desactive la teinte gel/poison ci-dessous
-   * (materiaux du modele partages entre clones, voir trainardTemplate). */
-  isModel: boolean;
+interface TrackedCreepBase {
   ring: THREE.Mesh;
   bar: THREE.Sprite;
+}
+
+/** Sphere/cone generique — tous les creeps sauf le Trainard (et le Trainard
+ * lui-meme tant que le modele n'est pas charge, voir spawn()). */
+interface TrackedCreepSphere extends TrackedCreepBase {
+  kind: 'sphere';
+  body: THREE.Mesh;
   baseColor: THREE.Color;
   frost: THREE.Group;
   /** Phase du bob de marche (radians) — avance a une vitesse proportionnelle
@@ -286,11 +253,24 @@ interface TrackedCreep {
   phase: number;
 }
 
+/** Trainard rendu par instance partagee (voir trainardInstances.ts) — pas de
+ * body individuel ici, juste l'anneau/la barre de vie propres a ce creep. */
+interface TrackedCreepTrainard extends TrackedCreepBase {
+  kind: 'trainard';
+}
+
+type TrackedCreep = TrackedCreepSphere | TrackedCreepTrainard;
+
 export class CreepEntities {
   private byEid = new Map<number, TrackedCreep>();
   private poisonBubbles = new PoisonBubbles();
   private clock = 0;
   private tmpColor = new THREE.Color();
+  private trainardGroup: TrainardInstancedGroup | null = null;
+  private tmpMatrix = new THREE.Matrix4();
+  private tmpPosition = new THREE.Vector3();
+  private tmpQuaternion = new THREE.Quaternion();
+  private tmpScale = new THREE.Vector3();
 
   constructor(
     private layer: THREE.Group,
@@ -300,35 +280,119 @@ export class CreepEntities {
     this.layer.add(this.poisonBubbles.mesh);
   }
 
-  private spawn(c: Creep, def: CreepDef): TrackedCreep {
-    const r = creepRadius(def);
-    const baseColor = new THREE.Color(ARMOR_COLORS[def.armorType]);
-    const isModel = def.id === TRAINARD_CREEP_ID && trainardTemplate !== null;
-    const body: THREE.Object3D = isModel
-      ? trainardTemplate!.clone(true)
-      : new THREE.Mesh(
-          def.isAir ? new THREE.ConeGeometry(r, r * 2.1, 8) : new THREE.SphereGeometry(r, 10, 8),
-          new THREE.MeshLambertMaterial({ color: baseColor.clone() }),
-        );
-    if (!isModel) (body as THREE.Mesh).castShadow = true;
-    this.layer.add(body);
+  /** Cree le rendu instancie du Trainard des que le modele est charge
+   * (asynchrone, voir trainardModel.ts) — au plus une fois par arene. */
+  private ensureTrainardGroup(): TrainardInstancedGroup | null {
+    if (this.trainardGroup) return this.trainardGroup;
+    const model = getTrainardModel();
+    if (!model) return null;
+    this.trainardGroup = new TrainardInstancedGroup(model);
+    this.layer.add(this.trainardGroup.group);
+    return this.trainardGroup;
+  }
 
-    const frost = buildFrostShards(r);
-    frost.visible = false;
-    body.add(frost);
-
-    const ringColor = this.laneColorByPlayer.get(c.sender) ?? '#888888';
+  private makeRing(sender: number, r: number): THREE.Mesh {
+    const ringColor = this.laneColorByPlayer.get(sender) ?? '#888888';
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(r * 0.95, r * 1.25, 16),
       new THREE.MeshBasicMaterial({ color: ringColor, side: THREE.DoubleSide }),
     );
     ring.rotation.x = -Math.PI / 2;
     this.layer.add(ring);
+    return ring;
+  }
 
+  private spawn(c: Creep, def: CreepDef): TrackedCreep {
+    if (def.id === TRAINARD_CREEP_ID) {
+      const group = this.ensureTrainardGroup();
+      if (group) {
+        group.allocate(c.eid);
+        const ring = this.makeRing(c.sender, creepRadius(def));
+        const bar = makeHpBar();
+        this.layer.add(bar);
+        return { kind: 'trainard', ring, bar };
+      }
+      // Modele pas encore charge : repli sur la sphere generique ci-dessous,
+      // comme n'importe quel autre creep.
+    }
+
+    const r = creepRadius(def);
+    const baseColor = new THREE.Color(ARMOR_COLORS[def.armorType]);
+    const body = new THREE.Mesh(
+      def.isAir ? new THREE.ConeGeometry(r, r * 2.1, 8) : new THREE.SphereGeometry(r, 10, 8),
+      new THREE.MeshLambertMaterial({ color: baseColor.clone() }),
+    );
+    body.castShadow = true;
+    this.layer.add(body);
+
+    const frost = buildFrostShards(r);
+    frost.visible = false;
+    body.add(frost);
+
+    const ring = this.makeRing(c.sender, r);
     const bar = makeHpBar();
     this.layer.add(bar);
 
-    return { body, isModel, ring, bar, baseColor, frost, phase: Math.random() * Math.PI * 2 };
+    return { kind: 'sphere', body, ring, bar, baseColor, frost, phase: Math.random() * Math.PI * 2 };
+  }
+
+  private syncTrainard(tracked: TrackedCreepTrainard, c: Creep, def: CreepDef, sx: number, sz: number, dt: number, poisonDps: number): void {
+    const model = getTrainardModel();
+    const group = this.trainardGroup;
+    if (model && group) {
+      const index = group.allocate(c.eid);
+      if (index !== null) {
+        this.tmpPosition.set(sx, model.groundOffsetY, sz);
+        this.tmpQuaternion.identity();
+        this.tmpScale.setScalar(model.scale);
+        this.tmpMatrix.compose(this.tmpPosition, this.tmpQuaternion, this.tmpScale);
+        // Pose de repos pour l'instant : l'animation (marche/mort echantillonnee)
+        // arrive dans un lot suivant, voir trainardModel.ts.
+        group.setPose(index, this.tmpMatrix, model.restMatrices);
+      }
+      tracked.bar.position.set(sx, model.groundOffsetY + TRAINARD_MODEL_HEIGHT + 0.16, sz);
+    } else {
+      tracked.bar.position.set(sx, TRAINARD_MODEL_HEIGHT + 0.16, sz);
+    }
+    tracked.ring.position.set(sx, 0.02, sz);
+    paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
+    if (poisonDps > 0) this.poisonBubbles.requestSpawn(c.eid, sx, model?.groundOffsetY ?? 0, sz, poisonDps, dt);
+    else this.poisonBubbles.clearAccumulator(c.eid);
+  }
+
+  private syncSphere(tracked: TrackedCreepSphere, c: Creep, def: CreepDef, sx: number, sz: number, dt: number, icePct: number, poisonDps: number, slow: number): void {
+    // Cadence de marche proportionnelle a la vitesse reelle : moveSpeed du
+    // creep (relatif a NOMINAL_MOVE_SPEED — suit donc creepSpeedMultiplier
+    // de balance.json) ET meme facteur 1-slow que packages/sim/src/sim.ts
+    // moveCreeps pour le ralentissement gel/poison actif.
+    const speedRatio = def.moveSpeed / NOMINAL_MOVE_SPEED;
+    tracked.phase += dt * BOB_BASE_HZ * speedRatio * Math.PI * 2 * (1 - slow);
+    const r = creepRadius(def);
+    const bob = Math.sin(tracked.phase) * r * BOB_AMPLITUDE_RATIO;
+
+    const h = creepHeight(def);
+    tracked.body.position.set(sx, h + bob, sz);
+    tracked.ring.position.set(sx, 0.02, sz);
+    tracked.bar.position.set(sx, h + r + bob + 0.16, sz);
+    paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
+
+    const mat = tracked.body.material as THREE.MeshLambertMaterial;
+    const iceMix = Math.min(1, icePct / ICE_TINT_MAX_PCT) * ICE_TINT_MAX_MIX;
+    mat.color.copy(tracked.baseColor).lerp(ICE_TINT_COLOR, iceMix);
+
+    // Pulsation de poison : canal emissif separe, se compose sans jamais
+    // entrer en conflit avec la teinte de gel ci-dessus.
+    if (poisonDps > 0) {
+      const pulse =
+        POISON_PULSE_MIN + (1 - POISON_PULSE_MIN) * (0.5 + 0.5 * Math.sin(this.clock * POISON_PULSE_HZ * Math.PI * 2));
+      mat.emissive.copy(this.tmpColor.copy(POISON_EMISSIVE_COLOR).multiplyScalar(pulse));
+      this.poisonBubbles.requestSpawn(c.eid, sx, h, sz, poisonDps, dt);
+    } else {
+      mat.emissive.setRGB(0, 0, 0);
+      this.poisonBubbles.clearAccumulator(c.eid);
+    }
+
+    tracked.frost.visible = slow >= FROST_SHARD_SLOW_THRESHOLD;
   }
 
   /** A appeler une fois par frame de rendu (pas seulement par tick sim) : sync
@@ -349,56 +413,21 @@ export class CreepEntities {
       const icePct = c.ice && c.ice.untilTick > tick ? c.ice.pct : 0;
       const poisonDps = c.poison && c.poison.untilTick > tick ? c.poison.dps : 0;
       const slow = totalSlowPct(c, tick);
-
-      // Cadence de marche proportionnelle a la vitesse reelle : moveSpeed du
-      // creep (relatif a NOMINAL_MOVE_SPEED — suit donc creepSpeedMultiplier
-      // de balance.json) ET meme facteur 1-slow que packages/sim/src/sim.ts
-      // moveCreeps pour le ralentissement gel/poison actif.
-      const speedRatio = def.moveSpeed / NOMINAL_MOVE_SPEED;
-      tracked.phase += dt * BOB_BASE_HZ * speedRatio * Math.PI * 2 * (1 - slow);
-      const r = creepRadius(def);
-      const bob = Math.sin(tracked.phase) * r * BOB_AMPLITUDE_RATIO;
-
       const [sx, sz] = worldToScene(this.frame, c.x, c.y);
-      // Le modele Trainard a son origine entre les pieds, corrigee au
-      // chargement par trainardGroundOffsetY (voir plus haut) pour qu'elles
-      // reposent exactement a Y=0 ; les meshes generiques sont centres sur
-      // `creepHeight`. Meme distinction pour la barre de vie, posee au-dessus
-      // de la tete dans les deux cas.
-      const h = tracked.isModel ? trainardGroundOffsetY : creepHeight(def);
-      const topY = tracked.isModel ? trainardGroundOffsetY + TRAINARD_MODEL_HEIGHT : h + r;
-      tracked.body.position.set(sx, h + bob, sz);
-      tracked.ring.position.set(sx, 0.02, sz);
-      tracked.bar.position.set(sx, topY + bob + 0.16, sz);
-      paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
 
-      // Teinte gel/poison : materiau unique des meshes generiques uniquement.
-      // Le modele Trainard partage ses materiaux entre tous ses clones (voir
-      // trainardTemplate) — les teinter mutuellement affecterait tous les
-      // Trainards en jeu a la fois, donc on s'en abstient pour lui.
-      if (!tracked.isModel) {
-        const mat = (tracked.body as THREE.Mesh).material as THREE.MeshLambertMaterial;
-        const iceMix = Math.min(1, icePct / ICE_TINT_MAX_PCT) * ICE_TINT_MAX_MIX;
-        mat.color.copy(tracked.baseColor).lerp(ICE_TINT_COLOR, iceMix);
-
-        // Pulsation de poison : canal emissif separe, se compose sans jamais
-        // entrer en conflit avec la teinte de gel ci-dessus.
-        if (poisonDps > 0) {
-          const pulse =
-            POISON_PULSE_MIN + (1 - POISON_PULSE_MIN) * (0.5 + 0.5 * Math.sin(this.clock * POISON_PULSE_HZ * Math.PI * 2));
-          mat.emissive.copy(this.tmpColor.copy(POISON_EMISSIVE_COLOR).multiplyScalar(pulse));
-        } else {
-          mat.emissive.setRGB(0, 0, 0);
-        }
-      }
-      if (poisonDps > 0) this.poisonBubbles.requestSpawn(c.eid, sx, h, sz, poisonDps, dt);
-      else this.poisonBubbles.clearAccumulator(c.eid);
-
-      tracked.frost.visible = slow >= FROST_SHARD_SLOW_THRESHOLD;
+      if (tracked.kind === 'trainard') this.syncTrainard(tracked, c, def, sx, sz, dt, poisonDps);
+      else this.syncSphere(tracked, c, def, sx, sz, dt, icePct, poisonDps, slow);
     }
     for (const [eid, tracked] of this.byEid) {
       if (!seen.has(eid)) {
-        this.layer.remove(tracked.body, tracked.ring, tracked.bar);
+        if (tracked.kind === 'trainard') {
+          // Section suivante : conserver l'instance pour jouer l'animation de
+          // mort avant de la liberer. Pour l'instant, liberation immediate.
+          this.trainardGroup?.free(eid);
+        } else {
+          this.layer.remove(tracked.body);
+        }
+        this.layer.remove(tracked.ring, tracked.bar);
         this.poisonBubbles.clearAccumulator(eid);
         this.byEid.delete(eid);
       }
@@ -407,7 +436,11 @@ export class CreepEntities {
   }
 
   clear(): void {
-    for (const { body, ring, bar } of this.byEid.values()) this.layer.remove(body, ring, bar);
+    for (const tracked of this.byEid.values()) {
+      if (tracked.kind === 'sphere') this.layer.remove(tracked.body);
+      this.layer.remove(tracked.ring, tracked.bar);
+    }
+    this.trainardGroup?.clear();
     this.byEid.clear();
     this.poisonBubbles.clear();
   }
