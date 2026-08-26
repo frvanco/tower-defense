@@ -216,7 +216,10 @@ export class TrainardAnimationController {
       const dz = sz - anim.prevSz;
       const dist = Math.hypot(dx, dz);
       if (dist > HEADING_MIN_DISTANCE) {
-        anim.headingAngle = Math.atan2(dx, dz);
+        // +PI : le modele fait face a -Z au repos (verifie a l'usage — pas
+        // +Z comme suppose au premier jet), sans quoi le Trainard marchait
+        // dos a sa direction de deplacement.
+        anim.headingAngle = Math.atan2(dx, dz) + Math.PI;
         anim.walkDistance += dist;
       }
     }
