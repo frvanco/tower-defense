@@ -26,8 +26,8 @@ import {
   FROST_SHARD_COLOR,
 } from './iceEffects.js';
 import { PoisonBubbles, POISON_EMISSIVE_COLOR, POISON_PULSE_HZ, POISON_PULSE_MIN } from './poisonEffects.js';
-import { loadTrainardModel, getTrainardModel, TRAINARD_MODEL_HEIGHT } from './trainardModel.js';
-import { TrainardAnimationController } from './trainardInstances.js';
+import { loadAnimatedCreepModel, getAnimatedCreepModel, type AnimatedCreepModel } from './animatedCreepModel.js';
+import { AnimatedCreepController } from './animatedCreepInstances.js';
 
 /** Meme vitesse de rotation que la galerie de demo validee (packages/renderer/demo). */
 const TURN_RATE = 2.6;
@@ -176,15 +176,21 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
 // ---------------------------------------------------------------------------
 
 /**
- * Skin 3D du Traînard (n000, l'unite de creep la moins chere) — modele reel
- * plutot que la sphere generique. Chargement + pretraitement (echelle,
- * fusion par noeud anime, materiau partage) geres par trainardModel.ts ;
- * rendu instancie par arene gere par trainardInstances.ts. Declenche une
- * seule fois ici ; tant qu'il n'est pas pret, spawn() retombe sur la sphere
- * habituelle (aucun blocage).
+ * Skins 3D reels (modele + animations) plutot que la sphere generique, pour
+ * les creeps qui en ont un — cle : id du creep (@tower-defense/data). Chargement
+ * + pretraitement (echelle, fusion par noeud anime, materiau partage) geres
+ * par animatedCreepModel.ts ; rendu/anim instancies par arene geres par
+ * animatedCreepInstances.ts. Declenche une seule fois ici, par modele ;
+ * tant qu'un modele n'est pas pret, spawn() retombe sur la sphere/cone
+ * habituelle pour ce creep (aucun blocage). Hauteur cible commune (1.8) :
+ * les deux sont des unites humaines de gabarit comparable.
  */
-const TRAINARD_CREEP_ID = 'n000';
-void loadTrainardModel();
+const HUMANOID_CREEP_HEIGHT = 1.8;
+const HUMANOID_MODEL_URLS: Record<string, string> = {
+  n000: '/models/trainard-lv1.glb', // Trainard
+  h001: '/models/conscrit_lv2.glb', // Conscrit
+};
+for (const url of Object.values(HUMANOID_MODEL_URLS)) void loadAnimatedCreepModel(url, HUMANOID_CREEP_HEIGHT);
 
 function creepRadius(def: CreepDef): number {
   return Math.max(0.05, Math.min(0.22, 0.05 + Math.log10(Math.max(1, def.hitPoints)) * 0.045));
@@ -240,8 +246,8 @@ interface TrackedCreepBase {
   bar: THREE.Sprite;
 }
 
-/** Sphere/cone generique — tous les creeps sauf le Trainard (et le Trainard
- * lui-meme tant que le modele n'est pas charge, voir spawn()). */
+/** Sphere/cone generique — tous les creeps sans skin dedie (et un creep avec
+ * skin dedie tant que son modele n'est pas encore charge, voir spawn()). */
 interface TrackedCreepSphere extends TrackedCreepBase {
   kind: 'sphere';
   body: THREE.Mesh;
@@ -253,20 +259,27 @@ interface TrackedCreepSphere extends TrackedCreepBase {
   phase: number;
 }
 
-/** Trainard rendu par instance partagee (voir trainardInstances.ts) — pas de
- * body individuel ici, juste l'anneau/la barre de vie propres a ce creep. */
-interface TrackedCreepTrainard extends TrackedCreepBase {
-  kind: 'trainard';
+/** Creep rendu par instance partagee (voir animatedCreepInstances.ts) — pas
+ * de body individuel ici, juste l'anneau/la barre de vie propres a ce creep.
+ * `modelUrl` selectionne le bon AnimatedCreepController parmi ceux geres par
+ * CreepEntities (un par modele charge). */
+interface TrackedCreepHumanoid extends TrackedCreepBase {
+  kind: 'humanoid';
+  modelUrl: string;
 }
 
-type TrackedCreep = TrackedCreepSphere | TrackedCreepTrainard;
+type TrackedCreep = TrackedCreepSphere | TrackedCreepHumanoid;
 
 export class CreepEntities {
   private byEid = new Map<number, TrackedCreep>();
   private poisonBubbles = new PoisonBubbles();
   private clock = 0;
   private tmpColor = new THREE.Color();
-  private trainardAnim: TrainardAnimationController | null = null;
+  /** Un AnimatedCreepController par modele (url), cree au premier creep de ce
+   * type rencontre une fois son modele charge — pas par id de creep : si un
+   * jour deux creeps differents partagent le meme fichier, ils partagent
+   * aussi son rendu instancie. */
+  private animControllers = new Map<string, AnimatedCreepController>();
 
   constructor(
     private layer: THREE.Group,
@@ -276,24 +289,26 @@ export class CreepEntities {
     this.layer.add(this.poisonBubbles.mesh);
   }
 
-  /** Cree le rendu/animation instancies du Trainard des que le modele est
-   * charge (asynchrone, voir trainardModel.ts) — au plus une fois par arene. */
-  private ensureTrainardAnim(): TrainardAnimationController | null {
-    if (this.trainardAnim) return this.trainardAnim;
-    const model = getTrainardModel();
+  /** Cree le rendu/animation instancies de ce modele des qu'il est charge
+   * (asynchrone, voir animatedCreepModel.ts) — au plus une fois par arene et
+   * par modele. `creepId` sert uniquement a retrouver la vitesse nominale du
+   * creep pour calibrer le cycle de marche (voir plus bas). */
+  private ensureAnimController(url: string, creepId: string): AnimatedCreepController | null {
+    const existing = this.animControllers.get(url);
+    if (existing) return existing;
+    const model = getAnimatedCreepModel(url);
     if (!model) return null;
-    this.trainardAnim = new TrainardAnimationController(model);
-    this.layer.add(this.trainardAnim.sceneGroup);
+    const controller = new AnimatedCreepController(model);
+    this.animControllers.set(url, controller);
+    this.layer.add(controller.sceneGroup);
 
-    // Distance d'un cycle de marche complet = ce que le Trainard parcourt,
-    // a sa propre vitesse nominale, pendant la duree reelle du clip Walk —
+    // Distance d'un cycle de marche complet = ce que ce creep parcourt, a sa
+    // propre vitesse nominale, pendant la duree reelle du clip Walk —
     // calibration derivee des donnees plutot qu'une valeur choisie a l'oeil
     // (voir aussi la verification visuelle du glissement des pieds).
-    const trainardDef = creepDefs.get(TRAINARD_CREEP_ID);
-    if (trainardDef) {
-      this.trainardAnim.setCycleDistance(trainardDef.moveSpeed * this.frame.scale * model.walkClipDuration);
-    }
-    return this.trainardAnim;
+    const def = creepDefs.get(creepId);
+    if (def) controller.setCycleDistance(def.moveSpeed * this.frame.scale * model.walkClipDuration);
+    return controller;
   }
 
   private makeRing(sender: number, r: number): THREE.Mesh {
@@ -308,14 +323,15 @@ export class CreepEntities {
   }
 
   private spawn(c: Creep, def: CreepDef): TrackedCreep {
-    if (def.id === TRAINARD_CREEP_ID && this.ensureTrainardAnim()) {
+    const modelUrl = HUMANOID_MODEL_URLS[def.id];
+    if (modelUrl && this.ensureAnimController(modelUrl, def.id)) {
       const ring = this.makeRing(c.sender, creepRadius(def));
       const bar = makeHpBar();
       this.layer.add(bar);
-      return { kind: 'trainard', ring, bar };
+      return { kind: 'humanoid', modelUrl, ring, bar };
     }
-    // Modele du Trainard pas encore charge (ou creep d'un autre type) :
-    // repli sur la sphere/cone generique ci-dessous.
+    // Pas de modele dedie pour ce creep, ou pas encore charge : repli sur la
+    // sphere/cone generique ci-dessous.
 
     const r = creepRadius(def);
     const baseColor = new THREE.Color(ARMOR_COLORS[def.armorType]);
@@ -337,21 +353,23 @@ export class CreepEntities {
     return { kind: 'sphere', body, ring, bar, baseColor, frost, phase: Math.random() * Math.PI * 2 };
   }
 
-  private syncTrainard(tracked: TrackedCreepTrainard, c: Creep, def: CreepDef, sx: number, sz: number, dt: number, poisonDps: number): void {
-    const model = getTrainardModel();
-    if (model && this.trainardAnim) {
-      // La progression du cycle de marche depend de la distance reellement
-      // parcourue depuis le dernier sync (calculee a l'interieur de
-      // updateAlive a partir de sx/sz), jamais du temps ecoule : un
-      // Trainard ralenti par la glace marche au ralenti, il ne patine pas.
-      this.trainardAnim.updateAlive(c.eid, sx, sz);
-      tracked.bar.position.set(sx, model.groundOffsetY + TRAINARD_MODEL_HEIGHT + 0.16, sz);
-    } else {
-      tracked.bar.position.set(sx, TRAINARD_MODEL_HEIGHT + 0.16, sz);
-    }
+  private syncHumanoid(tracked: TrackedCreepHumanoid, c: Creep, def: CreepDef, sx: number, sz: number, dt: number, poisonDps: number): void {
+    // kind === 'humanoid' implique que le modele etait deja charge au moment
+    // du spawn (voir spawn()) et reste en cache indefiniment : controller et
+    // model sont donc garantis presents ici, pas de repli a gerer.
+    const controller = this.animControllers.get(tracked.modelUrl)!;
+    const model = getAnimatedCreepModel(tracked.modelUrl)!;
+
+    // La progression du cycle de marche depend de la distance reellement
+    // parcourue depuis le dernier sync (calculee a l'interieur de
+    // updateAlive a partir de sx/sz), jamais du temps ecoule : un creep
+    // ralenti par la glace marche au ralenti, il ne patine pas.
+    controller.updateAlive(c.eid, sx, sz);
+
     tracked.ring.position.set(sx, 0.02, sz);
+    tracked.bar.position.set(sx, model.groundOffsetY + HUMANOID_CREEP_HEIGHT + 0.16, sz);
     paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
-    if (poisonDps > 0) this.poisonBubbles.requestSpawn(c.eid, sx, model?.groundOffsetY ?? 0, sz, poisonDps, dt);
+    if (poisonDps > 0) this.poisonBubbles.requestSpawn(c.eid, sx, model.groundOffsetY, sz, poisonDps, dt);
     else this.poisonBubbles.clearAccumulator(c.eid);
   }
 
@@ -410,25 +428,26 @@ export class CreepEntities {
       const slow = totalSlowPct(c, tick);
       const [sx, sz] = worldToScene(this.frame, c.x, c.y);
 
-      if (tracked.kind === 'trainard') this.syncTrainard(tracked, c, def, sx, sz, dt, poisonDps);
+      if (tracked.kind === 'humanoid') this.syncHumanoid(tracked, c, def, sx, sz, dt, poisonDps);
       else this.syncSphere(tracked, c, def, sx, sz, dt, icePct, poisonDps, slow);
     }
     for (const [eid, tracked] of this.byEid) {
       if (!seen.has(eid)) {
         // La sim a deja retire ce creep (immediat, packages/sim reste seul
         // maitre du timing) — la barre de vie et l'anneau disparaissent avec
-        // lui des maintenant. Le corps d'un Trainard, lui, reste brievement :
-        // l'instance joue Death une fois avant de se liberer (voir
-        // TrainardAnimationController.markDying/advanceDying) ; une sphere,
-        // elle, n'a pas d'animation de mort et disparait immediatement aussi.
-        if (tracked.kind === 'trainard') this.trainardAnim?.markDying(eid);
+        // lui des maintenant. Le corps d'un creep avec skin dedie, lui, reste
+        // brievement : l'instance joue Death une fois avant de se liberer
+        // (voir AnimatedCreepController.markDying/advanceDying) ; une
+        // sphere, elle, n'a pas d'animation de mort et disparait
+        // immediatement aussi.
+        if (tracked.kind === 'humanoid') this.animControllers.get(tracked.modelUrl)?.markDying(eid);
         else this.layer.remove(tracked.body);
         this.layer.remove(tracked.ring, tracked.bar);
         this.poisonBubbles.clearAccumulator(eid);
         this.byEid.delete(eid);
       }
     }
-    this.trainardAnim?.advanceDying(dt);
+    for (const controller of this.animControllers.values()) controller.advanceDying(dt);
     this.poisonBubbles.update(dt);
   }
 
@@ -437,7 +456,7 @@ export class CreepEntities {
       if (tracked.kind === 'sphere') this.layer.remove(tracked.body);
       this.layer.remove(tracked.ring, tracked.bar);
     }
-    this.trainardAnim?.clear();
+    for (const controller of this.animControllers.values()) controller.clear();
     this.byEid.clear();
     this.poisonBubbles.clear();
   }

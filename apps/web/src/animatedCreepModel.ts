@@ -2,17 +2,15 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-/** Hauteur cible, une fois mis a l'echelle (voir buildModel : mesure au
- * chargement, jamais un facteur ecrit en dur). */
-export const TRAINARD_MODEL_HEIGHT = 1.8;
-
 /**
- * Noeuds animes du rig — les 13 nommes dans les clips Walk/Death, plus `Rig`
- * lui-meme (qui porte le mouvement d'ensemble ET le seul mesh, `Pelvis`, qui
- * ne tombe sous aucun des 13 autres — accroche sous `Hips`, un pivot
- * intermediaire non anime, absorbe naturellement par le calcul "matrice
- * relative au noeud" plus bas). Verifie sur le fichier livre ; a mettre a
- * jour si un futur modele renomme ces noeuds.
+ * Noeuds animes du rig — les 13 nommes dans les clips Walk/Death des
+ * modeles livres jusqu'ici (Trainard, Conscrit), plus `Rig` lui-meme (qui
+ * porte le mouvement d'ensemble ET le seul mesh, `Pelvis`, qui ne tombe
+ * sous aucun des 13 autres — accroche sous `Hips`, un pivot intermediaire
+ * non anime, absorbe naturellement par le calcul "matrice relative au
+ * noeud" plus bas). Un modele qui n'a pas tel ou tel noeud (le Conscrit n'a
+ * pas de `Backpack`) le voit simplement ignore, voir buildModel — cette
+ * liste n'a donc pas besoin d'etre un sous-ensemble exact par modele.
  */
 export const ANIMATED_NODE_NAMES = [
   'Rig',
@@ -31,14 +29,16 @@ export const ANIMATED_NODE_NAMES = [
   'RightFoot',
 ] as const;
 
-export interface TrainardModel {
+export interface AnimatedCreepModel {
   /** Meme ordre que ANIMATED_NODE_NAMES (noeuds absents du fichier filtres). */
   nodeNames: string[];
   /** Une geometrie fusionnee, indexee, par noeud (attributs position/normal/
    * color) — a transformer par la matrice du noeud courant a chaque frame. */
   geometries: THREE.BufferGeometry[];
   /** Materiau unique partage par tous les noeuds/instances (vertexColors +
-   * flatShading, coherent avec packages/renderer/src/materials.ts). */
+   * flatShading, coherent avec packages/renderer/src/materials.ts ; hors
+   * brouillard de scene — un petit personnage detaille s'y delave bien
+   * plus qu'un pan de terrain, voir le fix dedie). */
   material: THREE.Material;
   /** Pose de repos (rest pose du fichier), une matrice par noeud, relative a
    * la racine du modele — pas encore d'animation echantillonnee. */
@@ -66,30 +66,36 @@ export interface TrainardModel {
   deathClipDuration: number;
 }
 
-let cachedModel: TrainardModel | null = null;
-let loadPromise: Promise<TrainardModel> | null = null;
+const cachedModels = new Map<string, AnimatedCreepModel>();
+const loadPromises = new Map<string, Promise<AnimatedCreepModel>>();
 
-/** Charge et pretraite le modele une seule fois (mise en cache du Promise) —
- * sans effet si deja charge ou en cours. Repli existant cote appelant tant
- * que la Promise n'est pas resolue (voir entities3d.ts). */
-export function loadTrainardModel(): Promise<TrainardModel> {
-  if (loadPromise) return loadPromise;
-  loadPromise = new Promise((resolve, reject) => {
+/**
+ * Charge et pretraite un modele (chemin GLB -> hauteur cible en unites de
+ * scene) une seule fois par URL — mis en cache par url, sans effet si deja
+ * charge ou en cours pour cette meme url. Repli existant cote appelant tant
+ * que la Promise n'est pas resolue (voir entities3d.ts).
+ */
+export function loadAnimatedCreepModel(url: string, targetHeight: number): Promise<AnimatedCreepModel> {
+  const existing = loadPromises.get(url);
+  if (existing) return existing;
+  const promise = new Promise<AnimatedCreepModel>((resolve, reject) => {
     new GLTFLoader().load(
-      '/models/trainard-lv1.glb',
+      url,
       (gltf) => {
-        cachedModel = buildModel(gltf.scene, gltf.animations);
-        resolve(cachedModel);
+        const model = buildModel(gltf.scene, gltf.animations, targetHeight);
+        cachedModels.set(url, model);
+        resolve(model);
       },
       undefined,
       reject,
     );
   });
-  return loadPromise;
+  loadPromises.set(url, promise);
+  return promise;
 }
 
-export function getTrainardModel(): TrainardModel | null {
-  return cachedModel;
+export function getAnimatedCreepModel(url: string): AnimatedCreepModel | null {
+  return cachedModels.get(url) ?? null;
 }
 
 /**
@@ -176,15 +182,15 @@ function sampleClip(
   return result;
 }
 
-function buildModel(root: THREE.Group, animations: THREE.AnimationClip[]): TrainardModel {
+function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], targetHeight: number): AnimatedCreepModel {
   root.updateMatrixWorld(true);
 
   // Echelle/assise — mesure sur la hierarchie NATURELLE (echelle 1), jamais
   // appliquee au root ni aux geometries : composee plus tard, a la pose de
-  // chaque instance (voir TrainardModel.scale/groundOffsetY ci-dessus).
+  // chaque instance (voir AnimatedCreepModel.scale/groundOffsetY ci-dessus).
   const box = new THREE.Box3().setFromObject(root);
   const rawHeight = box.max.y - box.min.y;
-  const scale = rawHeight > 0 ? TRAINARD_MODEL_HEIGHT / rawHeight : 1;
+  const scale = rawHeight > 0 ? targetHeight / rawHeight : 1;
   const groundOffsetY = -box.min.y * scale;
 
   const animatedNamesSet = new Set<string>(ANIMATED_NODE_NAMES);
@@ -192,7 +198,7 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[]): Train
   const nodeNames: string[] = [];
   for (const name of ANIMATED_NODE_NAMES) {
     const node = root.getObjectByName(name);
-    if (!node) continue; // futur modele qui aurait renomme/retire ce noeud : ignore plutot que planter
+    if (!node) continue; // ce modele n'a pas ce noeud (ex. pas de Backpack) : ignore plutot que planter
     bucketNodes.push(node);
     nodeNames.push(name);
   }
