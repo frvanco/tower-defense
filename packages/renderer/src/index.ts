@@ -1,4 +1,12 @@
-export { MAT, TIER_ACCENT, tierAccentColor, accentMaterial, teamMaterial } from './materials.js';
+export {
+  MAT,
+  TIER_ACCENT,
+  tierAccentColor,
+  accentMaterial,
+  teamMaterial,
+  isSharedTowerMaterial,
+  disposeSharedTowerMaterials,
+} from './materials.js';
 export { CELL, MAX_RADIUS, measureSweptRadius } from './footprint.js';
 export {
   type BranchId,

@@ -94,4 +94,13 @@ export class LightningArcs {
       slot.line.visible = false;
     }
   }
+
+  /** Arcs actuellement visibles — utilise par l'instrumentation perf
+   * (perf=1) comme proxy d'effets/"projectiles" (le combat est hit-scan,
+   * voir packages/sim/src/sim.ts fireTowers : pas de mesh de projectile). */
+  get activeCount(): number {
+    let n = 0;
+    for (const slot of this.pool) if (slot.age < slot.life) n++;
+    return n;
+  }
 }

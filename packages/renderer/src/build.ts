@@ -75,6 +75,10 @@ function updateDust(tower: THREE.Object3D, dt: number): void {
     if (p.life <= 0) {
       container.remove(p.mesh);
       p.mesh.geometry.dispose();
+      // MAT.dust.clone() (spawnDust) cree un materiau NEUF par particule —
+      // jamais partage, donc toujours sur a disposer ici (contrairement a
+      // MAT.dust lui-meme, le singleton d'origine dont il derive).
+      (p.mesh.material as THREE.Material).dispose();
       list.splice(i, 1);
       continue;
     }

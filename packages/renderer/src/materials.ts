@@ -34,6 +34,21 @@ export function accentMaterial(tier: number): THREE.MeshLambertMaterial {
 }
 
 /**
+ * Proprietaire de chaque materiau partage (MAT.* + le cache teamMaterial
+ * ci-dessous) — consulte par le rendu (entities3d.ts) avant de disposer un
+ * materiau retire de la scene : un materiau present dans cet ensemble est
+ * reference par potentiellement PLUSIEURS tours simultanement (toutes celles
+ * de la meme equipe, ou toutes celles utilisant une texture de pierre/metal
+ * commune) et ne doit donc JAMAIS etre dispose individuellement, seulement
+ * au demontage complet du renderer (voir disposeSharedTowerMaterials).
+ */
+const sharedTowerMaterials = new Set<THREE.Material>(Object.values(MAT));
+
+export function isSharedTowerMaterial(m: THREE.Material): boolean {
+  return sharedTowerMaterials.has(m);
+}
+
+/**
  * Le prototype avait un unique MAT.team modifiable via un color-picker (une
  * seule tour, une seule equipe a la fois). En jeu il y a jusqu'a 8 joueurs :
  * un materiau par couleur d'equipe, mis en cache pour ne pas en recreer un a
@@ -46,6 +61,15 @@ export function teamMaterial(color: number): THREE.MeshLambertMaterial {
   if (!m) {
     m = new THREE.MeshLambertMaterial({ color });
     teamMaterialCache.set(color, m);
+    sharedTowerMaterials.add(m);
   }
   return m;
+}
+
+/** A appeler uniquement au demontage complet du renderer (jamais entre deux
+ * parties : MAT/teamMaterial vivent pour toute la session). */
+export function disposeSharedTowerMaterials(): void {
+  for (const m of sharedTowerMaterials) m.dispose();
+  sharedTowerMaterials.clear();
+  teamMaterialCache.clear();
 }

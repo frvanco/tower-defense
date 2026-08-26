@@ -10,6 +10,7 @@ import {
   updateBuild,
   aimTurret,
   DEFAULT_BUILD_DURATION_SEC,
+  isSharedTowerMaterial,
 } from '@tower-defense/renderer';
 import { branchInfo, branchHue } from './branches.js';
 import { ARMOR_COLORS } from './colors.js';
@@ -23,14 +24,36 @@ import {
   NOMINAL_MOVE_SPEED,
   BOB_AMPLITUDE_RATIO,
   FROST_SHARD_SLOW_THRESHOLD,
-  FROST_SHARD_COLOR,
 } from './iceEffects.js';
 import { PoisonBubbles, POISON_EMISSIVE_COLOR, POISON_PULSE_HZ, POISON_PULSE_MIN } from './poisonEffects.js';
 import { loadAnimatedCreepModel, getAnimatedCreepModel, type AnimatedCreepModel } from './animatedCreepModel.js';
 import { AnimatedCreepController } from './animatedCreepInstances.js';
+import { getCreepBodyGeometry, getCreepRingGeometry, getCreepRingMaterial, getFrostShardGeometry, getFrostShardMaterial } from './creepVisualCache.js';
 
 /** Meme vitesse de rotation que la galerie de demo validee (packages/renderer/demo). */
 const TURN_RATE = 2.6;
+
+/**
+ * Libere geometrie + materiau de chaque mesh d'un groupe de tour retire de la
+ * scene (upgrade, vente, ou fin de partie) — jamais les materiaux partages
+ * (MAT.*, teamMaterial(color), voir packages/renderer/src/materials.ts) qui
+ * restent utilises par d'autres tours. Les geometries, elles, sont TOUJOURS
+ * propres a l'instance : ni cannon.ts ni placeholder.ts n'en partagent
+ * aucune entre deux tours (chaque `new THREE.XxxGeometry(...)` y est un
+ * appel distinct), donc toujours sures a disposer ici.
+ */
+function disposeTowerGroup(group: THREE.Group): void {
+  group.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.geometry?.dispose();
+    const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+    const materials = Array.isArray(material) ? material : material ? [material] : [];
+    for (const m of materials) {
+      if (!isSharedTowerMaterial(m)) m.dispose();
+    }
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Tours
@@ -87,7 +110,11 @@ export class TowerEntities {
         // Group au nouveau palier et on rejoue le MEME systeme de
         // construction que pour la pose initiale (c'est explicitement le but
         // de build.ts : un seul systeme pour le build ET les upgrades).
+        // L'ANCIEN groupe, lui, ne sert plus a rien : le disposer avant de
+        // le retirer evite de laisser sa geometrie/ses materiaux hors cache
+        // alloues indefiniment cote GPU (voir disposeTowerGroup).
         this.layer.remove(tracked.group);
+        disposeTowerGroup(tracked.group);
         const group = this.makeMesh(t.defId, t.eid);
         this.place(group, t);
         this.layer.add(group);
@@ -99,6 +126,7 @@ export class TowerEntities {
     for (const [eid, tracked] of this.byEid) {
       if (!seen.has(eid)) {
         this.layer.remove(tracked.group);
+        disposeTowerGroup(tracked.group);
         this.byEid.delete(eid);
       }
     }
@@ -137,7 +165,10 @@ export class TowerEntities {
   /** Vide tout — utilise au redemarrage d'une partie (les eid repartent de 1,
    * il ne faut pas laisser d'anciens meshes trainer sous des eid reutilises). */
   clear(): void {
-    for (const { group } of this.byEid.values()) this.layer.remove(group);
+    for (const { group } of this.byEid.values()) {
+      this.layer.remove(group);
+      disposeTowerGroup(group);
+    }
     this.byEid.clear();
   }
 }
@@ -213,6 +244,15 @@ function makeHpBar(): THREE.Sprite {
   return sprite;
 }
 
+/** La texture (canvas peint) et le materiau sont crees un par un par creep
+ * (le contenu affiche — la fraction de vie — est propre a cette instance et
+ * ne peut pas etre partage), donc a liberer explicitement a sa mort. */
+function disposeHpBar(sprite: THREE.Sprite): void {
+  const material = sprite.material as THREE.SpriteMaterial;
+  material.map?.dispose();
+  material.dispose();
+}
+
 function paintHpBar(sprite: THREE.Sprite, frac: number): void {
   const material = sprite.material as THREE.SpriteMaterial;
   const texture = material.map as THREE.CanvasTexture;
@@ -231,9 +271,10 @@ function paintHpBar(sprite: THREE.Sprite, frac: number): void {
 function buildFrostShards(r: number): THREE.Group {
   const g = new THREE.Group();
   g.name = 'frost';
-  const mat = new THREE.MeshBasicMaterial({ color: FROST_SHARD_COLOR });
+  const geo = getFrostShardGeometry(r);
+  const mat = getFrostShardMaterial();
   for (let i = 0; i < 3; i++) {
-    const shard = new THREE.Mesh(new THREE.ConeGeometry(r * 0.22, r * 0.6, 4), mat);
+    const shard = new THREE.Mesh(geo, mat);
     const angle = (i / 3) * Math.PI * 2;
     shard.position.set(Math.cos(angle) * r * 0.7, r * 0.2, Math.sin(angle) * r * 0.7);
     shard.rotation.z = angle;
@@ -312,12 +353,14 @@ export class CreepEntities {
     return controller;
   }
 
+  /** Geometrie + materiau de l'anneau viennent tous deux du cache partage
+   * (creepVisualCache.ts) : ni l'un ni l'autre ne sont jamais mutes apres
+   * construction (contrairement au materiau du CORPS, voir syncSphere), donc
+   * surs a partager entre tous les creeps d'un meme rayon/couleur de lane —
+   * et a ne JAMAIS disposer par instance (voir sync()/clear() plus bas). */
   private makeRing(sender: number, r: number): THREE.Mesh {
     const ringColor = this.laneColorByPlayer.get(sender) ?? '#888888';
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(r * 0.95, r * 1.25, 16),
-      new THREE.MeshBasicMaterial({ color: ringColor, side: THREE.DoubleSide }),
-    );
+    const ring = new THREE.Mesh(getCreepRingGeometry(r), getCreepRingMaterial(ringColor));
     ring.rotation.x = -Math.PI / 2;
     this.layer.add(ring);
     return ring;
@@ -336,8 +379,13 @@ export class CreepEntities {
 
     const r = creepRadius(def);
     const baseColor = new THREE.Color(ARMOR_COLORS[def.armorType]);
+    // Geometrie partagee (cache, par rayon/isAir — jamais mutee) ; materiau
+    // PROPRE a cette instance (sa teinte change chaque frame pour le gel/le
+    // poison, voir syncSphere — impossible a partager sans faire deteindre
+    // un creep sur un autre). C'est ce materiau, et lui seul, qu'il faudra
+    // disposer explicitement a la mort de ce creep (sync()/clear()).
     const body = new THREE.Mesh(
-      def.isAir ? new THREE.ConeGeometry(r, r * 2.1, 8) : new THREE.SphereGeometry(r, 10, 8),
+      getCreepBodyGeometry(def.isAir, r),
       new THREE.MeshLambertMaterial({ color: baseColor.clone() }),
     );
     body.castShadow = true;
@@ -441,9 +489,20 @@ export class CreepEntities {
         // (voir AnimatedCreepController.markDying/advanceDying) ; une
         // sphere, elle, n'a pas d'animation de mort et disparait
         // immediatement aussi.
+        // Ressources propres a CETTE instance, a liberer : le materiau du
+        // corps (sphere uniquement — sa teinte gel/poison lui est propre,
+        // voir spawn()) et la texture/le materiau de la barre de vie (sa
+        // peinture aussi). L'anneau, lui, ne se dispose JAMAIS ici : sa
+        // geometrie/son materiau viennent du cache partage
+        // (creepVisualCache.ts) et restent utilises par d'autres creeps du
+        // meme rayon/de la meme lane.
         if (tracked.kind === 'humanoid') this.animControllers.get(tracked.modelUrl)?.markDying(eid);
-        else this.layer.remove(tracked.body);
+        else {
+          this.layer.remove(tracked.body);
+          (tracked.body.material as THREE.Material).dispose();
+        }
         this.layer.remove(tracked.ring, tracked.bar);
+        disposeHpBar(tracked.bar);
         this.poisonBubbles.clearAccumulator(eid);
         this.byEid.delete(eid);
       }
@@ -454,11 +513,45 @@ export class CreepEntities {
 
   clear(): void {
     for (const tracked of this.byEid.values()) {
-      if (tracked.kind === 'sphere') this.layer.remove(tracked.body);
+      if (tracked.kind === 'sphere') {
+        this.layer.remove(tracked.body);
+        (tracked.body.material as THREE.Material).dispose();
+      }
       this.layer.remove(tracked.ring, tracked.bar);
+      disposeHpBar(tracked.bar);
     }
     for (const controller of this.animControllers.values()) controller.clear();
     this.byEid.clear();
     this.poisonBubbles.clear();
+  }
+
+  /** Denombrements cote rendu, utilises par l'instrumentation perf (perf=1)
+   * uniquement — `alive` = creeps encore dans la sim (sphere + humanoide),
+   * `animating` = instances humanoides en train de jouer Walk OU Death (les
+   * depouilles restent animees un court instant apres leur retrait de la
+   * sim, voir AnimatedCreepController.markDying), donc >= la part humanoide
+   * de `alive`. */
+  get counts(): {
+    alive: number;
+    sphereAlive: number;
+    humanoidAlive: number;
+    animating: number;
+    poisonBubbles: number;
+  } {
+    let sphereAlive = 0;
+    let humanoidAlive = 0;
+    for (const tracked of this.byEid.values()) {
+      if (tracked.kind === 'sphere') sphereAlive++;
+      else humanoidAlive++;
+    }
+    let animating = 0;
+    for (const controller of this.animControllers.values()) animating += controller.activeCount;
+    return {
+      alive: this.byEid.size,
+      sphereAlive,
+      humanoidAlive,
+      animating,
+      poisonBubbles: this.poisonBubbles.activeCount,
+    };
   }
 }

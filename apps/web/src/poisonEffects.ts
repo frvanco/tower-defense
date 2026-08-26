@@ -136,4 +136,12 @@ export class PoisonBubbles {
     this.mesh.instanceMatrix.needsUpdate = true;
     this.spawnAcc.clear();
   }
+
+  /** Bulles actuellement actives — utilise par l'instrumentation perf
+   * (perf=1) uniquement. */
+  get activeCount(): number {
+    let n = 0;
+    for (const p of this.particles) if (p.active) n++;
+    return n;
+  }
 }

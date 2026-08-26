@@ -34,6 +34,7 @@ import {
 } from './hud.js';
 import { initToasts, toast } from './toast.js';
 import { DIFFICULTY_LABELS } from './difficulty.js';
+import { PerfMonitor, isPerfEnabled } from './perfMonitor.js';
 
 const STEP_MS = 1000 / TICK_RATE;
 // A backgrounded/stalled tab can accumulate a huge dt on refocus; cap how many
@@ -54,6 +55,19 @@ function byId<T extends HTMLElement>(id: string): T {
 function must<T>(v: T | undefined, message: string): T {
   if (v === undefined) throw new Error(message);
   return v;
+}
+
+/** Surcharge de dev optionnelle (?seed=N dans l'URL) pour rejouer exactement
+ * la meme partie d'un lancement a l'autre — utile pour comparer des mesures
+ * de perf avant/apres sur un scenario strictement identique. Sans ce
+ * parametre, comportement inchange (Date.now() | 0, une partie differente a
+ * chaque lancement). */
+function seedOverride(): number | null {
+  if (typeof location === 'undefined') return null;
+  const raw = new URLSearchParams(location.search).get('seed');
+  if (raw === null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n | 0 : null;
 }
 
 function newGame(seedBase: number, difficulty: Difficulty): { state: GameState; bots: Bot[] } {
@@ -111,6 +125,12 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   const canvasWrap = byId<HTMLDivElement>('canvas-wrap');
   const canvas = byId<HTMLCanvasElement>('game-canvas');
   const s3d: Scene3D = createScene3D(canvas, lane0, frame);
+
+  // Instrumentation perf, opt-in via ?perf=1 — jamais active par defaut (voir
+  // perfMonitor.ts). Expose window.__perf.getReport() pour recuperer le
+  // rapport (JSON serialisable) depuis l'exterieur (console, Playwright...).
+  const perf: PerfMonitor | null = isPerfEnabled() ? new PerfMonitor(s3d) : null;
+  if (perf) (window as unknown as Record<string, unknown>).__perf = perf;
 
   // Une instance TowerEntities/CreepEntities PAR JOUEUR (jusqu'a 8, la borne
   // haute du selecteur de bots), chacune avec son propre sous-Group toujours
@@ -212,7 +232,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   let mouseWorld: [number, number] | null = null;
 
   const pendingHuman: Command[] = [];
-  let { state, bots } = newGame(Date.now() | 0, difficulty);
+  let { state, bots } = newGame(seedOverride() ?? (Date.now() | 0), difficulty);
   let speed = 1;
 
   const buildButtons = buildBuildPanel(buildList, (defId) => {
@@ -316,7 +336,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     // difficulty ne change jamais en cours de session (plus de selecteur
     // dans le HUD, voir le panneau du launcher) : "Rejouer" relance
     // implicitement au meme niveau, rien a repasser ici.
-    const next = newGame(Date.now() | 0, difficulty);
+    const next = newGame(seedOverride() ?? (Date.now() | 0), difficulty);
     state = next.state;
     bots = next.bots;
     pendingHuman.length = 0;
@@ -475,6 +495,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
           ev.winner === null ? 'No one survived.' : you ? 'You outlasted everyone.' : 'Better luck next time.';
         gameOverEl.hidden = false;
         disarmExitGuard();
+        perf?.markEvent('Fin de partie', state, ev.winner === null ? 'timeout' : `victoire joueur ${ev.winner}`);
         callbacks.onGameOver();
       }
     }
@@ -485,10 +506,18 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   let rafId = 0;
 
   function frame3d(now: number): void {
-    const rawDt = Math.min(now - last, 250);
+    // trueDt : delta reel entre deux frames, JAMAIS plafonne — pour
+    // l'instrumentation perf uniquement (voir perf.sample plus bas). rawDt,
+    // lui, reste plafonne a 250ms pour la simulation (comportement de jeu
+    // inchange : un onglet remis au premier plan ne doit pas rejouer des
+    // minutes de simulation d'un coup) — les deux valeurs servent des buts
+    // differents et ne doivent jamais etre confondues (voir perfMonitor.ts).
+    const trueDt = now - last;
+    const rawDt = Math.min(trueDt, 250);
     last = now;
     acc += rawDt * speed;
 
+    const perfSimT0 = perf ? performance.now() : 0;
     let steps = 0;
     let firstIter = true;
     while (acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
@@ -500,6 +529,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
       steps += 1;
     }
     if (steps === MAX_STEPS_PER_FRAME) acc = 0;
+    const simMs = perf ? performance.now() - perfSimT0 : 0;
 
     // Les animations (construction, visee) tournent en temps reel MULTIPLIE par
     // la vitesse de simulation choisie : a 4x, la partie va 4x plus vite, donc
@@ -508,6 +538,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     // avant la fin de sa propre animation de construction.
     const animDt = (rawDt / 1000) * speed;
 
+    const perfSyncT0 = perf ? performance.now() : 0;
     const arena0 = state.arenas[0];
     const hoveredSlot = mouseWorld ? nearestSlot(0, mouseWorld[0], mouseWorld[1]) : null;
 
@@ -544,9 +575,25 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     updateArenasPanel(arenaRows, state);
     updateArenaBar(arenaBarRefs, state, viewedPlayer, 0);
     lightningArcs.update(animDt);
+    const syncMs = perf ? performance.now() - perfSyncT0 : 0;
 
     s3d.controls.update();
-    s3d.renderer.render(s3d.scene, s3d.camera);
+    const renderMs = perf
+      ? perf.timeRender(() => s3d.renderer.render(s3d.scene, s3d.camera))
+      : (s3d.renderer.render(s3d.scene, s3d.camera), 0);
+
+    if (perf) {
+      perf.sample({
+        rawFrameTimeMs: trueDt,
+        simulationDtMs: rawDt,
+        state,
+        viewedPlayer,
+        creepEntitiesByPlayer,
+        towerEntitiesByPlayer,
+        lightningArcs,
+        cpu: { simMs, syncMs, renderMs },
+      });
+    }
 
     rafId = requestAnimationFrame(frame3d);
   }

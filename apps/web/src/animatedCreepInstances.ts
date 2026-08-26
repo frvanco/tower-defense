@@ -180,6 +180,12 @@ export class AnimatedCreepController {
     return this.group.group;
   }
 
+  /** Nombre d'instances actuellement animees (marche OU mort) — utilise par
+   * l'instrumentation perf (perf=1), pas par le rendu lui-meme. */
+  get activeCount(): number {
+    return this.anims.size;
+  }
+
   setCycleDistance(distance: number): void {
     if (distance > 0) this.cycleDistance = distance;
   }
