@@ -34,6 +34,14 @@ export class AnimatedInstancedGroup {
       // recree/reecrit chaque frame, pas un one-shot StaticDrawUsage).
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.castShadow = true;
+      // Les personnages se deplacent dans un unique InstancedMesh. Three.js
+      // ne recalcule pas automatiquement sa bounding sphere apres chaque
+      // setMatrixAt() : en zoom serre, le volume reste pres d'une ancienne
+      // position et tout le lot peut etre exclu alors qu'il est a l'ecran.
+      // Le groupe de l'arene non observee reste masque par son parent ; pour
+      // l'arene visible, desactiver ce culling est plus fiable et moins cher
+      // qu'un recalcul de toutes les bornes a chaque frame.
+      mesh.frustumCulled = false;
       // `count` demarre a 0 : le GPU ne doit traiter QUE les instances
       // reellement utilisees, pas les 256 de la capacite (une matrice a
       // echelle nulle masque visuellement une instance inutilisee, mais le

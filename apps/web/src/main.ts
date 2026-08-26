@@ -556,7 +556,11 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
       towerEntitiesByPlayer[p]!.update(arena, animDt, isViewed ? selectedTowerEid : null, isViewed ? hoveredTowerEid : null);
     }
     if (arena0) {
-      slotMarkers.update(state.arenas[viewedPlayer] ?? arena0, hoveredSlot?.id ?? null);
+      slotMarkers.update(
+        state.arenas[viewedPlayer] ?? arena0,
+        hoveredSlot?.id ?? null,
+        armedBuildDefId !== null && !isObserving(),
+      );
       updateTopbar(topbarRefs, state);
       updateBuildPanel(buildButtons, arena0, armedBuildDefId);
       updateShopPanel(shopRows, state, arena0);

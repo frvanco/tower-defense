@@ -2,141 +2,273 @@ import * as THREE from 'three';
 import { zoneFootprints, type Lane } from '@tower-defense/data';
 import { worldToScene, type Frame3D } from './world3d.js';
 
+/** Niveau du chemin et du sol. Les couches decoratives se placent juste au-dessus. */
+export const PATH_SURFACE_Y = 0.008;
+
 /**
- * Le chemin reste au niveau bas (Y=0, cf. scene3d.ts). Les zones
- * constructibles sont un plateau surelevé d'un cran net, avec un rebord
- * visible — l'esprit d'un terrain WC3 a chemin encaisse plutot qu'un simple
- * marquage au sol. Exporte : les tours, marqueurs d'emplacement et le
- * fantome de pose doivent tous se poser a cette hauteur (les creeps, eux,
- * marchent sur le chemin et restent a Y=0).
+ * Le chemin reste au niveau bas. Les zones constructibles forment un plateau
+ * sureleve : tours, marqueurs et fantome de pose utilisent tous cette hauteur.
  */
 export const PLATFORM_HEIGHT = 1.2;
 
-const TOP_COLOR = 0x33431f;
-// Nettement plus sombre que TOP_COLOR (l'inverse etait vrai avant : la paroi
-// etait plus claire que le dessus, ce qui contredit la lecture d'un
-// denivele). Voir aussi la bande d'occlusion ambiante ci-dessous.
-const CLIFF_COLOR = 0x2a241c;
-// Bande sombre et semi-transparente au pied de la paroi, cote exterieur
-// (chemin), qui simule l'occlusion ambiante — c'est le contact au sol qui
-// fait « poser » un volume, plus que la geometrie elle-meme.
-const AO_COLOR = 0x120d09;
-const AO_OPACITY = 0.4;
-const AO_WIDTH = 0.35;
-/** Legerement au-dessus du dessus du chemin (0.006 dans buildPath,
- * scene3d.ts) pour eviter le z-fighting, sans jamais couvrir la paroi. */
-const AO_Y = 0.012;
+const AO_COLOR = 0x17110d;
+const AO_OPACITY = 0.58;
+const AO_WIDTH = 0.42;
+const AO_Y = PATH_SURFACE_Y + 0.006;
+const EDGE_TRIM_WIDTH = 0.11;
+const TOP_TEXTURE_SCALE = 4.5;
+
+type Point2 = [number, number];
+
+interface TerrainMaterials {
+  top: THREE.MeshLambertMaterial;
+  wall: THREE.MeshLambertMaterial;
+  trim: THREE.MeshLambertMaterial;
+  ao: THREE.MeshBasicMaterial;
+}
+
+function seededRandom(seed: number): () => number {
+  let state = seed | 0;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) | 0;
+    return (state >>> 0) / 0x100000000;
+  };
+}
+
+/** Texture d'herbe peinte une fois sur Canvas, sans asset ni travail par frame. */
+function platformTexture(): THREE.CanvasTexture {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const rand = seededRandom(0x51a7f00d);
+
+  ctx.fillStyle = '#405a28';
+  ctx.fillRect(0, 0, size, size);
+
+  // Grandes nuances diffuses : cassent l'aplat sans produire de bruit haute frequence.
+  for (let i = 0; i < 170; i++) {
+    const x = rand() * size;
+    const y = rand() * size;
+    const radius = 5 + rand() * 18;
+    const light = rand() > 0.48;
+    ctx.fillStyle = light ? 'rgba(108,130,57,0.055)' : 'rgba(21,36,14,0.07)';
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Touffes courtes, orientees de facon deterministe.
+  ctx.lineWidth = 0.75;
+  for (let i = 0; i < 1250; i++) {
+    const x = rand() * size;
+    const y = rand() * size;
+    const len = 0.8 + rand() * 2.4;
+    const angle = -0.45 + rand() * 0.9;
+    ctx.strokeStyle = rand() > 0.5 ? 'rgba(139,154,77,0.17)' : 'rgba(24,42,15,0.22)';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.sin(angle) * len, y - Math.cos(angle) * len);
+    ctx.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function createTerrainMaterials(): TerrainMaterials {
+  return {
+    top: new THREE.MeshLambertMaterial({ map: platformTexture(), color: 0xffffff }),
+    wall: new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
+    trim: new THREE.MeshLambertMaterial({ color: 0x718746, side: THREE.DoubleSide }),
+    ao: new THREE.MeshBasicMaterial({
+      color: AO_COLOR,
+      transparent: true,
+      opacity: AO_OPACITY,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  };
+}
+
+/** Aire signee dans le plan X/Z. Positive = contour anti-horaire. */
+function signedArea(points: Point2[]): number {
+  let area = 0;
+  for (let i = 0; i < points.length; i++) {
+    const [ax, az] = points[i]!;
+    const [bx, bz] = points[(i + 1) % points.length]!;
+    area += ax * bz - bx * az;
+  }
+  return area * 0.5;
+}
+
+/** Normale exterieure coherente, y compris pour un contour concave. */
+function edgeOutwardNormal(a: Point2, b: Point2, ccw: boolean): Point2 {
+  const dx = b[0] - a[0];
+  const dz = b[1] - a[1];
+  const len = Math.hypot(dx, dz) || 1;
+  return ccw ? [dz / len, -dx / len] : [-dz / len, dx / len];
+}
 
 /**
- * Bande d'occlusion ambiante au ras du sol, courant le long de chaque arete
- * du contour, poussee vers l'EXTERIEUR du polygone (loin du centroide) — le
- * cote chemin, jamais le cote plateau. Une seule passe plate (pas de degrade
- * vertex-color) : suffisant pour l'effet de contact recherche.
+ * Offset a jointures miter. Contrairement a l'ancienne heuristique basee sur
+ * le centroide, l'orientation signee reste correcte dans le creux du U.
  */
-function buildAmbientOcclusionSkirt(scenePts: Array<[number, number]>): THREE.Mesh {
-  let cx = 0;
-  let cz = 0;
-  for (const [sx, sz] of scenePts) {
-    cx += sx;
-    cz += sz;
-  }
-  cx /= scenePts.length;
-  cz /= scenePts.length;
+function offsetPolygon(points: Point2[], distance: number): Point2[] {
+  const ccw = signedArea(points) > 0;
+  const normals = points.map((point, i) => edgeOutwardNormal(point, points[(i + 1) % points.length]!, ccw));
 
+  return points.map(([x, z], i) => {
+    const prev = normals[(i - 1 + normals.length) % normals.length]!;
+    const next = normals[i]!;
+    let mx = prev[0] + next[0];
+    let mz = prev[1] + next[1];
+    const mLen = Math.hypot(mx, mz);
+    if (mLen < 1e-5) return [x + next[0] * distance, z + next[1] * distance];
+    mx /= mLen;
+    mz /= mLen;
+    const projection = mx * next[0] + mz * next[1];
+    const rawScale = Math.abs(projection) > 0.2 ? distance / projection : distance;
+    const maxScale = Math.abs(distance) * 2.8;
+    const scale = THREE.MathUtils.clamp(rawScale, -maxScale, maxScale);
+    return [x + mx * scale, z + mz * scale];
+  });
+}
+
+function buildHorizontalBand(
+  inner: Point2[],
+  outer: Point2[],
+  y: number,
+  material: THREE.Material,
+  name: string,
+): THREE.Mesh {
   const positions: number[] = [];
-  for (let i = 0; i < scenePts.length; i++) {
-    const [ax, az] = scenePts[i]!;
-    const [bx, bz] = scenePts[(i + 1) % scenePts.length]!;
-    const dx = bx - ax;
-    const dz = bz - az;
-    const len = Math.hypot(dx, dz) || 1;
-    // Deux normales candidates ; on garde celle qui eloigne du centroide.
-    let nx = -dz / len;
-    let nz = dx / len;
-    const midx = (ax + bx) / 2;
-    const midz = (az + bz) / 2;
-    const towardCentroidX = cx - midx;
-    const towardCentroidZ = cz - midz;
-    if (nx * towardCentroidX + nz * towardCentroidZ > 0) {
-      nx = -nx;
-      nz = -nz;
-    }
-    const ox1 = ax + nx * AO_WIDTH;
-    const oz1 = az + nz * AO_WIDTH;
-    const ox2 = bx + nx * AO_WIDTH;
-    const oz2 = bz + nz * AO_WIDTH;
+  for (let i = 0; i < inner.length; i++) {
+    const [ax, az] = inner[i]!;
+    const [bx, bz] = inner[(i + 1) % inner.length]!;
+    const [oax, oaz] = outer[i]!;
+    const [obx, obz] = outer[(i + 1) % outer.length]!;
     positions.push(
-      ax, AO_Y, az, bx, AO_Y, bz, ox2, AO_Y, oz2,
-      ax, AO_Y, az, ox2, AO_Y, oz2, ox1, AO_Y, oz1,
+      ax, y, az, bx, y, bz, obx, y, obz,
+      ax, y, az, obx, y, obz, oax, y, oaz,
     );
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(
-    geo,
-    new THREE.MeshBasicMaterial({ color: AO_COLOR, transparent: true, opacity: AO_OPACITY, side: THREE.DoubleSide }),
-  );
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = name;
   return mesh;
 }
 
-/**
- * Construit un plateau a partir d'un polygone monde quelconque (ferme,
- * simple — pas forcement un rectangle : zoneFootprints() peut renvoyer un
- * anneau en U). Face du dessus triangulee (gere les polygones concaves,
- * comme l'anneau exterieur), plus une paroi verticale par arete du contour —
- * remplace l'ancien BoxGeometry par rectangle, qui ne pouvait pas suivre un
- * contour en U.
- */
-function platformFromPolygon(points: Array<[number, number]>, frame: Frame3D): THREE.Group {
-  const g = new THREE.Group();
-  const scenePts = points.map(([x, y]) => worldToScene(frame, x, y));
+function buildAmbientOcclusionSkirt(scenePts: Point2[], material: THREE.Material): THREE.Mesh {
+  return buildHorizontalBand(scenePts, offsetPolygon(scenePts, AO_WIDTH), AO_Y, material, 'cliffAo');
+}
 
-  const shapePts = scenePts.map(([sx, sz]) => new THREE.Vector2(sx, sz));
-  const triangles = THREE.ShapeUtils.triangulateShape(shapePts, []);
-  const topPositions: number[] = [];
-  for (const tri of triangles) {
-    for (const idx of tri) {
-      const [sx, sz] = scenePts[idx]!;
-      topPositions.push(sx, PLATFORM_HEIGHT, sz);
+function buildTop(scenePts: Point2[], material: THREE.Material): THREE.Mesh {
+  const triangles = THREE.ShapeUtils.triangulateShape(
+    scenePts.map(([sx, sz]) => new THREE.Vector2(sx, sz)),
+    [],
+  );
+  const positions: number[] = [];
+  const uvs: number[] = [];
+
+  for (const triangle of triangles) {
+    const vertices = triangle.map((index) => scenePts[index]!) as [Point2, Point2, Point2];
+    const [a, b, c] = vertices;
+    // Dans le plan X/Z, un triangle anti-horaire pointe vers -Y : inverse si necessaire.
+    const normalY = (b[1] - a[1]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[1] - a[1]);
+    if (normalY < 0) [vertices[1], vertices[2]] = [vertices[2], vertices[1]];
+    for (const [sx, sz] of vertices) {
+      positions.push(sx, PLATFORM_HEIGHT, sz);
+      uvs.push(sx / TOP_TEXTURE_SCALE, sz / TOP_TEXTURE_SCALE);
     }
   }
-  const topGeo = new THREE.BufferGeometry();
-  topGeo.setAttribute('position', new THREE.Float32BufferAttribute(topPositions, 3));
-  topGeo.computeVertexNormals();
-  const top = new THREE.Mesh(topGeo, new THREE.MeshLambertMaterial({ color: TOP_COLOR, side: THREE.DoubleSide }));
-  top.receiveShadow = true;
-  g.add(top);
 
-  const wallPositions: number[] = [];
-  for (let i = 0; i < scenePts.length; i++) {
-    const [ax, az] = scenePts[i]!;
-    const [bx, bz] = scenePts[(i + 1) % scenePts.length]!;
-    wallPositions.push(
-      ax, 0, az, bx, 0, bz, bx, PLATFORM_HEIGHT, bz,
-      ax, 0, az, bx, PLATFORM_HEIGHT, bz, ax, PLATFORM_HEIGHT, az,
-    );
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = 'grassTop';
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function buildWalls(scenePts: Point2[], material: THREE.Material): THREE.Mesh {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const ccw = signedArea(scenePts) > 0;
+  const levels = [0, PLATFORM_HEIGHT * 0.34, PLATFORM_HEIGHT * 0.7, PLATFORM_HEIGHT];
+  const palette = [0x211711, 0x30231a, 0x443326, 0x51402b].map((hex) => new THREE.Color(hex));
+
+  const pushVertex = (x: number, y: number, z: number, color: THREE.Color): void => {
+    positions.push(x, y, z);
+    colors.push(color.r, color.g, color.b);
+  };
+
+  for (let edge = 0; edge < scenePts.length; edge++) {
+    const [ax, az] = scenePts[edge]!;
+    const [bx, bz] = scenePts[(edge + 1) % scenePts.length]!;
+    const variation = 0.9 + ((edge * 37) % 9) * 0.018;
+
+    for (let band = 0; band < levels.length - 1; band++) {
+      const y0 = levels[band]!;
+      const y1 = levels[band + 1]!;
+      const c0 = palette[band]!.clone().multiplyScalar(variation);
+      const c1 = palette[band + 1]!.clone().multiplyScalar(variation);
+
+      if (ccw) {
+        // A0 -> A1 -> B1 produit la normale droite de l'arete : l'exterieur d'un contour CCW.
+        pushVertex(ax, y0, az, c0); pushVertex(ax, y1, az, c1); pushVertex(bx, y1, bz, c1);
+        pushVertex(ax, y0, az, c0); pushVertex(bx, y1, bz, c1); pushVertex(bx, y0, bz, c0);
+      } else {
+        pushVertex(ax, y0, az, c0); pushVertex(bx, y0, bz, c0); pushVertex(bx, y1, bz, c1);
+        pushVertex(ax, y0, az, c0); pushVertex(bx, y1, bz, c1); pushVertex(ax, y1, az, c1);
+      }
+    }
   }
-  const wallGeo = new THREE.BufferGeometry();
-  wallGeo.setAttribute('position', new THREE.Float32BufferAttribute(wallPositions, 3));
-  wallGeo.computeVertexNormals();
-  const walls = new THREE.Mesh(wallGeo, new THREE.MeshLambertMaterial({ color: CLIFF_COLOR, side: THREE.DoubleSide }));
-  walls.castShadow = true;
-  walls.receiveShadow = true;
-  g.add(walls);
 
-  g.add(buildAmbientOcclusionSkirt(scenePts));
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = 'stratifiedCliff';
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
 
-  return g;
+function platformFromPolygon(points: Point2[], frame: Frame3D, materials: TerrainMaterials, name: string): THREE.Group {
+  const group = new THREE.Group();
+  group.name = name;
+  const scenePts = points.map(([x, y]) => worldToScene(frame, x, y));
+
+  group.add(buildTop(scenePts, materials.top));
+  group.add(buildWalls(scenePts, materials.wall));
+  group.add(buildHorizontalBand(
+    scenePts,
+    offsetPolygon(scenePts, -EDGE_TRIM_WIDTH),
+    PLATFORM_HEIGHT + 0.008,
+    materials.trim,
+    'mossTrim',
+  ));
+  group.add(buildAmbientOcclusionSkirt(scenePts, materials.ao));
+  return group;
 }
 
 export function buildPlatforms(lane: Lane, frame: Frame3D): THREE.Group {
-  const g = new THREE.Group();
-  g.name = 'platforms';
+  const group = new THREE.Group();
+  group.name = 'platforms';
+  const materials = createTerrainMaterials();
 
   for (const zone of zoneFootprints(lane)) {
-    g.add(platformFromPolygon(zone.points, frame));
+    group.add(platformFromPolygon(zone.points, frame, materials, `platform-${zone.id}`));
   }
-
-  return g;
+  return group;
 }
