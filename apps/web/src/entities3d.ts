@@ -185,8 +185,27 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
 const TRAINARD_CREEP_ID = 'n000';
 const TRAINARD_MODEL_HEIGHT = 1.8;
 let trainardTemplate: THREE.Group | null = null;
+/** Decalage vertical (unites de scene) a ajouter a la position au sol pour
+ * que les pieds du modele reposent exactement a Y=0 — mesure au chargement
+ * ci-dessous, jamais suppose a 0. Necessaire car sync() re-ecrit
+ * `body.position` integralement chaque frame (voir plus bas) : un offset
+ * laisse sur le seul `template.position` serait perdu au premier sync(). */
+let trainardGroundOffsetY = 0;
 new GLTFLoader().load('/models/trainard-lv1.glb', (gltf) => {
-  gltf.scene.traverse((obj) => {
+  const template = gltf.scene;
+
+  // Mesure au chargement plutot qu'un facteur d'echelle ou un decalage ecrits
+  // en dur : le modele livre n'est ni a la bonne echelle (2.81 unites de haut
+  // au lieu de TRAINARD_MODEL_HEIGHT) ni pose au sol (min Y a -0.055, legerement
+  // enfonce). Applique UNE SEULE fois ici, sur le template, avant tout clonage
+  // — un futur remplacement du fichier n'exige aucun ajustement cote code.
+  const box = new THREE.Box3().setFromObject(template);
+  const rawHeight = box.max.y - box.min.y;
+  const scale = rawHeight > 0 ? TRAINARD_MODEL_HEIGHT / rawHeight : 1;
+  template.scale.setScalar(scale);
+  trainardGroundOffsetY = -box.min.y * scale;
+
+  template.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if (!mesh.isMesh) return;
     mesh.castShadow = true;
@@ -196,7 +215,7 @@ new GLTFLoader().load('/models/trainard-lv1.glb', (gltf) => {
       mat.needsUpdate = true;
     }
   });
-  trainardTemplate = gltf.scene;
+  trainardTemplate = template;
 });
 
 function creepRadius(def: CreepDef): number {
@@ -341,12 +360,13 @@ export class CreepEntities {
       const bob = Math.sin(tracked.phase) * r * BOB_AMPLITUDE_RATIO;
 
       const [sx, sz] = worldToScene(this.frame, c.x, c.y);
-      // Le modele Trainard a son origine entre les pieds (deja au sol) ;
-      // les meshes generiques sont centres sur `creepHeight`. Meme
-      // distinction pour la barre de vie, posee au-dessus de la tete dans
-      // les deux cas.
-      const h = tracked.isModel ? 0 : creepHeight(def);
-      const topY = tracked.isModel ? TRAINARD_MODEL_HEIGHT : h + r;
+      // Le modele Trainard a son origine entre les pieds, corrigee au
+      // chargement par trainardGroundOffsetY (voir plus haut) pour qu'elles
+      // reposent exactement a Y=0 ; les meshes generiques sont centres sur
+      // `creepHeight`. Meme distinction pour la barre de vie, posee au-dessus
+      // de la tete dans les deux cas.
+      const h = tracked.isModel ? trainardGroundOffsetY : creepHeight(def);
+      const topY = tracked.isModel ? trainardGroundOffsetY + TRAINARD_MODEL_HEIGHT : h + r;
       tracked.body.position.set(sx, h + bob, sz);
       tracked.ring.position.set(sx, 0.02, sz);
       tracked.bar.position.set(sx, topY + bob + 0.16, sz);
