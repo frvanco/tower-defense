@@ -51,6 +51,19 @@ export interface TrainardModel {
   /** Decalage vertical (unites de scene, donc deja multiplie par `scale`) a
    * ajouter a la position au sol pour que les pieds reposent a Y=0. */
   groundOffsetY: number;
+  /** Poses echantillonnees du clip "Walk" (boucle) : walkFrames[pas][noeud].
+   * 32 pas repartis sur [0, duree) — pas de doublon du premier/dernier pas,
+   * la boucle doit se refermer sans a-coup. */
+  walkFrames: THREE.Matrix4[][];
+  /** Duree reelle du clip Walk (secondes), lue sur le fichier — utilisee
+   * pour calibrer la distance d'un cycle complet (voir entities3d.ts). */
+  walkClipDuration: number;
+  /** Poses echantillonnees du clip "Death" (jouee une fois) :
+   * deathFrames[pas][noeud]. 24 pas INCLUANT les deux extremites (pose de
+   * depart et pose finale figee). */
+  deathFrames: THREE.Matrix4[][];
+  /** Duree reelle du clip Death (secondes), lue sur le fichier. */
+  deathClipDuration: number;
 }
 
 let cachedModel: TrainardModel | null = null;
@@ -65,7 +78,7 @@ export function loadTrainardModel(): Promise<TrainardModel> {
     new GLTFLoader().load(
       '/models/trainard-lv1.glb',
       (gltf) => {
-        cachedModel = buildModel(gltf.scene);
+        cachedModel = buildModel(gltf.scene, gltf.animations);
         resolve(cachedModel);
       },
       undefined,
@@ -97,7 +110,73 @@ function collectOwnedMeshes(node: THREE.Object3D, animatedNames: ReadonlySet<str
   return out;
 }
 
-function buildModel(root: THREE.Group): TrainardModel {
+const WALK_SAMPLE_STEPS = 32;
+const DEATH_SAMPLE_STEPS = 24;
+
+interface PoseSnapshot {
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+  scale: THREE.Vector3;
+}
+
+/** Sauvegarde la transformation locale de chaque noeud de la hierarchie —
+ * sert a repartir d'une pose de repos propre entre deux clips echantillonnes
+ * (Death ne touche pas les pieds : sans ce reset, ils garderaient la pose
+ * laissee par le dernier pas de Walk echantillonne juste avant). */
+function snapshotLocalPose(root: THREE.Object3D): Map<THREE.Object3D, PoseSnapshot> {
+  const snapshot = new Map<THREE.Object3D, PoseSnapshot>();
+  root.traverse((n) => {
+    snapshot.set(n, { position: n.position.clone(), quaternion: n.quaternion.clone(), scale: n.scale.clone() });
+  });
+  return snapshot;
+}
+
+function restoreLocalPose(snapshot: Map<THREE.Object3D, PoseSnapshot>): void {
+  for (const [n, p] of snapshot) {
+    n.position.copy(p.position);
+    n.quaternion.copy(p.quaternion);
+    n.scale.copy(p.scale);
+  }
+}
+
+/**
+ * Echantillonne un clip a `steps` pas repartis sur sa duree, et releve a
+ * chaque pas la matrice de chaque noeud de `bucketNodes` relative a `root`.
+ * `includeEnd` : true pour couvrir [0, duree] inclus (clip joue une fois,
+ * Death), false pour [0, duree) exclusif (clip en boucle, Walk — sinon le
+ * premier et le dernier pas dupliquent la meme pose et la boucle "bute").
+ * Un mixer temporaire suffit : on lit juste la pose a des temps fixes, sans
+ * jamais laisser tourner la lecture automatique.
+ */
+function sampleClip(
+  clip: THREE.AnimationClip,
+  root: THREE.Object3D,
+  bucketNodes: THREE.Object3D[],
+  steps: number,
+  includeEnd: boolean,
+): THREE.Matrix4[][] {
+  const mixer = new THREE.AnimationMixer(root);
+  const action = mixer.clipAction(clip);
+  action.play();
+
+  const result: THREE.Matrix4[][] = bucketNodes.map(() => []);
+  const denom = includeEnd ? Math.max(1, steps - 1) : steps;
+  for (let i = 0; i < steps; i++) {
+    action.time = (i / denom) * clip.duration;
+    mixer.update(0);
+    root.updateMatrixWorld(true);
+    const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    for (let b = 0; b < bucketNodes.length; b++) {
+      result[b]!.push(new THREE.Matrix4().multiplyMatrices(rootInverse, bucketNodes[b]!.matrixWorld));
+    }
+  }
+
+  mixer.stopAllAction();
+  mixer.uncacheRoot(root);
+  return result;
+}
+
+function buildModel(root: THREE.Group, animations: THREE.AnimationClip[]): TrainardModel {
   root.updateMatrixWorld(true);
 
   // Echelle/assise — mesure sur la hierarchie NATURELLE (echelle 1), jamais
@@ -169,5 +248,34 @@ function buildModel(root: THREE.Group): TrainardModel {
 
   const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
 
-  return { nodeNames, geometries, material, restMatrices, scale, groundOffsetY };
+  // Echantillonnage des animations — APRES la fusion ci-dessus (qui a besoin
+  // de la pose de repos), sur la meme hierarchie temporaire. Repart d'une
+  // pose de repos propre entre les deux clips (voir snapshotLocalPose) pour
+  // que Death ne herite pas d'une pose laissee par le dernier pas de Walk.
+  const walkClip = animations.find((a) => a.name === 'Walk');
+  const deathClip = animations.find((a) => a.name === 'Death');
+  const bindPose = snapshotLocalPose(root);
+
+  const walkFrames = walkClip
+    ? sampleClip(walkClip, root, bucketNodes, WALK_SAMPLE_STEPS, false)
+    : restMatrices.map((m) => [m.clone()]);
+  restoreLocalPose(bindPose);
+
+  const deathFrames = deathClip
+    ? sampleClip(deathClip, root, bucketNodes, DEATH_SAMPLE_STEPS, true)
+    : restMatrices.map((m) => [m.clone()]);
+  restoreLocalPose(bindPose);
+
+  return {
+    nodeNames,
+    geometries,
+    material,
+    restMatrices,
+    scale,
+    groundOffsetY,
+    walkFrames,
+    walkClipDuration: walkClip?.duration ?? 1,
+    deathFrames,
+    deathClipDuration: deathClip?.duration ?? 1,
+  };
 }

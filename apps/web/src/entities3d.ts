@@ -27,7 +27,7 @@ import {
 } from './iceEffects.js';
 import { PoisonBubbles, POISON_EMISSIVE_COLOR, POISON_PULSE_HZ, POISON_PULSE_MIN } from './poisonEffects.js';
 import { loadTrainardModel, getTrainardModel, TRAINARD_MODEL_HEIGHT } from './trainardModel.js';
-import { TrainardInstancedGroup } from './trainardInstances.js';
+import { TrainardAnimationController } from './trainardInstances.js';
 
 /** Meme vitesse de rotation que la galerie de demo validee (packages/renderer/demo). */
 const TURN_RATE = 2.6;
@@ -266,11 +266,7 @@ export class CreepEntities {
   private poisonBubbles = new PoisonBubbles();
   private clock = 0;
   private tmpColor = new THREE.Color();
-  private trainardGroup: TrainardInstancedGroup | null = null;
-  private tmpMatrix = new THREE.Matrix4();
-  private tmpPosition = new THREE.Vector3();
-  private tmpQuaternion = new THREE.Quaternion();
-  private tmpScale = new THREE.Vector3();
+  private trainardAnim: TrainardAnimationController | null = null;
 
   constructor(
     private layer: THREE.Group,
@@ -280,15 +276,24 @@ export class CreepEntities {
     this.layer.add(this.poisonBubbles.mesh);
   }
 
-  /** Cree le rendu instancie du Trainard des que le modele est charge
-   * (asynchrone, voir trainardModel.ts) — au plus une fois par arene. */
-  private ensureTrainardGroup(): TrainardInstancedGroup | null {
-    if (this.trainardGroup) return this.trainardGroup;
+  /** Cree le rendu/animation instancies du Trainard des que le modele est
+   * charge (asynchrone, voir trainardModel.ts) — au plus une fois par arene. */
+  private ensureTrainardAnim(): TrainardAnimationController | null {
+    if (this.trainardAnim) return this.trainardAnim;
     const model = getTrainardModel();
     if (!model) return null;
-    this.trainardGroup = new TrainardInstancedGroup(model);
-    this.layer.add(this.trainardGroup.group);
-    return this.trainardGroup;
+    this.trainardAnim = new TrainardAnimationController(model);
+    this.layer.add(this.trainardAnim.sceneGroup);
+
+    // Distance d'un cycle de marche complet = ce que le Trainard parcourt,
+    // a sa propre vitesse nominale, pendant la duree reelle du clip Walk —
+    // calibration derivee des donnees plutot qu'une valeur choisie a l'oeil
+    // (voir aussi la verification visuelle du glissement des pieds).
+    const trainardDef = creepDefs.get(TRAINARD_CREEP_ID);
+    if (trainardDef) {
+      this.trainardAnim.setCycleDistance(trainardDef.moveSpeed * this.frame.scale * model.walkClipDuration);
+    }
+    return this.trainardAnim;
   }
 
   private makeRing(sender: number, r: number): THREE.Mesh {
@@ -303,18 +308,14 @@ export class CreepEntities {
   }
 
   private spawn(c: Creep, def: CreepDef): TrackedCreep {
-    if (def.id === TRAINARD_CREEP_ID) {
-      const group = this.ensureTrainardGroup();
-      if (group) {
-        group.allocate(c.eid);
-        const ring = this.makeRing(c.sender, creepRadius(def));
-        const bar = makeHpBar();
-        this.layer.add(bar);
-        return { kind: 'trainard', ring, bar };
-      }
-      // Modele pas encore charge : repli sur la sphere generique ci-dessous,
-      // comme n'importe quel autre creep.
+    if (def.id === TRAINARD_CREEP_ID && this.ensureTrainardAnim()) {
+      const ring = this.makeRing(c.sender, creepRadius(def));
+      const bar = makeHpBar();
+      this.layer.add(bar);
+      return { kind: 'trainard', ring, bar };
     }
+    // Modele du Trainard pas encore charge (ou creep d'un autre type) :
+    // repli sur la sphere/cone generique ci-dessous.
 
     const r = creepRadius(def);
     const baseColor = new THREE.Color(ARMOR_COLORS[def.armorType]);
@@ -338,18 +339,12 @@ export class CreepEntities {
 
   private syncTrainard(tracked: TrackedCreepTrainard, c: Creep, def: CreepDef, sx: number, sz: number, dt: number, poisonDps: number): void {
     const model = getTrainardModel();
-    const group = this.trainardGroup;
-    if (model && group) {
-      const index = group.allocate(c.eid);
-      if (index !== null) {
-        this.tmpPosition.set(sx, model.groundOffsetY, sz);
-        this.tmpQuaternion.identity();
-        this.tmpScale.setScalar(model.scale);
-        this.tmpMatrix.compose(this.tmpPosition, this.tmpQuaternion, this.tmpScale);
-        // Pose de repos pour l'instant : l'animation (marche/mort echantillonnee)
-        // arrive dans un lot suivant, voir trainardModel.ts.
-        group.setPose(index, this.tmpMatrix, model.restMatrices);
-      }
+    if (model && this.trainardAnim) {
+      // La progression du cycle de marche depend de la distance reellement
+      // parcourue depuis le dernier sync (calculee a l'interieur de
+      // updateAlive a partir de sx/sz), jamais du temps ecoule : un
+      // Trainard ralenti par la glace marche au ralenti, il ne patine pas.
+      this.trainardAnim.updateAlive(c.eid, sx, sz);
       tracked.bar.position.set(sx, model.groundOffsetY + TRAINARD_MODEL_HEIGHT + 0.16, sz);
     } else {
       tracked.bar.position.set(sx, TRAINARD_MODEL_HEIGHT + 0.16, sz);
@@ -420,18 +415,20 @@ export class CreepEntities {
     }
     for (const [eid, tracked] of this.byEid) {
       if (!seen.has(eid)) {
-        if (tracked.kind === 'trainard') {
-          // Section suivante : conserver l'instance pour jouer l'animation de
-          // mort avant de la liberer. Pour l'instant, liberation immediate.
-          this.trainardGroup?.free(eid);
-        } else {
-          this.layer.remove(tracked.body);
-        }
+        // La sim a deja retire ce creep (immediat, packages/sim reste seul
+        // maitre du timing) — la barre de vie et l'anneau disparaissent avec
+        // lui des maintenant. Le corps d'un Trainard, lui, reste brievement :
+        // l'instance joue Death une fois avant de se liberer (voir
+        // TrainardAnimationController.markDying/advanceDying) ; une sphere,
+        // elle, n'a pas d'animation de mort et disparait immediatement aussi.
+        if (tracked.kind === 'trainard') this.trainardAnim?.markDying(eid);
+        else this.layer.remove(tracked.body);
         this.layer.remove(tracked.ring, tracked.bar);
         this.poisonBubbles.clearAccumulator(eid);
         this.byEid.delete(eid);
       }
     }
+    this.trainardAnim?.advanceDying(dt);
     this.poisonBubbles.update(dt);
   }
 
@@ -440,7 +437,7 @@ export class CreepEntities {
       if (tracked.kind === 'sphere') this.layer.remove(tracked.body);
       this.layer.remove(tracked.ring, tracked.bar);
     }
-    this.trainardGroup?.clear();
+    this.trainardAnim?.clear();
     this.byEid.clear();
     this.poisonBubbles.clear();
   }
