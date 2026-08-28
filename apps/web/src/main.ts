@@ -9,7 +9,7 @@ import {
   type GameState,
   type SimEvent,
 } from '@tower-defense/sim';
-import { lanes, towers, rules, nearestSlot } from '@tower-defense/data';
+import { lanes, towers, creeps as creepDefs, rules, nearestSlot, shops } from '@tower-defense/data';
 import { MAX_RADIUS } from '@tower-defense/renderer';
 import { createScene3D, resizeScene3D, disposeScene3D, type Scene3D } from './scene3d.js';
 import { computeFrame, worldToScene, type Frame3D } from './world3d.js';
@@ -25,9 +25,13 @@ import {
   buildBuildGrid,
   updateBuildGrid,
   buildTooltipForBuildTile,
+  buildSendGrid,
+  updateSendGrid,
+  sendTooltipForTile,
   renderTooltip,
   canAffordOrToast,
   type BuildTile,
+  type SendTile,
   type TooltipRefs,
 } from './commandBar.js';
 import { initToasts, toast } from './toast.js';
@@ -109,6 +113,11 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   const listenerOpts = { signal: controller.signal };
 
   const lane0 = must(lanes[0], 'lane 0 introuvable dans @tower-defense/data');
+  // Une seule boutique pour ce lot (voir le brief : le deblocage de hkee/hcas
+  // n'est pas implemente) — prise POSITIONNELLEMENT (shops[0]) plutot que par
+  // id 'htow' en dur, pour qu'accueillir plusieurs boutiques deverrouillables
+  // plus tard ne demande de changer que cette ligne.
+  const activeShop = must(shops[0], 'aucune boutique dans @tower-defense/data');
   // Une seule arene sert a construire le decor (terrain/lumieres/camera) :
   // les 8 sont geometriquement identiques (meme couloir, memes emplacements),
   // seule leur position monde BRUTE differe — computeFrame() de CHAQUE lane
@@ -215,9 +224,15 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     linesEl: byId('cmd-tooltip-lines'),
     descEl: byId('cmd-tooltip-desc'),
   };
+  // Repart d'une grille vide a chaque appel de startGame() (Jouer -> Retour
+  // a l'accueil -> Jouer reutilise le meme DOM, voir le commentaire plus haut
+  // sur buildList/shopList dans les versions precedentes de ce fichier) —
+  // sans ca, les tuiles s'empileraient par-dessus celles de la partie
+  // precedente a chaque nouvelle session.
   const cmdGridBuild = byId<HTMLDivElement>('cmd-grid-build');
   cmdGridBuild.innerHTML = '';
   const cmdGridSend = byId<HTMLDivElement>('cmd-grid-send');
+  cmdGridSend.innerHTML = '';
   const cmdGridAbilities = byId<HTMLDivElement>('cmd-grid-abilities');
   const cmdModeBackBtn = byId<HTMLButtonElement>('cmd-mode-back');
   const cmdModeSendBtn = byId<HTMLButtonElement>('cmd-mode-send');
@@ -242,6 +257,20 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     },
     (defId) => {
       hoveredTile = defId ? { mode: 'build', id: defId } : null;
+    },
+  );
+
+  const sendTiles: SendTile[] = buildSendGrid(
+    activeShop,
+    cmdGridSend,
+    (defId) => {
+      if (isObserving()) return;
+      const arena = state.arenas[0];
+      if (!arena || !canAffordOrToast(arena, creepDefs.get(defId)?.goldCost ?? 0)) return;
+      pendingHuman.push({ type: 'sendCreep', player: 0, defId });
+    },
+    (defId) => {
+      hoveredTile = defId ? { mode: 'send', id: defId } : null;
     },
   );
 
@@ -616,10 +645,15 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
       );
       updateTopbar(topbarRefs, state);
       updateBuildGrid(buildTiles, armedBuildDefId);
+      updateSendGrid(sendTiles, state, arena0);
 
       // Zone info : priorite 1 (infobulle d'un element survole dans la
       // grille) > priorite 2 (tour selectionnee) > rien.
-      const tooltipInfo = hoveredTile && hoveredTile.mode === 'build' ? buildTooltipForBuildTile(hoveredTile.id) : null;
+      const tooltipInfo = !hoveredTile
+        ? null
+        : hoveredTile.mode === 'build'
+          ? buildTooltipForBuildTile(hoveredTile.id)
+          : sendTooltipForTile(hoveredTile.id, state, arena0);
       cmdInfoTooltip.hidden = !tooltipInfo;
       if (tooltipInfo) renderTooltip(tooltipRefs, tooltipInfo);
       updateSelectedPanel(selectedRefs, arena0, tooltipInfo ? null : selectedTowerEid);

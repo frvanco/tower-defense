@@ -1,7 +1,9 @@
-import { towers, buildableTowers, type TowerDef } from '@tower-defense/data';
-import type { Arena } from '@tower-defense/sim';
+import { towers, buildableTowers, creeps, type TowerDef, type CreepDef, type Shop } from '@tower-defense/data';
+import { TICK_RATE, type Arena, type GameState } from '@tower-defense/sim';
 import { branchInfo, branchColor } from './branches.js';
+import { ARMOR_COLORS } from './colors.js';
 import { toast } from './toast.js';
+import { fmtClock } from './hud.js';
 
 /**
  * `description`/`iconUrl` n'existent pas encore dans `@tower-defense/data`
@@ -166,7 +168,7 @@ export function buildBuildGrid(
     const def: TowerDef | undefined = towers.get(id);
     if (!def) continue;
     const tile = buildTile(
-      { id, name: def.name, cost: def.goldCost, color: branchColor(id) },
+      { id, name: def.name, cost: def.goldCost, color: branchColor(id), iconUrl: iconUrlOf(def) },
       () => onPick(id),
       (hovering) => onHover(hovering ? id : null),
     );
@@ -199,4 +201,94 @@ export function canAffordOrToast(arena: Arena, cost: number): boolean {
     return false;
   }
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Mode send — reprend le contenu de l'ancien #panel-shop, limite a la
+// PREMIERE boutique (voir le brief : le deblocage hkee/hcas n'est pas de ce
+// lot). Prend un `Shop` en parametre plutot que de lire `shops[0]`/`'htow'`
+// en dur ici : accueillir plusieurs boutiques plus tard n'est qu'un appel
+// supplementaire cote appelant, rien a changer dans ce module.
+// ---------------------------------------------------------------------------
+
+export interface SendTile extends TileRefs {
+  defId: string;
+}
+
+export function buildSendGrid(
+  shop: Shop,
+  container: HTMLElement,
+  onSend: (defId: string) => void,
+  onHover: (defId: string | null) => void,
+): SendTile[] {
+  const out: SendTile[] = [];
+  for (const id of shop.sells) {
+    const def: CreepDef | undefined = creeps.get(id);
+    if (!def) continue;
+    const tile = buildTile(
+      { id, name: def.name, cost: def.goldCost, color: ARMOR_COLORS[def.armorType], iconUrl: iconUrlOf(def) },
+      () => onSend(id),
+      (hovering) => onHover(hovering ? id : null),
+    );
+    container.appendChild(tile.wrap);
+    out.push({ ...tile, defId: id });
+  }
+  return out;
+}
+
+/** Duree totale (secondes) de l'etat "indisponible" en cours — le denominateur
+ * du voile qui se vide (voir updateSendGrid) : le delai de deblocage initial
+ * avant que ce creep ne soit jamais vendu, ou l'intervalle de reappro une
+ * fois le stock a zero. */
+function unavailableWindowSec(def: CreepDef, state: GameState, st: { availableAt: number; count: number }): number | null {
+  if (state.tick < st.availableAt) return def.stockStartDelay;
+  if (st.count < 1) return def.stockReplenishInterval;
+  return null;
+}
+
+export function updateSendGrid(tiles: SendTile[], state: GameState, arena: Arena): void {
+  for (const t of tiles) {
+    const def = creeps.get(t.defId);
+    const st = arena.stock[t.defId];
+    if (!def || !st) continue;
+
+    const readyAtTick = state.tick < st.availableAt ? st.availableAt : st.count < 1 ? st.nextReplenish : null;
+    const totalSec = unavailableWindowSec(def, state, st);
+    if (readyAtTick !== null && totalSec !== null && totalSec > 0) {
+      const remainingSec = Math.max(0, (readyAtTick - state.tick) / TICK_RATE);
+      const pct = Math.max(0, Math.min(100, (remainingSec / totalSec) * 100));
+      t.veilEl.hidden = false;
+      t.veilEl.style.setProperty('--veil-pct', `${pct}%`);
+      t.countdownEl.hidden = false;
+      t.countdownEl.textContent = `${Math.ceil(remainingSec)}s`;
+      t.stockEl.hidden = true;
+    } else {
+      t.veilEl.hidden = true;
+      t.countdownEl.hidden = true;
+      t.stockEl.hidden = false;
+      t.stockEl.textContent = `×${st.count}`;
+    }
+  }
+}
+
+export function sendTooltipForTile(defId: string, state: GameState, arena: Arena): TooltipInfo | null {
+  const def = creeps.get(defId);
+  if (!def) return null;
+  const st = arena.stock[defId];
+  const lines = [`Revenu +${def.pointValue}/manche`];
+  if (st) {
+    if (state.tick < st.availableAt) {
+      lines.push(`Verrouillé — ${fmtClock((st.availableAt - state.tick) / TICK_RATE)}`);
+    } else if (st.count < 1) {
+      lines.push(`Recharge — ${fmtClock((st.nextReplenish - state.tick) / TICK_RATE)}`);
+    } else {
+      lines.push(`Stock : ×${st.count}`);
+    }
+  }
+  return {
+    name: def.name,
+    cost: def.goldCost,
+    lines,
+    description: descriptionOf(def),
+  };
 }
