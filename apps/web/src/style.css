@@ -400,6 +400,113 @@ button {
   overflow: hidden;
 }
 
+.cmd-tile-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 40px;
+}
+
+.cmd-tile {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #6b5432;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #241c14;
+}
+
+.cmd-tile:hover {
+  border-color: #c9a227;
+}
+
+/* Arme (mode build) : outline distinct de la bordure normale, ne change pas
+   la taille de la tuile (outline, pas border). */
+.cmd-tile.armed {
+  outline: 2px solid #f2d24b;
+  outline-offset: 1px;
+}
+
+.cmd-tile-icon {
+  position: absolute;
+  inset: 0;
+  background-color: var(--tile-color, #4a3c26);
+  background-size: cover;
+  background-position: center;
+}
+
+.cmd-tile-icon-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+  letter-spacing: 0.02em;
+}
+
+/* Compteur de stock — coin superieur droit de la tuile. */
+.cmd-tile-stock {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  z-index: 2;
+}
+
+.cmd-tile-stock:empty,
+.cmd-tile-stock[hidden] {
+  display: none;
+}
+
+/* Voile de rechargement : se vide du bas vers le haut au fil du temps
+   restant (hauteur pilotee en JS via --veil-pct). */
+.cmd-tile-veil {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--veil-pct, 0%);
+  background: rgba(10, 8, 5, 0.72);
+  transition: height 0.2s linear;
+  z-index: 1;
+}
+
+.cmd-tile-veil[hidden] {
+  display: none;
+}
+
+.cmd-tile-countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  z-index: 2;
+}
+
+.cmd-tile-countdown:empty,
+.cmd-tile-countdown[hidden] {
+  display: none;
+}
+
+.cmd-tile-cost {
+  font-size: 10.5px;
+  color: #c9a227;
+}
+
 #cmd-abilities-empty {
   margin: 0;
   font-size: 12.5px;

@@ -21,6 +21,15 @@ import { PLATFORM_HEIGHT } from './terrain3d.js';
 import { laneColor, playerColor, toHexNumber } from './colors.js';
 import { buildArenaBar, updateArenaBar, stepLivingPlayer, type ArenaBarRefs } from './arenaBar.js';
 import { updateSelectedPanel, updateTopbar, type TopbarRefs, type SelectedRefs } from './hud.js';
+import {
+  buildBuildGrid,
+  updateBuildGrid,
+  buildTooltipForBuildTile,
+  renderTooltip,
+  canAffordOrToast,
+  type BuildTile,
+  type TooltipRefs,
+} from './commandBar.js';
 import { initToasts, toast } from './toast.js';
 import { DIFFICULTY_LABELS } from './difficulty.js';
 import { PerfMonitor, isPerfEnabled } from './perfMonitor.js';
@@ -201,6 +210,11 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   const commandBarEl = byId<HTMLElement>('command-bar');
   const cmdInfoEmpty = byId<HTMLElement>('cmd-info-empty');
   const cmdInfoTooltip = byId<HTMLElement>('cmd-info-tooltip');
+  const tooltipRefs: TooltipRefs = {
+    nameEl: byId('cmd-tooltip-name'),
+    linesEl: byId('cmd-tooltip-lines'),
+    descEl: byId('cmd-tooltip-desc'),
+  };
   const cmdGridBuild = byId<HTMLDivElement>('cmd-grid-build');
   cmdGridBuild.innerHTML = '';
   const cmdGridSend = byId<HTMLDivElement>('cmd-grid-send');
@@ -211,6 +225,25 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
 
   type CommandMode = 'build' | 'send' | 'abilities';
   let commandMode: CommandMode = 'build';
+  // Element de grille survole (priorite 1 de la zone info) — 'build'/'send'
+  // memorise QUELLE grille il vient de pour choisir la bonne source de
+  // tooltip, jamais suppose depuis commandMode (on peut re-basculer de mode
+  // avant que mouseleave ne soit arrive sur l'ancienne tuile).
+  let hoveredTile: { mode: 'build' | 'send'; id: string } | null = null;
+
+  const buildTiles: BuildTile[] = buildBuildGrid(
+    cmdGridBuild,
+    (defId) => {
+      if (isObserving()) return;
+      const arena = state.arenas[0];
+      if (!arena || !canAffordOrToast(arena, towers.get(defId)?.goldCost ?? 0)) return;
+      armedBuildDefId = armedBuildDefId === defId ? null : defId;
+      selectedTowerEid = null;
+    },
+    (defId) => {
+      hoveredTile = defId ? { mode: 'build', id: defId } : null;
+    },
+  );
 
   /** Bascule le mode courant : montre exactement une des trois grilles,
    * n'affecte jamais la hauteur de la barre (voir #command-bar en CSS). */
@@ -224,6 +257,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     // pose ou une selection perimee reste actif derriere la nouvelle grille.
     armedBuildDefId = null;
     selectedTowerEid = null;
+    hoveredTile = null;
   }
 
   cmdModeSendBtn.addEventListener(
@@ -581,11 +615,14 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
         armedBuildDefId !== null && !isObserving(),
       );
       updateTopbar(topbarRefs, state);
+      updateBuildGrid(buildTiles, armedBuildDefId);
+
       // Zone info : priorite 1 (infobulle d'un element survole dans la
-      // grille) > priorite 2 (tour selectionnee) > rien. La priorite 1 n'a
-      // pas encore de source cote grille (voir commandBar.ts, a venir) —
-      // cmdInfoTooltip reste toujours cache pour l'instant.
-      updateSelectedPanel(selectedRefs, arena0, selectedTowerEid);
+      // grille) > priorite 2 (tour selectionnee) > rien.
+      const tooltipInfo = hoveredTile && hoveredTile.mode === 'build' ? buildTooltipForBuildTile(hoveredTile.id) : null;
+      cmdInfoTooltip.hidden = !tooltipInfo;
+      if (tooltipInfo) renderTooltip(tooltipRefs, tooltipInfo);
+      updateSelectedPanel(selectedRefs, arena0, tooltipInfo ? null : selectedTowerEid);
       cmdInfoEmpty.hidden = !cmdInfoTooltip.hidden || !selectedRefs.section.hidden;
 
       if (armedBuildDefId && hoveredSlot) {
