@@ -223,6 +223,7 @@ button {
 
 #main {
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
 }
@@ -230,7 +231,7 @@ button {
 #canvas-wrap {
   position: relative;
   flex: 1;
-  min-width: 0;
+  min-height: 0;
 }
 
 #game-canvas {
@@ -338,195 +339,154 @@ button {
   background: #2a2118;
 }
 
-#sidebar {
-  width: 320px;
-  flex-shrink: 0;
-  overflow-y: auto;
-  padding: 14px;
-  background: #1a140f;
-  border-left: 2px solid #6b5432;
+/* ---------- barre de commandes (bas d'ecran) ---------- */
+
+/* Dans le flux normal de #main (pas absolute) et de hauteur FIXE : elle ne
+   doit jamais bouger quand son contenu change (mode, survol, selection),
+   sans quoi #canvas-wrap changerait de taille -> resizeScene3D -> la camera
+   Three.js se reconfigurerait en pleine partie (meme raison que
+   #back-to-own-arena-btn plus haut, voir son commentaire). */
+#command-bar {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  align-items: stretch;
+  height: 148px;
+  flex-shrink: 0;
+  background: #1a140f;
+  border-top: 2px solid #6b5432;
 }
 
-#sidebar h3 {
-  margin: 0 0 10px;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: #c9a227;
-  border-bottom: 1px solid #6b5432;
-  padding-bottom: 6px;
-}
-
-#sidebar h4 {
-  margin: 12px 0 6px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #8a7550;
-}
-
-/* Observation : aucune action possible (voir main.ts, isObserving()).
-   #panel-arenas n'a pas de bouton, non affecte. */
-#sidebar.observing #panel-build button,
-#sidebar.observing #panel-shop button,
-#sidebar.observing #panel-selected button {
+/* Observation : aucune action possible (voir main.ts, isObserving()). */
+#command-bar.observing button {
   pointer-events: none;
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-#sidebar h4:first-child {
-  margin-top: 0;
-}
-
-.shop-world {
-  margin: -4px 0 8px;
-  font-size: 10px;
-  font-style: italic;
-  color: #5f5238;
-}
-
-.build-btn {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  background: #241c14;
-  border: 1px solid #4a3c26;
-  border-left: 4px solid var(--branch-color, #444);
-  border-radius: 4px;
-  padding: 9px 10px;
-  margin-bottom: 6px;
-  cursor: pointer;
-  text-align: left;
-  color: #e9e2d3;
-}
-
-.build-btn:hover:not(:disabled) {
-  background: #2c2318;
-  border-color: #6b5432;
-}
-
-.build-btn.armed {
-  outline: 2px solid #f2d24b;
-  outline-offset: -2px;
-}
-
-.build-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.build-btn .name {
-  font-size: 13px;
-}
-
-.build-btn .cost {
-  font-size: 12px;
-  color: #c9a227;
-}
-
-.shop-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid #2a2118;
-}
-
-.creep-swatch,
-.arena-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+#cmd-info {
+  width: 260px;
   flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  padding: 12px;
+  border-right: 1px solid #3a2f1c;
+  overflow: hidden;
 }
 
-.shop-info {
-  display: flex;
-  flex-direction: column;
+.cmd-info-empty {
+  font-size: 12px;
+  color: #5f5238;
+  font-style: italic;
+}
+
+.cmd-info-content[hidden] {
+  display: none;
+}
+
+#cmd-grid {
   flex: 1;
   min-width: 0;
-  line-height: 1.3;
+  padding: 10px 12px;
+  overflow: hidden;
 }
 
-.shop-name {
+.cmd-tiles[hidden] {
+  display: none;
+}
+
+.cmd-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px 10px;
+  height: 100%;
+  overflow: hidden;
+}
+
+#cmd-abilities-empty {
+  margin: 0;
   font-size: 12.5px;
-  color: #e9e2d3;
-}
-
-.shop-meta {
-  font-size: 11px;
   color: #8a7550;
+  font-style: italic;
 }
 
-.shop-status {
-  font-size: 11px;
-  color: #8a7550;
-  min-width: 60px;
-  text-align: right;
+#cmd-modes {
+  width: 90px;
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-left: 1px solid #3a2f1c;
 }
 
-.shop-send-btn {
-  background: #2a2118;
+.cmd-mode-btn {
+  width: 40px;
+  height: 40px;
+  background: #241c14;
   border: 1px solid #6b5432;
+  border-radius: 6px;
   color: #e9e2d3;
-  border-radius: 5px;
-  padding: 5px 10px;
-  font-size: 12px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
-.shop-send-btn:hover:not(:disabled) {
+.cmd-mode-btn:hover:not(:disabled) {
+  background: #2c2318;
+  border-color: #c9a227;
+}
+
+.cmd-mode-btn[hidden] {
+  display: none;
+}
+
+.cmd-mode-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Emplacement d'image (portrait du peon, pas encore livre) — pas de texte,
+   pour que le remplacement par un vrai portrait soit un simple changement de
+   fond/source plus tard. */
+.cmd-portrait {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
   background: #3a2f1c;
 }
 
-.shop-send-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+#cmd-tooltip-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #f1e6c8;
+  font-size: 13px;
 }
 
-.arena-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 0;
-  font-size: 12.5px;
+#cmd-tooltip-lines {
+  font-size: 12px;
+  color: #b39a68;
+  line-height: 1.5;
 }
 
-.arena-row.dead {
-  opacity: 0.4;
-  text-decoration: line-through;
-}
-
-.arena-label {
-  width: 26px;
-}
-
-.arena-lives {
-  flex: 1;
-}
-
-.arena-status {
+#cmd-tooltip-desc {
+  margin-top: 6px;
+  font-size: 11.5px;
   color: #8a7550;
-  font-size: 11px;
+  font-style: italic;
+  line-height: 1.4;
 }
 
-#panel-selected {
-  background: #241c14;
-  border: 1px solid #6b5432;
-  border-radius: 8px;
-  padding: 12px;
+#cmd-tooltip-desc:empty {
+  display: none;
 }
 
 #selected-name {
   font-weight: 600;
   margin-bottom: 4px;
   color: #f1e6c8;
+  font-size: 13px;
 }
 
 #selected-info {
@@ -543,10 +503,10 @@ button {
   border: 1px solid #6b5432;
   color: #e9e2d3;
   border-radius: 5px;
-  padding: 8px;
+  padding: 6px;
   margin-top: 6px;
   cursor: pointer;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 #upgrade-btn:hover:not(:disabled),

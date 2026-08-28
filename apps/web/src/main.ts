@@ -20,18 +20,7 @@ import { createSlotMarkers } from './slots3d.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
 import { laneColor, playerColor, toHexNumber } from './colors.js';
 import { buildArenaBar, updateArenaBar, stepLivingPlayer, type ArenaBarRefs } from './arenaBar.js';
-import {
-  buildBuildPanel,
-  updateBuildPanel,
-  buildShopPanel,
-  updateShopPanel,
-  buildArenasPanel,
-  updateArenasPanel,
-  updateSelectedPanel,
-  updateTopbar,
-  type TopbarRefs,
-  type SelectedRefs,
-} from './hud.js';
+import { updateSelectedPanel, updateTopbar, type TopbarRefs, type SelectedRefs } from './hud.js';
 import { initToasts, toast } from './toast.js';
 import { DIFFICULTY_LABELS } from './difficulty.js';
 import { PerfMonitor, isPerfEnabled } from './perfMonitor.js';
@@ -190,27 +179,77 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     elapsed: byId('stat-elapsed'),
   };
 
-  // Ces conteneurs sont le markup statique de #app, reutilise a chaque appel
-  // de startGame() (retour au menu puis Jouer a nouveau) : on repart d'un DOM
-  // vide plutot que d'empiler les rangees du build/shop/arenas de la partie
-  // precedente par-dessus les nouvelles.
-  const buildList = byId<HTMLDivElement>('build-list');
-  buildList.innerHTML = '';
-  const shopList = byId<HTMLDivElement>('shop-list');
-  shopList.innerHTML = '';
-  const arenasList = byId<HTMLDivElement>('arenas-list');
-  arenasList.innerHTML = '';
   const toastsEl = byId('toasts');
   toastsEl.innerHTML = '';
   initToasts(toastsEl);
 
   const selectedRefs: SelectedRefs = {
-    section: byId('panel-selected'),
+    section: byId('cmd-info-selected'),
     name: byId('selected-name'),
     info: byId('selected-info'),
     upgradeBtn: byId('upgrade-btn'),
     sellBtn: byId('sell-btn'),
   };
+
+  let selectedTowerEid: number | null = null;
+  let hoveredTowerEid: number | null = null;
+  let armedBuildDefId: string | null = null;
+  let mouseWorld: [number, number] | null = null;
+
+  // ---------- barre de commandes (bas d'ecran) ----------
+
+  const commandBarEl = byId<HTMLElement>('command-bar');
+  const cmdInfoEmpty = byId<HTMLElement>('cmd-info-empty');
+  const cmdInfoTooltip = byId<HTMLElement>('cmd-info-tooltip');
+  const cmdGridBuild = byId<HTMLDivElement>('cmd-grid-build');
+  cmdGridBuild.innerHTML = '';
+  const cmdGridSend = byId<HTMLDivElement>('cmd-grid-send');
+  const cmdGridAbilities = byId<HTMLDivElement>('cmd-grid-abilities');
+  const cmdModeBackBtn = byId<HTMLButtonElement>('cmd-mode-back');
+  const cmdModeSendBtn = byId<HTMLButtonElement>('cmd-mode-send');
+  const cmdModeAbilitiesBtn = byId<HTMLButtonElement>('cmd-mode-abilities');
+
+  type CommandMode = 'build' | 'send' | 'abilities';
+  let commandMode: CommandMode = 'build';
+
+  /** Bascule le mode courant : montre exactement une des trois grilles,
+   * n'affecte jamais la hauteur de la barre (voir #command-bar en CSS). */
+  function setCommandMode(mode: CommandMode): void {
+    commandMode = mode;
+    cmdGridBuild.hidden = mode !== 'build';
+    cmdGridSend.hidden = mode !== 'send';
+    cmdGridAbilities.hidden = mode !== 'abilities';
+    cmdModeBackBtn.hidden = mode === 'build';
+    // Changer de mode arme/selectionne plus rien : eviter qu'un fantome de
+    // pose ou une selection perimee reste actif derriere la nouvelle grille.
+    armedBuildDefId = null;
+    selectedTowerEid = null;
+  }
+
+  cmdModeSendBtn.addEventListener(
+    'click',
+    () => {
+      if (isObserving()) return;
+      setCommandMode('send');
+    },
+    listenerOpts,
+  );
+  cmdModeAbilitiesBtn.addEventListener(
+    'click',
+    () => {
+      if (isObserving()) return;
+      setCommandMode('abilities');
+    },
+    listenerOpts,
+  );
+  cmdModeBackBtn.addEventListener(
+    'click',
+    () => {
+      if (isObserving()) return;
+      setCommandMode('build');
+    },
+    listenerOpts,
+  );
 
   const gameOverEl = byId<HTMLDivElement>('game-over');
   gameOverEl.hidden = true;
@@ -226,34 +265,15 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   // frame : il ne change pas en cours de partie.
   byId('stat-difficulty').textContent = DIFFICULTY_LABELS[difficulty];
 
-  let selectedTowerEid: number | null = null;
-  let hoveredTowerEid: number | null = null;
-  let armedBuildDefId: string | null = null;
-  let mouseWorld: [number, number] | null = null;
-
   const pendingHuman: Command[] = [];
   let { state, bots } = newGame(seedOverride() ?? (Date.now() | 0), difficulty);
   let speed = 1;
-
-  const buildButtons = buildBuildPanel(buildList, (defId) => {
-    if (isObserving()) return;
-    armedBuildDefId = armedBuildDefId === defId ? null : defId;
-    selectedTowerEid = null;
-  });
-
-  const shopRows = buildShopPanel(shopList, (defId) => {
-    if (isObserving()) return;
-    pendingHuman.push({ type: 'sendCreep', player: 0, defId });
-  });
-
-  let arenaRows = buildArenasPanel(arenasList, rules.maxPlayers);
 
   // Barre d'arenes : navigation entre les 6+ arenes (observation seule, voir
   // setViewedPlayer plus bas — le joueur humain est toujours le player 0).
   const arenaPillsEl = byId<HTMLDivElement>('arena-pills');
   const arenaPrevBtn = byId<HTMLButtonElement>('arena-prev');
   const arenaNextBtn = byId<HTMLButtonElement>('arena-next');
-  const sidebarEl = byId<HTMLElement>('sidebar');
   const backToOwnArenaBtn = byId<HTMLButtonElement>('back-to-own-arena-btn');
   let viewedPlayer = 0;
 
@@ -283,7 +303,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     hoveredTowerEid = null;
 
     const observing = isObserving();
-    sidebarEl.classList.toggle('observing', observing);
+    commandBarEl.classList.toggle('observing', observing);
     backToOwnArenaBtn.hidden = !observing;
     canvasWrap.classList.toggle('observing', observing);
     canvasWrap.style.setProperty('--observed-color', playerColor(viewedPlayer));
@@ -346,8 +366,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     for (const te of towerEntitiesByPlayer) te.clear();
     for (const ce of creepEntitiesByPlayer) ce.clear();
     lightningArcs.clear();
-    arenasList.innerHTML = '';
-    arenaRows = buildArenasPanel(arenasList, rules.maxPlayers);
+    setCommandMode('build');
     // Revient toujours a sa propre arene au lancement d'une nouvelle partie.
     for (const g of towerGroups) g.visible = false;
     for (const g of creepGroups) g.visible = false;
@@ -562,9 +581,12 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
         armedBuildDefId !== null && !isObserving(),
       );
       updateTopbar(topbarRefs, state);
-      updateBuildPanel(buildButtons, arena0, armedBuildDefId);
-      updateShopPanel(shopRows, state, arena0);
+      // Zone info : priorite 1 (infobulle d'un element survole dans la
+      // grille) > priorite 2 (tour selectionnee) > rien. La priorite 1 n'a
+      // pas encore de source cote grille (voir commandBar.ts, a venir) —
+      // cmdInfoTooltip reste toujours cache pour l'instant.
       updateSelectedPanel(selectedRefs, arena0, selectedTowerEid);
+      cmdInfoEmpty.hidden = !cmdInfoTooltip.hidden || !selectedRefs.section.hidden;
 
       if (armedBuildDefId && hoveredSlot) {
         const occupied = !!arena0.occupied[hoveredSlot.id];
@@ -576,7 +598,6 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
         ghost.visible = false;
       }
     }
-    updateArenasPanel(arenaRows, state);
     updateArenaBar(arenaBarRefs, state, viewedPlayer, 0);
     lightningArcs.update(animDt);
     const syncMs = perf ? performance.now() - perfSyncT0 : 0;
