@@ -35,6 +35,40 @@
           <canvas id="game-canvas"></canvas>
           <div id="toasts"></div>
           <button id="back-to-own-arena-btn" hidden>Accueil</button>
+          <footer id="command-bar">
+            <section id="cmd-info">
+              <div id="cmd-info-empty" class="cmd-info-empty">Survolez ou sélectionnez un élément</div>
+              <div id="cmd-info-tooltip" class="cmd-info-content" hidden>
+                <div id="cmd-tooltip-name"></div>
+                <div id="cmd-tooltip-lines"></div>
+                <div id="cmd-tooltip-desc"></div>
+              </div>
+              <div id="cmd-info-selected" class="cmd-info-content" hidden>
+                <div id="selected-name"></div>
+                <div id="selected-info"></div>
+                <button id="upgrade-btn"></button>
+                <button id="sell-btn"></button>
+              </div>
+            </section>
+            <section id="cmd-grid">
+              <div id="cmd-grid-build" class="cmd-tiles"></div>
+              <div id="cmd-grid-send" class="cmd-tiles" hidden></div>
+              <div id="cmd-grid-abilities" class="cmd-tiles" hidden>
+                <p id="cmd-abilities-empty">Aucune abilité disponible pour le moment.</p>
+              </div>
+            </section>
+            <section id="cmd-modes">
+              <button id="cmd-mode-back" class="cmd-mode-btn" type="button" aria-label="Retour à la construction" hidden>
+                <div class="cmd-portrait"></div>
+              </button>
+              <button id="cmd-mode-send" class="cmd-mode-btn" type="button" aria-label="Envoyer des créatures">
+                <span class="cmd-mode-icon">🎺</span>
+              </button>
+              <button id="cmd-mode-abilities" class="cmd-mode-btn" type="button" aria-label="Abilités">
+                <span class="cmd-mode-icon">✦</span>
+              </button>
+            </section>
+          </footer>
           <div id="game-over" hidden>
             <div id="game-over-box">
               <h2 id="game-over-title">Game over</h2>
@@ -44,40 +78,6 @@
             </div>
           </div>
         </div>
-        <footer id="command-bar">
-          <section id="cmd-info">
-            <div id="cmd-info-empty" class="cmd-info-empty">Survolez ou sélectionnez un élément</div>
-            <div id="cmd-info-tooltip" class="cmd-info-content" hidden>
-              <div id="cmd-tooltip-name"></div>
-              <div id="cmd-tooltip-lines"></div>
-              <div id="cmd-tooltip-desc"></div>
-            </div>
-            <div id="cmd-info-selected" class="cmd-info-content" hidden>
-              <div id="selected-name"></div>
-              <div id="selected-info"></div>
-              <button id="upgrade-btn"></button>
-              <button id="sell-btn"></button>
-            </div>
-          </section>
-          <section id="cmd-grid">
-            <div id="cmd-grid-build" class="cmd-tiles"></div>
-            <div id="cmd-grid-send" class="cmd-tiles" hidden></div>
-            <div id="cmd-grid-abilities" class="cmd-tiles" hidden>
-              <p id="cmd-abilities-empty">Aucune abilité disponible pour le moment.</p>
-            </div>
-          </section>
-          <section id="cmd-modes">
-            <button id="cmd-mode-back" class="cmd-mode-btn" type="button" aria-label="Retour à la construction" hidden>
-              <div class="cmd-portrait"></div>
-            </button>
-            <button id="cmd-mode-send" class="cmd-mode-btn" type="button" aria-label="Envoyer des créatures">
-              <span class="cmd-mode-icon">🎺</span>
-            </button>
-            <button id="cmd-mode-abilities" class="cmd-mode-btn" type="button" aria-label="Abilités">
-              <span class="cmd-mode-icon">✦</span>
-            </button>
-          </section>
-        </footer>
       </main>
     </div>
     <script type="module" src="/src/launcher.ts"></script>

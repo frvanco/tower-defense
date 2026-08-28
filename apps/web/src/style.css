@@ -207,6 +207,7 @@ button {
   position: absolute;
   left: 50%;
   top: 14px;
+  z-index: 10;
   transform: translateX(-50%);
   background: #221a13;
   border: 2px solid var(--observed-color, #f2d24b);
@@ -223,7 +224,6 @@ button {
 
 #main {
   display: flex;
-  flex-direction: column;
   flex: 1;
   min-height: 0;
 }
@@ -245,6 +245,7 @@ button {
   position: absolute;
   top: 14px;
   right: 14px;
+  z-index: 15;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -282,6 +283,7 @@ button {
 #game-over {
   position: absolute;
   inset: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -339,20 +341,42 @@ button {
   background: #2a2118;
 }
 
-/* ---------- barre de commandes (bas d'ecran) ---------- */
+/* ---------- console de commandes (superposee en bas du canvas) ---------- */
 
-/* Dans le flux normal de #main (pas absolute) et de hauteur FIXE : elle ne
-   doit jamais bouger quand son contenu change (mode, survol, selection),
-   sans quoi #canvas-wrap changerait de taille -> resizeScene3D -> la camera
-   Three.js se reconfigurerait en pleine partie (meme raison que
-   #back-to-own-arena-btn plus haut, voir son commentaire). */
+/* `position: absolute` par rapport a #canvas-wrap (son parent — voir
+   index.html), centree horizontalement, flush contre le bord bas : une
+   console posee sur la scene, pas une barre de page. Dimensionnee par son
+   contenu (largeurs fixes de #cmd-info/#cmd-grid/#cmd-modes ci-dessous),
+   plafonnee a ~820px, jamais plus large que #canvas-wrap sur petit ecran
+   (max-width en %, resout contre le containing block). Hauteur FIXE, calee
+   pour accueillir deux rangees de tuiles quel que soit le mode actif (voir
+   .cmd-tiles) : elle ne doit JAMAIS bouger quand le contenu change (mode,
+   survol, selection), sans quoi #canvas-wrap changerait de taille au
+   montage suivant -> resizeScene3D -> la camera Three.js se
+   reconfigurerait en pleine partie. Comme #canvas-wrap ne redimensionne
+   plus JAMAIS pour cette barre (elle est hors flux), resize() ne s'execute
+   qu'au montage/redimensionnement de fenetre, jamais a cause d'elle. */
 #command-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 5;
   display: flex;
   align-items: stretch;
+  width: max-content;
+  max-width: min(820px, 100%);
+  /* Meme hauteur que l'ancienne barre plein-largeur (148px) : la zone de jeu
+   * visible (canvas total moins la console) reste donc exactement la meme
+   * qu'avant ce chantier (548px), voir le commentaire plus haut sur le
+   * cadrage par defaut — aucune regression sur la visibilite du bout du
+   * parcours par rapport a l'existant. */
   height: 148px;
-  flex-shrink: 0;
-  background: #1a140f;
-  border-top: 2px solid #6b5432;
+  background: rgba(26, 20, 15, 0.94);
+  border: 1px solid #6b5432;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  overflow: hidden;
 }
 
 /* Observation : aucune action possible (voir main.ts, isObserving()). */
@@ -363,7 +387,7 @@ button {
 }
 
 #cmd-info {
-  width: 260px;
+  width: 220px;
   flex-shrink: 0;
   padding: 12px;
   border-right: 1px solid #3a2f1c;
@@ -380,9 +404,14 @@ button {
   display: none;
 }
 
+/* Largeur exacte pour SIX tuiles de 40px par rangee (brief : jamais plus) —
+   6 x 40px + 5 x 10px de column-gap (voir .cmd-tiles) + le padding
+   horizontal ci-dessous = 314px. Fixe, pas flex:1 : la console entiere est
+   dimensionnee par son contenu (voir #command-bar), plus de "largeur
+   restante de l'ecran" a remplir. */
 #cmd-grid {
-  flex: 1;
-  min-width: 0;
+  width: 314px;
+  flex-shrink: 0;
   padding: 10px 12px;
   overflow: hidden;
 }
@@ -391,13 +420,19 @@ button {
   display: none;
 }
 
+/* Hauteur du contenu = exactement 2 rangees (40px tuile + 3px + ~14px cout
+   par rangee, 6px de row-gap entre les deux — voir .cmd-tile-wrap) : le mode
+   build (1 rangee) et le mode abilities (aucune tuile) restent dans le meme
+   espace sans jamais faire varier la hauteur de #command-bar. Volontairement
+   PAS de defilement (voir le brief) : si un mode depassait un jour deux
+   rangees, le contenu deborderait plutot que de scroller — a signaler, pas a
+   masquer silencieusement. */
 .cmd-tiles {
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;
   gap: 6px 10px;
   height: 100%;
-  overflow: hidden;
 }
 
 .cmd-tile-wrap {
@@ -515,7 +550,7 @@ button {
 }
 
 #cmd-modes {
-  width: 90px;
+  width: 80px;
   flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
