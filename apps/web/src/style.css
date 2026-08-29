@@ -560,17 +560,19 @@ button {
 }
 
 /* Meme largeur que #cmd-info (voir plus haut) : c'est ce qui centre #cmd-grid
-   au milieu de la console (donc de l'ecran, la console etant elle-meme
+   au milieu de la console (donc de l'ecran, la console elle-meme etant
    centree) — pas la console dans son ensemble, qui laisserait la grille
-   decalee a droite tant que la zone info reste plus large que celle-ci.
-   L'espace libre autour des 2-3 boutons (centres dans la colonne) accueillera
-   le portrait du peon plus tard. */
+   decalee a droite tant que la zone info reste plus large que celle-ci. Les
+   boutons, eux, sont empiles de haut en bas plutot qu'en rangee : ils
+   restent compacts (juste leur largeur propre, 40px) au lieu de s'etaler
+   sur toute la largeur de la colonne — l'espace libre autour d'eux
+   accueillera le portrait du peon plus tard. */
 #cmd-modes {
   width: 220px;
   flex-shrink: 0;
   display: flex;
-  flex-wrap: wrap;
-  align-content: center;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 10px;
