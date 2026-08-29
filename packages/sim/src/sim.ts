@@ -18,6 +18,19 @@ const allSellableCreeps: string[] = [...new Set(shops.flatMap((s) => s.sells))].
   creeps.has(id),
 );
 
+/** defId de creep -> index du palier de boutique auquel il appartient (ordre
+ * de `shops`, garanti par map_data.json : htow=0, hkee=1, hcas=2) — c'est
+ * contre CET index que `arena.unlockedShopTier` est compare dans sendCreep.
+ * Un creep vendu par plusieurs boutiques (aucun cas actuel) prendrait le
+ * palier le plus BAS qui le vend, la lecture la plus permissive et la plus
+ * simple a justifier. */
+const creepShopTier = new Map<string, number>();
+shops.forEach((shop, tier) => {
+  for (const id of shop.sells) {
+    if (!creepShopTier.has(id)) creepShopTier.set(id, tier);
+  }
+});
+
 function makeStock(): Record<string, ReturnType<typeof stockEntry>> {
   const out: Record<string, ReturnType<typeof stockEntry>> = {};
   for (const id of allSellableCreeps) {
@@ -54,6 +67,7 @@ export function createGame(seed: number, playerCount = rules.maxPlayers): GameSt
       goldSpentOnCreeps: 0,
       goldFromBounty: 0,
       goldFromIncome: 0,
+      unlockedShopTier: 0,
     });
   }
   return {
@@ -130,6 +144,13 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
   if (cmd.type === 'sendCreep') {
     const def = creeps.get(cmd.defId);
     if (!def) return void events.push({ type: 'rejected', player: cmd.player, reason: 'unknown creep' });
+    // Barriere de palier de boutique AVANT le stock : un creep d'une
+    // boutique non debloquee n'est pas juste "en rupture", il n'est pas
+    // accessible du tout — sans ce controle, l'interface serait la seule
+    // barriere (voir le brief de ce lot).
+    const requiredTier = creepShopTier.get(cmd.defId) ?? 0;
+    if (requiredTier > arena.unlockedShopTier)
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'shop not unlocked' });
     const st = arena.stock[cmd.defId];
     if (!st || s.tick < st.availableAt)
       return void events.push({ type: 'rejected', player: cmd.player, reason: 'not unlocked' });
@@ -150,6 +171,21 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
       spawnCreep(s, other, def, cmd.player);
     }
     events.push({ type: 'creepSent', player: cmd.player, defId: def.id });
+    return;
+  }
+
+  if (cmd.type === 'unlockShop') {
+    // Toujours le PROCHAIN palier, jamais une cible explicite dans la
+    // commande elle-meme — une seule notion de "sequentiel" a valider, ici,
+    // plutot que de verifier une cible arbitraire cote appelant.
+    const nextTier = arena.unlockedShopTier + 1;
+    const shop = shops[nextTier];
+    if (!shop) return void events.push({ type: 'rejected', player: cmd.player, reason: 'no next shop tier' });
+    if (arena.gold < shop.goldCost)
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
+    arena.gold -= shop.goldCost;
+    arena.unlockedShopTier = nextTier;
+    events.push({ type: 'shopUnlocked', player: cmd.player, tier: nextTier });
   }
 }
 

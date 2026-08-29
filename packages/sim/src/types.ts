@@ -78,6 +78,14 @@ export interface Arena {
   /** Or cumule recu en income de round — denominateur naturel pour mesurer
    * la part du revenu venant des primes (apps/headless). */
   goldFromIncome: number;
+  /** Index du palier de boutique d'envoi le plus eleve debloque (0 = Caserne
+   * seule, deja acquise sans cout — voir createGame). Correspond a un index
+   * dans `shops` (@tower-defense/data, ordre garanti par map_data.json :
+   * htow=0, hkee=1, hcas=2). Fait partie de l'etat de simulation (entre dans
+   * hashState via la stringification generique de GameState, aucun code
+   * dedie necessaire) — ne pas confondre avec le palier CONSULTE cote
+   * interface (apps/web), qui est un etat d'UI local, jamais stocke ici. */
+  unlockedShopTier: number;
 }
 
 export interface GameState {
@@ -96,7 +104,10 @@ export type Command =
   | { type: 'buildTower'; player: number; defId: string; x: number; y: number }
   | { type: 'upgradeTower'; player: number; eid: number; defId: string }
   | { type: 'sellTower'; player: number; eid: number }
-  | { type: 'sendCreep'; player: number; defId: string };
+  | { type: 'sendCreep'; player: number; defId: string }
+  /** Debloque le PROCHAIN palier de boutique d'envoi (toujours sequentiel —
+   * jamais un palier cible explicite, voir sim.ts#applyCommand). */
+  | { type: 'unlockShop'; player: number };
 
 export type SimEvent =
   | { type: 'roundStart'; round: number }
@@ -105,6 +116,9 @@ export type SimEvent =
   | { type: 'creepSent'; player: number; defId: string }
   | { type: 'gameOver'; winner: number | null }
   | { type: 'rejected'; player: number; reason: string }
+  /** Palier de boutique d'envoi debloque avec succes — `tier` est le nouvel
+   * index de `arena.unlockedShopTier` (voir types.ts). */
+  | { type: 'shopUnlocked'; player: number; tier: number }
   /** Chaine d'eclair (branche Lightning) : positions des cibles touchees, dans
    * l'ordre reel des rebonds — purement informatif, pour le rendu (l'arc
    * visuel). Pas de logique de jeu ne depend de cet evenement. */
