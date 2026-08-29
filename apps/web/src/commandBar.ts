@@ -379,7 +379,8 @@ export function updateUnlockButton(btn: HTMLButtonElement, arena: Arena, allShop
     return;
   }
   btn.hidden = false;
-  btn.textContent = `Débloquer la ${next.name} — ${next.goldCost.toLocaleString('fr-FR')} or`;
+  btn.textContent = `${next.name} — ${next.goldCost.toLocaleString('fr-FR')} or`;
+  btn.title = `Débloquer la ${next.name} — ${next.goldCost.toLocaleString('fr-FR')} or`;
 }
 
 // ---------------------------------------------------------------------------
