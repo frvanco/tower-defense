@@ -1,9 +1,32 @@
-import { towers, creeps, buildSlots, lanes, type Slot, type Lane } from '@tower-defense/data';
+import { towers, creeps, shops, buildSlots, lanes, type Slot, type Lane } from '@tower-defense/data';
 import { nextRandom } from './rng.js';
 import { TICK_RATE, type Command, type GameState, type Tower } from './types.js';
 import type { TowerDef } from '@tower-defense/data';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
+
+/** defId de creep -> index de palier de boutique (meme derivation que
+ * creepShopTier dans sim.ts, dupliquee ici plutot que partagee : bot.ts ne
+ * depend aujourd'hui d'aucun module interne de sim.ts autre que types.ts, et
+ * cette table est triviale a reconstruire — pas assez de valeur a une
+ * extraction partagee pour ce lot). Sert a ce que le bot ne gaspille jamais
+ * un cycle de decision a tenter d'envoyer un creep d'un palier qu'il n'a pas
+ * encore debloque (sim.ts le rejetterait de toute facon, mais silencieusement
+ * et sans que le bot n'essaie autre chose ce cycle-la). */
+const creepShopTierForBot = new Map<string, number>();
+shops.forEach((shop, tier) => {
+  for (const id of shop.sells) {
+    if (!creepShopTierForBot.has(id)) creepShopTierForBot.set(id, tier);
+  }
+});
+
+/** Marge au-dela du cout d'un palier de boutique avant qu'un bot ne
+ * l'achete : evite qu'il se retrouve totalement a sec juste apres avoir paye
+ * 10 000 ou 100 000 or d'un coup, et ne puisse plus rien construire ni
+ * envoyer le temps de reconstituer une reserve. ~20% au-dessus du cout est
+ * le point de depart indique par le brief de ce lot — pas mesure/ajuste
+ * au-dela. */
+const SHOP_UNLOCK_RESERVE_FACTOR = 1.2;
 
 /** Role d'une branche dans la composition d'un bot. `control` = ralentissement
  * (Ice/Poison), `antiair` = la branche dediee a l'aerien (Lightning),
@@ -198,6 +221,14 @@ export class Bot {
    * compteur, lui, avance toujours depuis la derniere decision reelle. */
   private nextDecisionTick: number;
 
+  /** Dernier `s.round` observe — sert a detecter la RECEPTION d'income (le
+   * round vient d'avancer, voir tick() dans sim.ts qui credite l'income au
+   * meme moment) independamment du rythme de decision normal
+   * (nextDecisionTick), qui peut etre bien plus lent. Initialise a 0 pour
+   * matcher le round initial de createGame() : aucun income n'a encore ete
+   * verse a ce moment, donc pas de tentative d'achat prematuree. */
+  private lastSeenRound = 0;
+
   constructor(private cfg: BotConfig) {
     this.rng = cfg.seed | 0;
     this.difficulty = cfg.difficulty ?? 'medium';
@@ -267,13 +298,30 @@ export class Bot {
       }
     }
 
-    if (s.tick < this.nextDecisionTick) return [];
+    // Achat de palier de boutique — verifie a CHAQUE appel de decide() (donc
+    // a chaque tick), independamment de nextDecisionTick ci-dessous : "au
+    // moment de recevoir l'income, pas a chaque tick" (brief de ce lot) se
+    // traduit par "des que s.round vient de changer" (tick() credite
+    // l'income exactement a ce moment-la, voir sim.ts), jamais par le rythme
+    // de decision normal du bot, qui peut etre plus lent que le versement
+    // d'income lui-meme. Deterministe par construction (comparaison de seuil
+    // pure, aucun rand() necessaire ni utilise).
+    const cmds: Command[] = [];
+    if (s.round !== this.lastSeenRound) {
+      this.lastSeenRound = s.round;
+      const nextTier = arena.unlockedShopTier + 1;
+      const nextShop = shops[nextTier];
+      if (nextShop && arena.gold >= nextShop.goldCost * SHOP_UNLOCK_RESERVE_FACTOR) {
+        cmds.push({ type: 'unlockShop', player: this.cfg.player });
+      }
+    }
+
+    if (s.tick < this.nextDecisionTick) return cmds;
     // +-20% de gigue par decision : evite un rythme parfaitement mecanique
     // tout en restant seede/deterministe (RNG interne du bot uniquement).
     const jitter = 0.8 + this.rand() * 0.4;
     this.nextDecisionTick = s.tick + Math.max(1, Math.round(DECISION_PERIOD_TICKS[this.difficulty] * jitter));
 
-    const cmds: Command[] = [];
     const effectiveAggression =
       this.difficulty === 'hard'
         ? Math.min(0.95, Math.max(0.05, this.aggression + phaseAggressionDelta(s.round)))
@@ -285,6 +333,13 @@ export class Bot {
     let spend = creepBudget;
     const affordable = [...creeps.values()]
       .filter((c) => {
+        // Sans ce filtre, un bot viserait parfois un creep de palier
+        // superieur (plus cher, donc trie en tete par la suite) que sim.ts
+        // rejetterait silencieusement ('shop not unlocked') — le cycle de
+        // decision serait gaspille au lieu de retomber sur un creep
+        // reellement envoyable ce tour-ci.
+        const tier = creepShopTierForBot.get(c.id) ?? 0;
+        if (tier > arena.unlockedShopTier) return false;
         const st = arena.stock[c.id];
         return st && st.count > 0 && s.tick >= st.availableAt && c.goldCost <= spend;
       })
