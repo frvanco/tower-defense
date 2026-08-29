@@ -351,6 +351,100 @@ button {
   background: #2a2118;
 }
 
+/* Confirmation de deblocage de palier — meme vocabulaire visuel que
+   #game-over (fond assombri plein ecran, boite bordee doree) : "coherent
+   avec le style du panneau de fin de partie" (brief). z-index entre la
+   console (5) et #game-over (20, doit rester au-dessus de tout, y compris
+   de cette modale si la partie se termine pendant qu'elle est ouverte). */
+#shop-unlock-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 7, 4, 0.75);
+}
+
+#shop-unlock-confirm[hidden] {
+  display: none;
+}
+
+#shop-unlock-confirm-box {
+  background: #201810;
+  border: 2px solid #c9a227;
+  border-radius: 10px;
+  padding: 28px 36px;
+  text-align: center;
+  min-width: 280px;
+  box-shadow: 0 0 40px rgba(201, 162, 39, 0.15);
+}
+
+#shop-unlock-confirm-box h2 {
+  margin: 0 0 8px;
+  color: #f2d24b;
+  letter-spacing: 0.03em;
+}
+
+#shop-unlock-confirm-box p {
+  margin: 0 0 16px;
+  color: #b39a68;
+}
+
+#shop-unlock-confirm-gold {
+  margin: 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#shop-unlock-confirm-gold > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  font-size: 13px;
+}
+
+#shop-unlock-confirm-gold dt {
+  color: #8a7550;
+}
+
+#shop-unlock-confirm-gold dd {
+  margin: 0;
+  color: #e9e2d3;
+  font-weight: 600;
+}
+
+#shop-unlock-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+#shop-unlock-confirm-btn {
+  background: #c9a227;
+  color: #221a0d;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+#shop-unlock-cancel-btn {
+  background: transparent;
+  color: #b39a68;
+  border: 1px solid #6b5432;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#shop-unlock-cancel-btn:hover {
+  background: #2a2118;
+}
+
 /* ---------- console de commandes (superposee en bas du canvas) ---------- */
 
 /* `position: absolute` par rapport a #canvas-wrap (son parent — voir
@@ -376,12 +470,13 @@ button {
   align-items: stretch;
   width: max-content;
   max-width: min(820px, 100%);
-  /* Meme hauteur que l'ancienne barre plein-largeur (148px) : la zone de jeu
-   * visible (canvas total moins la console) reste donc exactement la meme
-   * qu'avant ce chantier (548px), voir le commentaire plus haut sur le
-   * cadrage par defaut — aucune regression sur la visibilite du bout du
-   * parcours par rapport a l'existant. */
-  height: 148px;
+  /* 148px (chantiers precedents, calee sur l'ancienne barre plein-largeur)
+   * + le bouton de deblocage du mode send (44px + 8px d'ecart) = 192px.
+   * FIXE quel que soit le mode/palier/presence du bouton (voir
+   * .cmd-shop-panel) : signale — cette hausse couvre davantage le bas du
+   * canvas que les chantiers precedents (zone de jeu visible ~500px au lieu
+   * de 544px), tout en restant sans lien avec la camera (non touchee). */
+  height: 192px;
   background: rgba(26, 20, 15, 0.94);
   border: 1px solid #6b5432;
   border-bottom: none;
@@ -443,6 +538,49 @@ button {
   align-content: flex-start;
   gap: 6px 10px;
   height: 100%;
+}
+
+/* Conteneur du mode send : tuiles (#cmd-shop-tiles, .cmd-tiles ci-dessus,
+   inchangee) + bouton de deblocage sous la grille. flex-direction:column
+   sur toute la hauteur de #cmd-grid (100%, fixe — voir #command-bar) : la
+   RANGEE du bouton reste toujours reservee (justify-content:flex-end le
+   pousse en bas), meme quand le bouton lui-meme se cache au dernier palier
+   (voir .cmd-unlock-btn[hidden]) — "prevoir la place d'emblee" (brief). */
+#cmd-grid-send.cmd-shop-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
+  height: 100%;
+}
+
+#cmd-shop-tiles {
+  flex: 1;
+  min-height: 0;
+}
+
+/* "Nettement plus grand que les tuiles" (brief) : pleine largeur de la
+   grille, jamais grise/desactive (l'or insuffisant passe par le toast
+   existant, comme les tuiles — voir canAffordOrToast). */
+.cmd-unlock-btn {
+  flex-shrink: 0;
+  width: 100%;
+  height: 44px;
+  background: #2a2118;
+  border: 2px solid #c9a227;
+  border-radius: 8px;
+  color: #f2d24b;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cmd-unlock-btn:hover {
+  background: #3a2f1c;
+}
+
+.cmd-unlock-btn[hidden] {
+  display: none;
 }
 
 .cmd-tile-wrap {

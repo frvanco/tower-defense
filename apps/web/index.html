@@ -52,7 +52,10 @@
             </section>
             <section id="cmd-grid">
               <div id="cmd-grid-build" class="cmd-tiles"></div>
-              <div id="cmd-grid-send" class="cmd-tiles" hidden></div>
+              <div id="cmd-grid-send" class="cmd-shop-panel" hidden>
+                <div id="cmd-shop-tiles" class="cmd-tiles"></div>
+                <button id="cmd-shop-unlock-btn" class="cmd-unlock-btn" type="button" hidden></button>
+              </div>
               <div id="cmd-grid-abilities" class="cmd-tiles" hidden>
                 <p id="cmd-abilities-empty">Aucune abilité disponible pour le moment.</p>
               </div>
@@ -69,6 +72,21 @@
               </button>
             </section>
           </footer>
+          <div id="shop-unlock-confirm" hidden>
+            <div id="shop-unlock-confirm-box">
+              <h2 id="shop-unlock-confirm-title"></h2>
+              <p id="shop-unlock-confirm-detail"></p>
+              <dl id="shop-unlock-confirm-gold">
+                <div><dt>Coût</dt><dd id="shop-unlock-confirm-cost"></dd></div>
+                <div><dt>Or disponible</dt><dd id="shop-unlock-confirm-before"></dd></div>
+                <div><dt>Or restant</dt><dd id="shop-unlock-confirm-after"></dd></div>
+              </dl>
+              <div id="shop-unlock-confirm-actions">
+                <button id="shop-unlock-confirm-btn">Confirmer</button>
+                <button id="shop-unlock-cancel-btn">Annuler</button>
+              </div>
+            </div>
+          </div>
           <div id="game-over" hidden>
             <div id="game-over-box">
               <h2 id="game-over-title">Game over</h2>

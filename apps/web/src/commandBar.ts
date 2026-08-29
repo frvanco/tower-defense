@@ -204,11 +204,11 @@ export function canAffordOrToast(arena: Arena, cost: number): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Mode send — reprend le contenu de l'ancien #panel-shop, limite a la
-// PREMIERE boutique (voir le brief : le deblocage hkee/hcas n'est pas de ce
-// lot). Prend un `Shop` en parametre plutot que de lire `shops[0]`/`'htow'`
-// en dur ici : accueillir plusieurs boutiques plus tard n'est qu'un appel
-// supplementaire cote appelant, rien a changer dans ce module.
+// Mode send — reprend le contenu de l'ancien #panel-shop. Une boutique a la
+// fois est affichee (voir main.ts, palier CONSULTE = etat d'UI local, jamais
+// stocke dans GameState) ; `buildSendGrid` prend le `Shop` a afficher en
+// parametre plutot que de lire `shops[0]`/un id en dur, donc naviguer entre
+// plusieurs boutiques n'est qu'un appel supplementaire cote appelant.
 // ---------------------------------------------------------------------------
 
 export interface SendTile extends TileRefs {
@@ -291,4 +291,63 @@ export function sendTooltipForTile(defId: string, state: GameState, arena: Arena
     lines,
     description: descriptionOf(def),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Bouton de deblocage — sous la grille du mode send. Cible TOUJOURS le
+// palier immediatement APRES arena.unlockedShopTier (jamais le palier
+// consulte a l'ecran, voir main.ts) : c'est ce que la commande unlockShop
+// (packages/sim) fait elle-meme, ce bouton n'en est qu'une facade.
+// ---------------------------------------------------------------------------
+
+/** Ce qu'il y a a debloquer ensuite, ou null si le dernier palier est deja
+ * acquis (le bouton doit alors disparaitre — voir updateUnlockButton). */
+export function nextShopToUnlock(arena: Arena, allShops: readonly Shop[]): Shop | null {
+  return allShops[arena.unlockedShopTier + 1] ?? null;
+}
+
+export function buildUnlockButton(container: HTMLButtonElement, onClick: () => void): void {
+  container.addEventListener('click', onClick);
+}
+
+/** Met a jour le libelle et la visibilite du bouton — jamais son etat
+ * disabled : un or insuffisant se traite au clic (toast), pas par un bouton
+ * grise (brief, meme regle que les tuiles). */
+export function updateUnlockButton(btn: HTMLButtonElement, arena: Arena, allShops: readonly Shop[]): void {
+  const next = nextShopToUnlock(arena, allShops);
+  if (!next) {
+    btn.hidden = true;
+    return;
+  }
+  btn.hidden = false;
+  btn.textContent = `Débloquer la ${next.name} — ${next.goldCost.toLocaleString('fr-FR')} or`;
+}
+
+// ---------------------------------------------------------------------------
+// Modale de confirmation — un achat de plusieurs milliers d'or ne doit
+// jamais partir d'un simple clic malheureux (brief).
+// ---------------------------------------------------------------------------
+
+export interface UnlockConfirmRefs {
+  root: HTMLElement;
+  title: HTMLElement;
+  detail: HTMLElement;
+  cost: HTMLElement;
+  before: HTMLElement;
+  after: HTMLElement;
+  confirmBtn: HTMLButtonElement;
+  cancelBtn: HTMLButtonElement;
+}
+
+export function showUnlockConfirm(refs: UnlockConfirmRefs, shop: Shop, arena: Arena): void {
+  refs.title.textContent = `Débloquer la ${shop.name}`;
+  refs.detail.textContent = `Donne accès aux créatures de ${shop.name} pour tous vos envois futurs.`;
+  refs.cost.textContent = `${shop.goldCost.toLocaleString('fr-FR')} or`;
+  refs.before.textContent = `${Math.floor(arena.gold).toLocaleString('fr-FR')} or`;
+  refs.after.textContent = `${Math.floor(arena.gold - shop.goldCost).toLocaleString('fr-FR')} or`;
+  refs.root.hidden = false;
+}
+
+export function hideUnlockConfirm(refs: UnlockConfirmRefs): void {
+  refs.root.hidden = true;
 }

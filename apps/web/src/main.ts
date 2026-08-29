@@ -30,9 +30,15 @@ import {
   sendTooltipForTile,
   renderTooltip,
   canAffordOrToast,
+  buildUnlockButton,
+  updateUnlockButton,
+  nextShopToUnlock,
+  showUnlockConfirm,
+  hideUnlockConfirm,
   type BuildTile,
   type SendTile,
   type TooltipRefs,
+  type UnlockConfirmRefs,
 } from './commandBar.js';
 import { initToasts, toast } from './toast.js';
 import { DIFFICULTY_LABELS } from './difficulty.js';
@@ -232,7 +238,12 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   const cmdGridBuild = byId<HTMLDivElement>('cmd-grid-build');
   cmdGridBuild.innerHTML = '';
   const cmdGridSend = byId<HTMLDivElement>('cmd-grid-send');
-  cmdGridSend.innerHTML = '';
+  // Seules les TUILES sont recreees a chaque partie — #cmd-shop-unlock-btn
+  // est un element statique du markup (index.html), jamais vide ici : le
+  // vider casserait le bouton de deblocage a un "Rejouer".
+  const cmdShopTiles = byId<HTMLDivElement>('cmd-shop-tiles');
+  cmdShopTiles.innerHTML = '';
+  const cmdShopUnlockBtn = byId<HTMLButtonElement>('cmd-shop-unlock-btn');
   const cmdGridAbilities = byId<HTMLDivElement>('cmd-grid-abilities');
   const cmdModeBackBtn = byId<HTMLButtonElement>('cmd-mode-back');
   const cmdModeSendBtn = byId<HTMLButtonElement>('cmd-mode-send');
@@ -262,7 +273,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
 
   const sendTiles: SendTile[] = buildSendGrid(
     activeShop,
-    cmdGridSend,
+    cmdShopTiles,
     (defId) => {
       if (isObserving()) return;
       const arena = state.arenas[0];
@@ -272,6 +283,49 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     (defId) => {
       hoveredTile = defId ? { mode: 'send', id: defId } : null;
     },
+  );
+
+  const unlockConfirmRefs: UnlockConfirmRefs = {
+    root: byId('shop-unlock-confirm'),
+    title: byId('shop-unlock-confirm-title'),
+    detail: byId('shop-unlock-confirm-detail'),
+    cost: byId('shop-unlock-confirm-cost'),
+    before: byId('shop-unlock-confirm-before'),
+    after: byId('shop-unlock-confirm-after'),
+    confirmBtn: byId('shop-unlock-confirm-btn'),
+    cancelBtn: byId('shop-unlock-cancel-btn'),
+  };
+  unlockConfirmRefs.root.hidden = true;
+
+  buildUnlockButton(cmdShopUnlockBtn, () => {
+    if (isObserving()) return;
+    const arena = state.arenas[0];
+    if (!arena) return;
+    const next = nextShopToUnlock(arena, shops);
+    if (!next) return;
+    // Meme regle que les tuiles : verifie l'or AVANT d'ouvrir la modale,
+    // toast si insuffisant, jamais de bouton grise.
+    if (!canAffordOrToast(arena, next.goldCost)) return;
+    showUnlockConfirm(unlockConfirmRefs, next, arena);
+  });
+
+  unlockConfirmRefs.confirmBtn.addEventListener(
+    'click',
+    () => {
+      hideUnlockConfirm(unlockConfirmRefs);
+      if (isObserving()) return;
+      pendingHuman.push({ type: 'unlockShop', player: 0 });
+    },
+    listenerOpts,
+  );
+  unlockConfirmRefs.cancelBtn.addEventListener('click', () => hideUnlockConfirm(unlockConfirmRefs), listenerOpts);
+  // Clic en dehors de la boite (mais toujours dans l'overlay plein ecran) = annule.
+  unlockConfirmRefs.root.addEventListener(
+    'click',
+    (ev) => {
+      if (ev.target === unlockConfirmRefs.root) hideUnlockConfirm(unlockConfirmRefs);
+    },
+    listenerOpts,
   );
 
   /** Bascule le mode courant : montre exactement une des trois grilles,
@@ -549,6 +603,12 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
 
   function onKeydown(ev: KeyboardEvent): void {
     if (ev.key !== 'Escape') return;
+    // La modale de deblocage prend le pas : Echap l'annule sans toucher au
+    // reste (arme/selection) plutot que de faire les deux a la fois.
+    if (!unlockConfirmRefs.root.hidden) {
+      hideUnlockConfirm(unlockConfirmRefs);
+      return;
+    }
     armedBuildDefId = null;
     selectedTowerEid = null;
   }
@@ -576,6 +636,11 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
         gameOverDetail.textContent =
           ev.winner === null ? 'No one survived.' : you ? 'You outlasted everyone.' : 'Better luck next time.';
         gameOverEl.hidden = false;
+        // La partie continue en temps reel meme modale ouverte (brief) — si
+        // elle finit pendant que le joueur hesite a debloquer un palier, le
+        // panneau de fin de partie doit prendre le dessus proprement plutot
+        // que de laisser les deux superposes.
+        hideUnlockConfirm(unlockConfirmRefs);
         disarmExitGuard();
         perf?.markEvent('Fin de partie', state, ev.winner === null ? 'timeout' : `victoire joueur ${ev.winner}`);
         callbacks.onGameOver();
@@ -646,6 +711,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
       updateTopbar(topbarRefs, state);
       updateBuildGrid(buildTiles, armedBuildDefId);
       updateSendGrid(sendTiles, state, arena0);
+      updateUnlockButton(cmdShopUnlockBtn, arena0, shops);
 
       // Zone info : priorite 1 (infobulle d'un element survole dans la
       // grille) > priorite 2 (tour selectionnee) > rien.
