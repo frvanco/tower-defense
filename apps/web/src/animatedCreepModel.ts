@@ -101,11 +101,34 @@ export function getAnimatedCreepModel(url: string): AnimatedCreepModel | null {
 }
 
 /**
+ * Cherche un noeud anime par son nom canonique (voir ANIMATED_NODE_NAMES),
+ * avec repli sur une convention alternative rencontree sur certains exports
+ * — suffixe _L/_R plutot que prefixe Left/Right (ex. `UpperArm_L` au lieu de
+ * `LeftUpperArm`) — avant d'abandonner ce noeud pour ce modele (voir l'appel
+ * dans buildModel, qui tolere deja un noeud absent). Tente la variante
+ * uniquement si le nom canonique n'existe pas, donc sans incidence sur un
+ * modele deja au format attendu (Conscrit, Sapeur).
+ */
+function resolveAnimatedNode(root: THREE.Object3D, canonicalName: string): THREE.Object3D | null {
+  const direct = root.getObjectByName(canonicalName);
+  if (direct) return direct;
+  const altName = canonicalName.startsWith('Left')
+    ? canonicalName.slice('Left'.length) + '_L'
+    : canonicalName.startsWith('Right')
+      ? canonicalName.slice('Right'.length) + '_R'
+      : null;
+  return (altName ? root.getObjectByName(altName) : undefined) ?? null;
+}
+
+/**
  * Collecte les meshes descendants de `node` qui n'appartiennent pas a un
  * autre noeud anime plus profond dans la hierarchie (on arrete la descente
  * des qu'on croise un nom present dans `animatedNames`, sauf a la racine de
  * l'appel). Partitionne ainsi tous les meshes du modele en exactement un
- * groupe par noeud anime, sans liste de meshes ecrite en dur.
+ * groupe par noeud anime, sans liste de meshes ecrite en dur. `animatedNames`
+ * doit contenir les noms REELS des noeuds retenus (voir buildModel) — pas les
+ * noms canoniques : avec la variante _L/_R ci-dessus, un noeud peut etre
+ * retenu sous un nom different de sa cle canonique.
  */
 function collectOwnedMeshes(node: THREE.Object3D, animatedNames: ReadonlySet<string>): THREE.Mesh[] {
   const out: THREE.Mesh[] = [];
@@ -195,15 +218,17 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
   const scale = rawHeight > 0 ? targetHeight / rawHeight : 1;
   const groundOffsetY = -box.min.y * scale;
 
-  const animatedNamesSet = new Set<string>(ANIMATED_NODE_NAMES);
   const bucketNodes: THREE.Object3D[] = [];
   const nodeNames: string[] = [];
   for (const name of ANIMATED_NODE_NAMES) {
-    const node = root.getObjectByName(name);
+    const node = resolveAnimatedNode(root, name);
     if (!node) continue; // ce modele n'a pas ce noeud (ex. pas de Backpack) : ignore plutot que planter
     bucketNodes.push(node);
     nodeNames.push(name);
   }
+  // Noms REELS des noeuds retenus (pas les cles canoniques ci-dessus) : voir
+  // le commentaire de collectOwnedMeshes.
+  const animatedNamesSet = new Set<string>(bucketNodes.map((n) => n.name));
 
   const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
   const geometries: THREE.BufferGeometry[] = [];
