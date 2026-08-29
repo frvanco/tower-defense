@@ -549,8 +549,14 @@ button {
   font-style: italic;
 }
 
+/* Meme largeur que #cmd-info (voir plus haut) : c'est ce qui centre #cmd-grid
+   au milieu de la console (donc de l'ecran, la console etant elle-meme
+   centree) — pas la console dans son ensemble, qui laisserait la grille
+   decalee a droite tant que la zone info reste plus large que celle-ci.
+   L'espace libre autour des 2-3 boutons (centres dans la colonne) accueillera
+   le portrait du peon plus tard. */
 #cmd-modes {
-  width: 80px;
+  width: 220px;
   flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
