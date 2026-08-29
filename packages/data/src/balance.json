@@ -53,8 +53,8 @@
   "creeps": {},
   "shops": {
     "htow": { "world": "Les Enrôlés" },
-    "hkee": { "world": "Les Augmentés", "goldCost": 10000 },
-    "hcas": { "world": "Les Machines", "goldCost": 100000 }
+    "hkee": { "world": "Les Augmentés", "goldCost": 5000 },
+    "hcas": { "world": "Les Machines", "goldCost": 50000 }
   },
   "rules": {
     "bountyPct": 0.15,
