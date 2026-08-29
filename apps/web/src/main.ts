@@ -25,7 +25,8 @@ import {
   buildBuildGrid,
   updateBuildGrid,
   buildTooltipForBuildTile,
-  buildSendGrid,
+  buildSendTiers,
+  setViewedShopTier,
   updateSendGrid,
   sendTooltipForTile,
   renderTooltip,
@@ -35,8 +36,11 @@ import {
   nextShopToUnlock,
   showUnlockConfirm,
   hideUnlockConfirm,
+  buildShopNav,
+  updateShopNav,
   type BuildTile,
-  type SendTile,
+  type ShopTierUI,
+  type ShopNavRefs,
   type TooltipRefs,
   type UnlockConfirmRefs,
 } from './commandBar.js';
@@ -119,11 +123,6 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   const listenerOpts = { signal: controller.signal };
 
   const lane0 = must(lanes[0], 'lane 0 introuvable dans @tower-defense/data');
-  // Une seule boutique pour ce lot (voir le brief : le deblocage de hkee/hcas
-  // n'est pas implemente) — prise POSITIONNELLEMENT (shops[0]) plutot que par
-  // id 'htow' en dur, pour qu'accueillir plusieurs boutiques deverrouillables
-  // plus tard ne demande de changer que cette ligne.
-  const activeShop = must(shops[0], 'aucune boutique dans @tower-defense/data');
   // Une seule arene sert a construire le decor (terrain/lumieres/camera) :
   // les 8 sont geometriquement identiques (meme couloir, memes emplacements),
   // seule leur position monde BRUTE differe — computeFrame() de CHAQUE lane
@@ -271,9 +270,9 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     },
   );
 
-  const sendTiles: SendTile[] = buildSendGrid(
-    activeShop,
+  const sendTiersUI: ShopTierUI[] = buildSendTiers(
     cmdShopTiles,
+    shops,
     (defId) => {
       if (isObserving()) return;
       const arena = state.arenas[0];
@@ -282,6 +281,31 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     },
     (defId) => {
       hoveredTile = defId ? { mode: 'send', id: defId } : null;
+    },
+  );
+
+  // Palier CONSULTE (etat d'UI pur) — distinct du palier DEBLOQUE
+  // (arena.unlockedShopTier, dans GameState) : jamais stocke ici dans l'etat
+  // de simulation, voir le brief.
+  let viewedShopTier = 0;
+
+  const shopNavRefs: ShopNavRefs = {
+    prevBtn: byId('cmd-shop-prev'),
+    nextBtn: byId('cmd-shop-next'),
+    tierNameEl: byId('cmd-shop-tier-name'),
+  };
+  buildShopNav(
+    shopNavRefs,
+    () => {
+      if (isObserving() || viewedShopTier <= 0) return;
+      viewedShopTier -= 1;
+      setViewedShopTier(sendTiersUI, viewedShopTier);
+    },
+    () => {
+      const arena = state.arenas[0];
+      if (isObserving() || !arena || viewedShopTier >= arena.unlockedShopTier) return;
+      viewedShopTier += 1;
+      setViewedShopTier(sendTiersUI, viewedShopTier);
     },
   );
 
@@ -484,6 +508,8 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     for (const ce of creepEntitiesByPlayer) ce.clear();
     lightningArcs.clear();
     setCommandMode('build');
+    viewedShopTier = 0;
+    setViewedShopTier(sendTiersUI, 0);
     // Revient toujours a sa propre arene au lancement d'une nouvelle partie.
     for (const g of towerGroups) g.visible = false;
     for (const g of creepGroups) g.visible = false;
@@ -629,6 +655,11 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
         toast('You have been eliminated', 'danger');
       } else if (ev.type === 'lightningChain' && ev.player === 0) {
         lightningArcs.spawn(ev.points.map(([x, y]) => worldToScene(frame, x, y)));
+      } else if (ev.type === 'shopUnlocked' && ev.player === 0) {
+        // "Au moment ou un deblocage reussit, la vue bascule automatiquement
+        // sur le nouveau palier" (brief) — c'est ce qui vient d'etre achete.
+        viewedShopTier = ev.tier;
+        setViewedShopTier(sendTiersUI, viewedShopTier);
       } else if (ev.type === 'gameOver') {
         const you = ev.winner === 0;
         gameOverTitle.textContent =
@@ -710,7 +741,13 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
       );
       updateTopbar(topbarRefs, state);
       updateBuildGrid(buildTiles, armedBuildDefId);
-      updateSendGrid(sendTiles, state, arena0);
+      // Toutes les tuiles de TOUS les paliers restent a jour en permanence
+      // (stock/rechargement), pas seulement celles du palier consulte —
+      // meme principe que les 6+ arenes synchronisees chaque frame meme non
+      // affichees (voir plus haut) : rien a recalculer au moment de
+      // naviguer.
+      for (const tierUI of sendTiersUI) updateSendGrid(tierUI.tiles, state, arena0);
+      updateShopNav(shopNavRefs, viewedShopTier, arena0, shops);
       updateUnlockButton(cmdShopUnlockBtn, arena0, shops);
 
       // Zone info : priorite 1 (infobulle d'un element survole dans la

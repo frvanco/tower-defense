@@ -471,12 +471,13 @@ button {
   width: max-content;
   max-width: min(820px, 100%);
   /* 148px (chantiers precedents, calee sur l'ancienne barre plein-largeur)
-   * + le bouton de deblocage du mode send (44px + 8px d'ecart) = 192px.
-   * FIXE quel que soit le mode/palier/presence du bouton (voir
-   * .cmd-shop-panel) : signale — cette hausse couvre davantage le bas du
-   * canvas que les chantiers precedents (zone de jeu visible ~500px au lieu
-   * de 544px), tout en restant sans lien avec la camera (non touchee). */
-  height: 192px;
+   * + navigation de palier (26px + 8px d'ecart) + bouton de deblocage
+   * (44px + 8px d'ecart) = 226px. FIXE quel que soit le mode/palier
+   * consulte/presence du bouton (voir .cmd-shop-panel) : signale — cette
+   * hausse couvre davantage le bas du canvas que les chantiers precedents
+   * (zone de jeu visible ~466px au lieu de 544px avant l'ajout de la
+   * console), tout en restant sans lien avec la camera (non touchee). */
+  height: 226px;
   background: rgba(26, 20, 15, 0.94);
   border: 1px solid #6b5432;
   border-bottom: none;
@@ -540,18 +541,61 @@ button {
   height: 100%;
 }
 
-/* Conteneur du mode send : tuiles (#cmd-shop-tiles, .cmd-tiles ci-dessus,
-   inchangee) + bouton de deblocage sous la grille. flex-direction:column
-   sur toute la hauteur de #cmd-grid (100%, fixe — voir #command-bar) : la
-   RANGEE du bouton reste toujours reservee (justify-content:flex-end le
-   pousse en bas), meme quand le bouton lui-meme se cache au dernier palier
-   (voir .cmd-unlock-btn[hidden]) — "prevoir la place d'emblee" (brief). */
+/* Conteneur du mode send : navigation de palier (#cmd-shop-nav), tuiles
+   (#cmd-shop-tiles, un sous-conteneur .cmd-tiles PAR palier — voir
+   commandBar.ts, un seul visible a la fois), bouton de deblocage sous la
+   grille. flex-direction:column sur toute la hauteur de #cmd-grid (100%,
+   fixe — voir #command-bar) : nav et bouton ont une hauteur FIXE, les
+   tuiles (flex:1) absorbent le reste — la rangee du bouton reste donc
+   toujours reservee meme quand il se cache au dernier palier (voir
+   .cmd-unlock-btn[hidden]) — "prevoir la place d'emblee" (brief). */
 #cmd-grid-send.cmd-shop-panel {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   gap: 8px;
   height: 100%;
+}
+
+/* Navigation entre paliers — flechette gauche/droite, nom du palier
+   consulte entre les deux. Le palier CONSULTE est un etat d'UI (main.ts),
+   jamais stocke dans GameState — voir le brief. */
+#cmd-shop-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 26px;
+}
+
+.cmd-nav-arrow {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  background: #2a2118;
+  border: 1px solid #6b5432;
+  border-radius: 5px;
+  color: #e9e2d3;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cmd-nav-arrow:hover:not(:disabled) {
+  background: #3a2f1c;
+}
+
+.cmd-nav-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+#cmd-shop-tier-name {
+  min-width: 110px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f1e6c8;
 }
 
 #cmd-shop-tiles {

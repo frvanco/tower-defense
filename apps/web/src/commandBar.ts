@@ -215,25 +215,84 @@ export interface SendTile extends TileRefs {
   defId: string;
 }
 
-export function buildSendGrid(
-  shop: Shop,
-  container: HTMLElement,
+export interface ShopTierUI {
+  tiles: SendTile[];
+  /** Sous-conteneur .cmd-tiles de CE palier — un par palier, un seul visible
+   * a la fois (voir setViewedShopTier) : memes tuiles toujours en place,
+   * jamais reconstruites en naviguant, coherent avec le motif deja utilise
+   * pour les 6+ arenes/les 3 modes (main.ts). */
+  container: HTMLElement;
+}
+
+/** Construit un sous-conteneur de tuiles PAR palier de boutique — un seul
+ * visible a la fois (voir setViewedShopTier plus bas). `wrap` est le
+ * conteneur PARENT (#cmd-shop-tiles) ; on ne lit jamais `shops[0]`/un id en
+ * dur ici, la liste vient entierement du parametre `allShops`, donc
+ * accueillir une eventuelle 4e boutique un jour ne demande de changer que
+ * l'appel cote main.ts. */
+export function buildSendTiers(
+  wrap: HTMLElement,
+  allShops: readonly Shop[],
   onSend: (defId: string) => void,
   onHover: (defId: string | null) => void,
-): SendTile[] {
-  const out: SendTile[] = [];
-  for (const id of shop.sells) {
-    const def: CreepDef | undefined = creeps.get(id);
-    if (!def) continue;
-    const tile = buildTile(
-      { id, name: def.name, cost: def.goldCost, color: ARMOR_COLORS[def.armorType], iconUrl: iconUrlOf(def) },
-      () => onSend(id),
-      (hovering) => onHover(hovering ? id : null),
-    );
-    container.appendChild(tile.wrap);
-    out.push({ ...tile, defId: id });
-  }
-  return out;
+): ShopTierUI[] {
+  return allShops.map((shop, tier) => {
+    const container = document.createElement('div');
+    container.className = 'cmd-tiles';
+    container.hidden = tier !== 0;
+    wrap.appendChild(container);
+
+    const tiles: SendTile[] = [];
+    for (const id of shop.sells) {
+      const def: CreepDef | undefined = creeps.get(id);
+      if (!def) continue;
+      const tile = buildTile(
+        { id, name: def.name, cost: def.goldCost, color: ARMOR_COLORS[def.armorType], iconUrl: iconUrlOf(def) },
+        () => onSend(id),
+        (hovering) => onHover(hovering ? id : null),
+      );
+      container.appendChild(tile.wrap);
+      tiles.push({ ...tile, defId: id });
+    }
+    return { tiles, container };
+  });
+}
+
+/** Affiche EXACTEMENT le sous-conteneur du palier consulte, masque les
+ * autres — aucune tuile n'est recreee (voir buildSendTiers). */
+export function setViewedShopTier(tiersUI: readonly ShopTierUI[], tier: number): void {
+  tiersUI.forEach((t, i) => {
+    t.container.hidden = i !== tier;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Navigation entre paliers — flechette gauche/droite + nom du palier
+// consulte. Le palier consulte est un etat d'UI PUR (main.ts), jamais
+// stocke dans GameState : ce module ne fait que reproduire les regles
+// d'activation des flechettes, jamais leur memoire.
+// ---------------------------------------------------------------------------
+
+export interface ShopNavRefs {
+  prevBtn: HTMLButtonElement;
+  nextBtn: HTMLButtonElement;
+  tierNameEl: HTMLElement;
+}
+
+export function buildShopNav(refs: ShopNavRefs, onPrev: () => void, onNext: () => void): void {
+  refs.prevBtn.addEventListener('click', onPrev);
+  refs.nextBtn.addEventListener('click', onNext);
+}
+
+export function updateShopNav(refs: ShopNavRefs, viewedTier: number, arena: Arena, allShops: readonly Shop[]): void {
+  const shop = allShops[viewedTier];
+  refs.tierNameEl.textContent = shop?.name ?? '';
+  // Flechette gauche : inactive au palier le plus bas (0).
+  refs.prevBtn.disabled = viewedTier <= 0;
+  // Flechette droite : seulement si le palier SUIVANT est deja debloque —
+  // jamais un simple "palier suivant existe dans les donnees", sans quoi on
+  // pourrait consulter un palier pas encore acquis.
+  refs.nextBtn.disabled = viewedTier >= arena.unlockedShopTier || viewedTier + 1 >= allShops.length;
 }
 
 /** Duree totale (secondes) de l'etat "indisponible" en cours — le denominateur
