@@ -138,10 +138,21 @@ function resolveAnimatedNode(root: THREE.Object3D, canonicalName: string): THREE
 function detectHeadingOffset(root: THREE.Object3D): number {
   const nose = root.getObjectByName('Nose');
   if (!nose) return Math.PI;
+  // Le CENTRE DE LA GEOMETRIE du mesh (Box3.setFromObject, qui lit les
+  // sommets reels et applique matrixWorld), pas la translation du noeud
+  // lui-meme : certains exports (Conscrit/Sapeur) placent chaque piece via
+  // une translation de noeud (noeud Nose translate en Z negatif, mesh
+  // partage a l'origine), d'autres (le Trainard) laissent le noeud a
+  // l'origine et bakent la position directement dans les sommets du mesh —
+  // ne lire que la translation du noeud donnait alors (0,0,0) pour ce
+  // dernier cas, un repli silencieux sur Math.PI toujours faux (retour
+  // direct : le Trainard marchait encore a l'envers apres le premier essai).
+  const box = new THREE.Box3().setFromObject(nose);
+  if (box.isEmpty()) return Math.PI;
+  const center = box.getCenter(new THREE.Vector3());
   const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
-  const local = new THREE.Matrix4().multiplyMatrices(rootInverse, nose.matrixWorld);
-  const pos = new THREE.Vector3().setFromMatrixPosition(local);
-  return pos.z > 0 ? 0 : Math.PI;
+  center.applyMatrix4(rootInverse);
+  return center.z > 0 ? 0 : Math.PI;
 }
 
 /**
