@@ -241,13 +241,23 @@ button {
   cursor: crosshair;
 }
 
+/* Juste au-dessus de la console (voir #command-bar : hauteur fixe 148px,
+   toujours la meme quel que soit le mode), centre dessus, avec un petit
+   ecart (14px). Ancre par le BAS (bottom, pas top) : les toasts s'empilent
+   dans l'ordre normal du flex column (le plus recent est ajoute en dernier,
+   donc en bas de la colonne), et comme le conteneur grandit vers le haut a
+   partir d'un bord bas fixe, c'est le message le plus recent qui reste au
+   plus pres de la console — les plus anciens sont repousses vers le haut au
+   fur et a mesure. */
 #toasts {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  left: 50%;
+  bottom: 162px;
+  transform: translateX(-50%);
   z-index: 15;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
   pointer-events: none;
   max-width: 280px;
