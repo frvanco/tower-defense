@@ -448,43 +448,28 @@ button {
 /* ---------- console de commandes (superposee en bas du canvas) ---------- */
 
 /* `position: absolute` par rapport a #canvas-wrap (son parent — voir
-   index.html), centree horizontalement, flush contre le bord bas : une
-   console posee sur la scene, pas une barre de page. Largeur EXPLICITE
-   (756px = 220 info + 316 grille + 220 — la meme reserve des deux cotes de
-   la grille, meme si #cmd-modes n'utilise pas tout l'espace qui lui est
-   alloue a droite : c'est ce qui garde #cmd-grid centree independamment de
-   la largeur reellement utilisee par #cmd-info/#cmd-modes, voir leurs
-   commentaires), plafonnee a ~820px, jamais plus large que #canvas-wrap sur
-   petit ecran (max-width en %, resout contre le containing block). Hauteur
-   FIXE, calee pour accueillir deux rangees de tuiles quel que soit le mode
-   actif (voir .cmd-tiles) : elle ne doit JAMAIS bouger quand le contenu
-   change (mode, survol, selection), sans quoi #canvas-wrap changerait de
-   taille au montage suivant -> resizeScene3D -> la camera Three.js se
+   index.html), flush contre le bord bas : une console posee sur la scene,
+   pas une barre de page. PUR REPERE de centrage desormais : les 3 boites
+   (#cmd-info/#cmd-grid/#cmd-modes) sont chacune positionnees en absolu par
+   rapport a lui, docees sur les bords de #cmd-grid (voir leurs commentaires)
+   — sa propre largeur ne sert plus qu'a fixer ce qu'est "50%" pour elles,
+   et son propre centrage (left:50% + translateX(-50%)) fixe ce repere sur
+   le centre de #canvas-wrap quelle que soit sa valeur (316px choisi = celle
+   de #cmd-grid, pour que le calcul reste lisible). Hauteur FIXE, calee pour
+   accueillir deux rangees de tuiles quel que soit le mode actif (voir
+   .cmd-tiles) : elle ne doit JAMAIS bouger quand le contenu change (mode,
+   survol, selection), sans quoi #canvas-wrap changerait de taille au
+   montage suivant -> resizeScene3D -> la camera Three.js se
    reconfigurerait en pleine partie. Comme #canvas-wrap ne redimensionne
    plus JAMAIS pour cette barre (elle est hors flux), resize() ne s'execute
-   qu'au montage/redimensionnement de fenetre, jamais a cause d'elle.
-   PURE conteneur de positionnement desormais (plus de fond/bordure ici,
-   voir #cmd-info/#cmd-grid/#cmd-modes) : la reserve de 220px a droite pour
-   #cmd-modes (qui n'en occupe que 64) laissait un pave de fond continu sans
-   rien dedans — visible comme du "vide inutile" (retour direct). En
-   peignant le fond/la bordure sur chacune des 3 boites plutot que sur cette
-   enveloppe, cet ecart redevient de la scene 3D visible entre les boites
-   (l'esthetique HUD WarCraft 3 d'origine : des elements separes, pas une
-   seule barre continue) au lieu d'un bloc de console vide. */
+   qu'au montage/redimensionnement de fenetre, jamais a cause d'elle. */
 #command-bar {
   position: absolute;
   left: 50%;
   bottom: 0;
   transform: translateX(-50%);
   z-index: 5;
-  display: flex;
-  align-items: stretch;
-  /* #cmd-info et #cmd-modes aux deux bouts, #cmd-grid centree independamment
-   * (position:absolute, voir son commentaire) — le seul role restant de ce
-   * flex ici est d'ecarter les deux boites laterales l'une de l'autre. */
-  justify-content: space-between;
-  width: 756px;
-  max-width: min(820px, 100%);
+  width: 316px;
   /* 148px (barre plein-largeur d'origine) + navigation de palier ET bouton
    * de deblocage sur la MEME ligne (26px + 8px d'ecart) = 182px. FIXE quel
    * que soit le mode/palier consulte/presence du bouton (voir
@@ -502,12 +487,21 @@ button {
   cursor: not-allowed;
 }
 
-/* Fond/bordure repris a l'identique sur les 3 boites (#cmd-info/#cmd-grid/
-   #cmd-modes) — anciennement porte par #command-bar seul, voir son
-   commentaire. */
+/* Docee contre le bord GAUCHE de #cmd-grid (8px d'ecart, meme valeur que
+   .cmd-shop-nav plus bas) plutot que flush au bord de #command-bar : les
+   deux etaient equivalents tant que la largeur de #command-bar etait
+   calculee pour ca (ancienne technique), mais c'etait fragile — un calcul
+   accessoire qui n'avait plus de sens une fois #cmd-modes retaille (retour
+   direct : la boite de droite s'est retrouvee "detachee" de la grille,
+   toujours plaquee sur l'ancien bord large). Ancree directement sur
+   #cmd-grid, elle suit desormais son bord quel que soit ce qui change a
+   cote. */
 #cmd-info {
+  position: absolute;
+  left: calc(50% - 158px - 8px - 220px);
+  top: 0;
+  bottom: 0;
   width: 220px;
-  flex-shrink: 0;
   padding: 12px;
   background: rgba(26, 20, 15, 0.94);
   border: 1px solid #6b5432;
@@ -532,14 +526,10 @@ button {
    plus bas) = 316px. Fixe, pas flex:1 : la console entiere est
    dimensionnee par son contenu (voir #command-bar), plus de "largeur
    restante de l'ecran" a remplir. */
-/* position:absolute + centrage independant de #cmd-info/#cmd-modes plutot
-   que "meme largeur des deux cotes" (l'ancienne technique) : ca permettait
-   de centrer la grille, mais forcait #cmd-modes a reserver 220px meme s'il
-   n'a besoin que d'une soixantaine de pixels pour ses boutons — d'ou la
-   boite trop large a droite (retour direct). Desormais #cmd-grid est
-   toujours au milieu de #command-bar (qui a une largeur EXPLICITE, voir
-   plus haut, precisement pour laisser la place a ce centrage) quelles que
-   soient les tailles de #cmd-info/#cmd-modes de part et d'autre. */
+/* position:absolute, centree sur #command-bar (donc sur #canvas-wrap, voir
+   son commentaire) independamment des largeurs de #cmd-info/#cmd-modes qui
+   l'encadrent — celles-ci se docent desormais sur SES bords a elle (voir
+   leurs commentaires), donc la question ne se pose plus dans l'autre sens. */
 #cmd-grid {
   position: absolute;
   left: 50%;
@@ -792,21 +782,22 @@ button {
   font-style: italic;
 }
 
-/* Meme largeur que #cmd-info (voir plus haut) : c'est ce qui centre #cmd-grid
-   au milieu de la console (donc de l'ecran, la console elle-meme etant
-   centree) — pas la console dans son ensemble, qui laisserait la grille
-   decalee a droite tant que la zone info reste plus large que celle-ci. Les
-   boutons, eux, sont empiles de haut en bas plutot qu'en rangee : ils
-   restent compacts (juste leur largeur propre, 40px) au lieu de s'etaler
-   sur toute la largeur de la colonne — l'espace libre autour d'eux
-   accueillera le portrait du peon plus tard. */
-/* Largeur reduite a son contenu reel (retour direct : la colonne etait
-   trop large) — plus besoin de matcher #cmd-info pour centrer la grille,
-   voir #cmd-grid (position:absolute, centree independamment des deux
-   cotes). */
+/* Docee contre le bord DROIT de #cmd-grid (meme technique et meme ecart de
+   8px que #cmd-info a gauche, voir son commentaire) plutot que flush au
+   bord droit de #command-bar : sinon la boite reste plaquee a l'ancien bord
+   large (220px, herite de l'epoque ou elle devait faire contrepoids a
+   #cmd-info pour centrer la grille par largeurs egales) meme apres avoir
+   retreci a son contenu reel (64px) — d'ou l'ecart visible signale (retour
+   direct). Largeur reduite a son contenu reel : les boutons sont empiles de
+   haut en bas plutot qu'en rangee, ils restent compacts (juste leur largeur
+   propre, 40px) au lieu de s'etaler sur toute la largeur de la colonne —
+   l'espace libre autour d'eux accueillera le portrait du peon plus tard. */
 #cmd-modes {
+  position: absolute;
+  left: calc(50% + 158px + 8px);
+  top: 0;
+  bottom: 0;
   width: 64px;
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
