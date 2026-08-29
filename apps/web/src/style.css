@@ -487,18 +487,20 @@ button {
   cursor: not-allowed;
 }
 
-/* Docee contre le bord GAUCHE de #cmd-grid (8px d'ecart, meme valeur que
-   .cmd-shop-nav plus bas) plutot que flush au bord de #command-bar : les
-   deux etaient equivalents tant que la largeur de #command-bar etait
-   calculee pour ca (ancienne technique), mais c'etait fragile — un calcul
-   accessoire qui n'avait plus de sens une fois #cmd-modes retaille (retour
-   direct : la boite de droite s'est retrouvee "detachee" de la grille,
-   toujours plaquee sur l'ancien bord large). Ancree directement sur
-   #cmd-grid, elle suit desormais son bord quel que soit ce qui change a
-   cote. */
+/* Docee contre le bord GAUCHE de #cmd-grid, bord a bord (0 ecart — les deux
+   bordures de 1px se superposent visuellement en une seule ligne de
+   separation, comme l'ancienne barre continue) plutot que flush au bord de
+   #command-bar : les deux etaient equivalents tant que la largeur de
+   #command-bar etait calculee pour ca (ancienne technique), mais c'etait
+   fragile — un calcul accessoire qui n'avait plus de sens une fois
+   #cmd-modes retaille (retour direct : la boite de droite s'est retrouvee
+   "detachee" de la grille, puis un ecart de 8px encore visible une fois
+   recollee — retour direct, "elles peuvent etre tout a fait collees ?").
+   Ancree directement sur #cmd-grid, elle suit desormais son bord quel que
+   soit ce qui change a cote. */
 #cmd-info {
   position: absolute;
-  left: calc(50% - 158px - 8px - 220px);
+  left: calc(50% - 158px - 220px);
   top: 0;
   bottom: 0;
   width: 220px;
@@ -782,19 +784,20 @@ button {
   font-style: italic;
 }
 
-/* Docee contre le bord DROIT de #cmd-grid (meme technique et meme ecart de
-   8px que #cmd-info a gauche, voir son commentaire) plutot que flush au
-   bord droit de #command-bar : sinon la boite reste plaquee a l'ancien bord
-   large (220px, herite de l'epoque ou elle devait faire contrepoids a
-   #cmd-info pour centrer la grille par largeurs egales) meme apres avoir
-   retreci a son contenu reel (64px) — d'ou l'ecart visible signale (retour
-   direct). Largeur reduite a son contenu reel : les boutons sont empiles de
-   haut en bas plutot qu'en rangee, ils restent compacts (juste leur largeur
-   propre, 40px) au lieu de s'etaler sur toute la largeur de la colonne —
-   l'espace libre autour d'eux accueillera le portrait du peon plus tard. */
+/* Docee contre le bord DROIT de #cmd-grid, bord a bord (meme technique et
+   meme ecart nul que #cmd-info a gauche, voir son commentaire) plutot que
+   flush au bord droit de #command-bar : sinon la boite reste plaquee a
+   l'ancien bord large (220px, herite de l'epoque ou elle devait faire
+   contrepoids a #cmd-info pour centrer la grille par largeurs egales) meme
+   apres avoir retreci a son contenu reel (64px) — d'ou l'ecart visible
+   signale (retour direct). Largeur reduite a son contenu reel : les
+   boutons sont empiles de haut en bas plutot qu'en rangee, ils restent
+   compacts (juste leur largeur propre, 40px) au lieu de s'etaler sur toute
+   la largeur de la colonne — l'espace libre autour d'eux accueillera le
+   portrait du peon plus tard. */
 #cmd-modes {
   position: absolute;
-  left: calc(50% + 158px + 8px);
+  left: calc(50% + 158px);
   top: 0;
   bottom: 0;
   width: 64px;
