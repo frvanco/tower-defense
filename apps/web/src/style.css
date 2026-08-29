@@ -450,7 +450,7 @@ button {
 /* `position: absolute` par rapport a #canvas-wrap (son parent — voir
    index.html), centree horizontalement, flush contre le bord bas : une
    console posee sur la scene, pas une barre de page. Largeur EXPLICITE
-   (754px = 220 info + 314 grille + 220 — la meme reserve des deux cotes de
+   (756px = 220 info + 316 grille + 220 — la meme reserve des deux cotes de
    la grille, meme si #cmd-modes n'utilise pas tout l'espace qui lui est
    alloue a droite : c'est ce qui garde #cmd-grid centree independamment de
    la largeur reellement utilisee par #cmd-info/#cmd-modes, voir leurs
@@ -462,7 +462,15 @@ button {
    taille au montage suivant -> resizeScene3D -> la camera Three.js se
    reconfigurerait en pleine partie. Comme #canvas-wrap ne redimensionne
    plus JAMAIS pour cette barre (elle est hors flux), resize() ne s'execute
-   qu'au montage/redimensionnement de fenetre, jamais a cause d'elle. */
+   qu'au montage/redimensionnement de fenetre, jamais a cause d'elle.
+   PURE conteneur de positionnement desormais (plus de fond/bordure ici,
+   voir #cmd-info/#cmd-grid/#cmd-modes) : la reserve de 220px a droite pour
+   #cmd-modes (qui n'en occupe que 64) laissait un pave de fond continu sans
+   rien dedans — visible comme du "vide inutile" (retour direct). En
+   peignant le fond/la bordure sur chacune des 3 boites plutot que sur cette
+   enveloppe, cet ecart redevient de la scene 3D visible entre les boites
+   (l'esthetique HUD WarCraft 3 d'origine : des elements separes, pas une
+   seule barre continue) au lieu d'un bloc de console vide. */
 #command-bar {
   position: absolute;
   left: 50%;
@@ -475,7 +483,7 @@ button {
    * (position:absolute, voir son commentaire) — le seul role restant de ce
    * flex ici est d'ecarter les deux boites laterales l'une de l'autre. */
   justify-content: space-between;
-  width: 754px;
+  width: 756px;
   max-width: min(820px, 100%);
   /* 148px (barre plein-largeur d'origine) + navigation de palier ET bouton
    * de deblocage sur la MEME ligne (26px + 8px d'ecart) = 182px. FIXE quel
@@ -485,11 +493,6 @@ button {
    * 544px), mais nettement moins que le premier jet du bouton pleine
    * largeur (226px) — camera non touchee, comme demande. */
   height: 182px;
-  background: rgba(26, 20, 15, 0.94);
-  border: 1px solid #6b5432;
-  border-bottom: none;
-  border-radius: 10px 10px 0 0;
-  overflow: hidden;
 }
 
 /* Observation : aucune action possible (voir main.ts, isObserving()). */
@@ -499,11 +502,17 @@ button {
   cursor: not-allowed;
 }
 
+/* Fond/bordure repris a l'identique sur les 3 boites (#cmd-info/#cmd-grid/
+   #cmd-modes) — anciennement porte par #command-bar seul, voir son
+   commentaire. */
 #cmd-info {
   width: 220px;
   flex-shrink: 0;
   padding: 12px;
-  border-right: 1px solid #3a2f1c;
+  background: rgba(26, 20, 15, 0.94);
+  border: 1px solid #6b5432;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
   overflow: hidden;
 }
 
@@ -519,7 +528,8 @@ button {
 
 /* Largeur exacte pour SIX tuiles de 40px par rangee (brief : jamais plus) —
    6 x 40px + 5 x 10px de column-gap (voir .cmd-tiles) + le padding
-   horizontal ci-dessous = 314px. Fixe, pas flex:1 : la console entiere est
+   horizontal + la bordure propre a cette boite (1px de chaque cote, voir
+   plus bas) = 316px. Fixe, pas flex:1 : la console entiere est
    dimensionnee par son contenu (voir #command-bar), plus de "largeur
    restante de l'ecran" a remplir. */
 /* position:absolute + centrage independant de #cmd-info/#cmd-modes plutot
@@ -536,8 +546,12 @@ button {
   top: 0;
   bottom: 0;
   transform: translateX(-50%);
-  width: 314px;
+  width: 316px;
   padding: 10px 12px;
+  background: rgba(26, 20, 15, 0.94);
+  border: 1px solid #6b5432;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
   overflow: hidden;
 }
 
@@ -799,7 +813,10 @@ button {
   justify-content: center;
   gap: 8px;
   padding: 10px;
-  border-left: 1px solid #3a2f1c;
+  background: rgba(26, 20, 15, 0.94);
+  border: 1px solid #6b5432;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
 }
 
 .cmd-mode-btn {
