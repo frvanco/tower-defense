@@ -16,6 +16,7 @@ function makeModel(): AnimatedCreepModel {
     walkClipDuration: 1,
     deathFrames: [[pose]],
     deathClipDuration: 1,
+    headingOffset: Math.PI,
   };
 }
 

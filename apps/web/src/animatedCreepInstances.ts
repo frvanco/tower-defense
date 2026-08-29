@@ -232,10 +232,12 @@ export class AnimatedCreepController {
       const dz = sz - anim.prevSz;
       const dist = Math.hypot(dx, dz);
       if (dist > HEADING_MIN_DISTANCE) {
-        // +PI : les modeles livres jusqu'ici font face a -Z au repos (verifie
-        // a l'usage sur le Trainard — pas +Z comme suppose au premier jet),
-        // sans quoi le creep marchait dos a sa direction de deplacement.
-        anim.headingAngle = Math.atan2(dx, dz) + Math.PI;
+        // headingOffset : mesure par modele (voir detectHeadingOffset dans
+        // animatedCreepModel.ts), pas une constante partagee — un export du
+        // Trainard faisait face a +Z au repos plutot que -Z comme les autres
+        // modeles livres jusqu'ici, et un `+PI` fixe le faisait marcher a
+        // reculons (retour direct, "le Trainard est a l'envers").
+        anim.headingAngle = Math.atan2(dx, dz) + this.model.headingOffset;
         anim.walkDistance += dist;
       }
     }

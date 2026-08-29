@@ -66,6 +66,9 @@ export interface AnimatedCreepModel {
   deathFrames: THREE.Matrix4[][];
   /** Duree reelle du clip Death (secondes), lue sur le fichier. */
   deathClipDuration: number;
+  /** Angle (radians) a ajouter au cap de deplacement pour que le modele
+   * marche face a sa direction — voir detectHeadingOffset. */
+  headingOffset: number;
 }
 
 const cachedModels = new Map<string, AnimatedCreepModel>();
@@ -121,6 +124,27 @@ function resolveAnimatedNode(root: THREE.Object3D, canonicalName: string): THREE
 }
 
 /**
+ * Determine dans quel sens ce modele fait face au repos, en mesurant la
+ * position du noeud `Nose` relative a la racine : un nez pointe toujours
+ * vers l'avant du visage, donc son signe en Z revele la convention de cet
+ * export sans ambiguite — plutot que de supposer une constante unique
+ * partagee par tous les modeles (ce qui etait le cas avant : un `+PI` fixe
+ * dans animatedCreepInstances.ts, calibre sur un ancien export du Trainard
+ * qui pointait en Z negatif comme le Conscrit/Sapeur. Un export plus recent
+ * du Trainard pointe en Z POSITIF — le decalage fixe le faisait alors
+ * marcher a reculons). Repli sur `Math.PI` (convention historique) si aucun
+ * noeud `Nose` n'existe dans ce fichier.
+ */
+function detectHeadingOffset(root: THREE.Object3D): number {
+  const nose = root.getObjectByName('Nose');
+  if (!nose) return Math.PI;
+  const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const local = new THREE.Matrix4().multiplyMatrices(rootInverse, nose.matrixWorld);
+  const pos = new THREE.Vector3().setFromMatrixPosition(local);
+  return pos.z > 0 ? 0 : Math.PI;
+}
+
+/**
  * Collecte les meshes descendants de `node` qui n'appartiennent pas a un
  * autre noeud anime plus profond dans la hierarchie (on arrete la descente
  * des qu'on croise un nom present dans `animatedNames`, sauf a la racine de
@@ -143,6 +167,22 @@ function collectOwnedMeshes(node: THREE.Object3D, animatedNames: ReadonlySet<str
 
 const WALK_SAMPLE_STEPS = 32;
 const DEATH_SAMPLE_STEPS = 24;
+
+// A l'echelle d'un creep (quelques dizaines de px a l'ecran), les teintes
+// pastel de ces modeles (chemise, peau claire, blanc des yeux) se distinguent
+// mal les unes des autres et donnent une impression generale de blancheur
+// (retour direct). Boost applique une fois ici, au moment ou la couleur du
+// materiau est figee en couleur de sommet — pas de cout de rendu par frame.
+const CREEP_SATURATION_BOOST = 1.45;
+const CREEP_CONTRAST_BOOST = 1.15;
+const tmpHsl = { h: 0, s: 0, l: 0 };
+
+function boostCreepColor(color: THREE.Color): void {
+  color.getHSL(tmpHsl);
+  const s = Math.min(1, tmpHsl.s * CREEP_SATURATION_BOOST);
+  const l = Math.min(1, Math.max(0, 0.5 + (tmpHsl.l - 0.5) * CREEP_CONTRAST_BOOST));
+  color.setHSL(tmpHsl.h, s, l);
+}
 
 interface PoseSnapshot {
   position: THREE.Vector3;
@@ -217,6 +257,7 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
   const rawHeight = box.max.y - box.min.y;
   const scale = rawHeight > 0 ? targetHeight / rawHeight : 1;
   const groundOffsetY = -box.min.y * scale;
+  const headingOffset = detectHeadingOffset(root);
 
   const bucketNodes: THREE.Object3D[] = [];
   const nodeNames: string[] = [];
@@ -256,6 +297,7 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
 
       const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
       tmpColor.copy((material as THREE.MeshStandardMaterial).color ?? new THREE.Color(0xffffff));
+      boostCreepColor(tmpColor);
       const colors = new Float32Array(pos.count * 3);
       for (let i = 0; i < pos.count; i++) {
         colors[i * 3] = tmpColor.r;
@@ -319,5 +361,6 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
     walkClipDuration: walkClip?.duration ?? 1,
     deathFrames,
     deathClipDuration: deathClip?.duration ?? 1,
+    headingOffset,
   };
 }
