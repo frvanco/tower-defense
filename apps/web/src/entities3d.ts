@@ -218,11 +218,18 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
  */
 const HUMANOID_CREEP_HEIGHT = 1.8;
 const HUMANOID_MODEL_URLS: Record<string, string> = {
-  n000: '/models/trainard_lv1.glb', // Trainard
-  h001: '/models/conscrit_lv2.glb', // Conscrit
-  h009: '/models/sapeur_lv3.glb', // Sapeur
-  h00A: '/models/lancier_lv4.glb', // Lancier
-  h00E: '/models/eclaireur_lv10.glb', // Éclaireur (10e position Caserne)
+  n000: '/models/lv1_trainard.glb', // Trainard
+  h001: '/models/lv2_conscrit.glb', // Conscrit
+  h009: '/models/lv3_sapeur.glb', // Sapeur
+  h00A: '/models/lv4_lancier.glb', // Lancier
+  h00B: '/models/lv5_hallebardier.glb', // Hallebardier
+  h00C: '/models/lv6_bretteur.glb', // Bretteur
+  h00D: '/models/lv7_grognard.glb', // Grognard
+  u000: '/models/lv8_fauconnier.glb', // Fauconnier
+  u001: '/models/lv9_chevaucheur_aigle.glb', // Chevaucheur d'aigle
+  h00E: '/models/lv10_eclaireur.glb', // Éclaireur
+  h00F: '/models/lv11_cuirassier.glb', // Cuirassier
+  h00G: '/models/lv12_marechal.glb', // Maréchal
 };
 for (const url of Object.values(HUMANOID_MODEL_URLS)) void loadAnimatedCreepModel(url, HUMANOID_CREEP_HEIGHT);
 

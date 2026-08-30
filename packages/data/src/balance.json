@@ -51,18 +51,18 @@
     "o00B": { "attackType": "normal", "name": "Fauchoir", "targets": ["ground"], "damageBase": 518, "cooldown": 0.18, "range": 900 }
   },
   "creeps": {
-    "n000": { "iconUrl": "/icons/creeps/lv_1_trainard_mini.png" },
-    "h001": { "iconUrl": "/icons/creeps/lv_2_conscrit_mini.png" },
-    "h009": { "iconUrl": "/icons/creeps/lv_3_sapeur_mini.png" },
-    "h00A": { "iconUrl": "/icons/creeps/lv_4_lancier_mini.png" },
-    "h00B": { "iconUrl": "/icons/creeps/lv_5_hallebardier_mini.png" },
-    "h00C": { "iconUrl": "/icons/creeps/lv_6_bretteur_mini.png" },
-    "h00D": { "iconUrl": "/icons/creeps/lv_7_grognard_mini.png" },
-    "u000": { "iconUrl": "/icons/creeps/lv_8_fauconnier_mini.png" },
-    "u001": { "iconUrl": "/icons/creeps/lv_9_chevaucheur_aigle_mini.png" },
-    "h00E": { "iconUrl": "/icons/creeps/lv_10_eclaireur_mini.png" },
-    "h00F": { "iconUrl": "/icons/creeps/lv_11_cuirassier_mini.png" },
-    "h00G": { "iconUrl": "/icons/creeps/lv_12_marechal_mini.png" }
+    "n000": { "iconUrl": "/icons/creeps/lv1_trainard_mini.png" },
+    "h001": { "iconUrl": "/icons/creeps/lv2_conscrit_mini.png" },
+    "h009": { "iconUrl": "/icons/creeps/lv3_sapeur_mini.png" },
+    "h00A": { "iconUrl": "/icons/creeps/lv4_lancier_mini.png" },
+    "h00B": { "iconUrl": "/icons/creeps/lv5_hallebardier_mini.png" },
+    "h00C": { "iconUrl": "/icons/creeps/lv6_bretteur_mini.png" },
+    "h00D": { "iconUrl": "/icons/creeps/lv7_grognard_mini.png" },
+    "u000": { "iconUrl": "/icons/creeps/lv8_fauconnier_mini.png" },
+    "u001": { "iconUrl": "/icons/creeps/lv9_chevaucheur_aigle_mini.png" },
+    "h00E": { "iconUrl": "/icons/creeps/lv10_eclaireur_mini.png" },
+    "h00F": { "iconUrl": "/icons/creeps/lv11_cuirassier_mini.png" },
+    "h00G": { "iconUrl": "/icons/creeps/lv12_marechal_mini.png" }
   },
   "shops": {
     "htow": { "world": "Les Enrôlés" },

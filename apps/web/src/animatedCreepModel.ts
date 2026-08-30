@@ -124,20 +124,35 @@ function resolveAnimatedNode(root: THREE.Object3D, canonicalName: string): THREE
 }
 
 /**
+ * Points de repere plausibles pour "l'avant" d'un modele, du plus au moins
+ * specifique — un nez de fantassin, un visage de cavalier (sous un casque
+ * ouvert), un museau de monture a cheval, un bec de monture aviaire. Le
+ * premier trouve dans le fichier gagne (voir detectHeadingOffset) : les
+ * montures (Cuirassier, Marechal, Fauconnier, Chevaucheur d'aigle) n'ont
+ * pas de noeud `Nose` (pas de visage humain nu a cet endroit), mais ont
+ * toujours L'UN de ces reperes.
+ */
+const FRONT_LANDMARK_CANDIDATES = ['Nose', 'Rider_Face', 'Horse_Muzzle', 'Bird_Beak_Tip'];
+
+/**
  * Determine dans quel sens ce modele fait face au repos, en mesurant la
- * position du noeud `Nose` relative a la racine : un nez pointe toujours
- * vers l'avant du visage, donc son signe en Z revele la convention de cet
- * export sans ambiguite — plutot que de supposer une constante unique
- * partagee par tous les modeles (ce qui etait le cas avant : un `+PI` fixe
- * dans animatedCreepInstances.ts, calibre sur un ancien export du Trainard
- * qui pointait en Z negatif comme le Conscrit/Sapeur. Un export plus recent
- * du Trainard pointe en Z POSITIF — le decalage fixe le faisait alors
- * marcher a reculons). Repli sur `Math.PI` (convention historique) si aucun
- * noeud `Nose` n'existe dans ce fichier.
+ * position d'un repere frontal (voir FRONT_LANDMARK_CANDIDATES) relative a
+ * la racine : un tel repere pointe toujours vers l'avant, donc son signe en
+ * Z revele la convention de cet export sans ambiguite — plutot que de
+ * supposer une constante unique partagee par tous les modeles (ce qui etait
+ * le cas avant : un `+PI` fixe dans animatedCreepInstances.ts, calibre sur
+ * un ancien export du Trainard qui pointait en Z negatif comme le
+ * Conscrit/Sapeur. Un export plus recent du Trainard pointe en Z POSITIF —
+ * le decalage fixe le faisait alors marcher a reculons). Repli sur
+ * `Math.PI` (convention historique) si aucun repere connu n'existe.
  */
 function detectHeadingOffset(root: THREE.Object3D): number {
-  const nose = root.getObjectByName('Nose');
-  if (!nose) return Math.PI;
+  let landmark: THREE.Object3D | null = null;
+  for (const name of FRONT_LANDMARK_CANDIDATES) {
+    landmark = root.getObjectByName(name) ?? null;
+    if (landmark) break;
+  }
+  if (!landmark) return Math.PI;
   // Le CENTRE DE LA GEOMETRIE du mesh (Box3.setFromObject, qui lit les
   // sommets reels et applique matrixWorld), pas la translation du noeud
   // lui-meme : certains exports (Conscrit/Sapeur) placent chaque piece via
@@ -147,7 +162,7 @@ function detectHeadingOffset(root: THREE.Object3D): number {
   // ne lire que la translation du noeud donnait alors (0,0,0) pour ce
   // dernier cas, un repli silencieux sur Math.PI toujours faux (retour
   // direct : le Trainard marchait encore a l'envers apres le premier essai).
-  const box = new THREE.Box3().setFromObject(nose);
+  const box = new THREE.Box3().setFromObject(landmark);
   if (box.isEmpty()) return Math.PI;
   const center = box.getCenter(new THREE.Vector3());
   const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
