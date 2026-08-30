@@ -34,14 +34,34 @@ button {
   display: none;
 }
 
+/* Hauteur EXPLICITE (58px, mesuree sur l'ancien contenu en flux normal) :
+   #topbar-stats est desormais centree en position:absolute (voir plus bas),
+   donc ne participe plus a la hauteur naturelle de la barre — sans valeur
+   fixe ici, la barre se recalerait sur #speed-controls seul (plus bas) et
+   #topbar-stats deborderait dessous. */
 #topbar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 22px;
+  height: 58px;
   padding: 10px 16px;
   background: #1e1712;
   border-bottom: 2px solid #6b5432;
   flex-shrink: 0;
+}
+
+/* Centree independamment de #speed-controls (position:absolute, meme
+   technique que la console de commandes) : la barre garde ses stats au
+   milieu quelle que soit la largeur du bloc de vitesse a droite, plutot que
+   centree seulement sur l'espace restant apres lui. */
+#topbar-stats {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 22px;
 }
 
 .stat {
@@ -63,13 +83,14 @@ button {
   color: #f1e6c8;
 }
 
-.spacer {
-  flex: 1;
-}
-
+/* margin-left:auto plutot qu'un .spacer flex:1 dedie : #topbar-stats n'est
+   plus un enfant en flux normal (position:absolute, voir plus haut), donc
+   #speed-controls est desormais le seul enfant en flux de #topbar — pousse
+   a droite directement. */
 #speed-controls {
   display: flex;
   gap: 6px;
+  margin-left: auto;
 }
 
 .speed-btn {
