@@ -222,6 +222,7 @@ const HUMANOID_MODEL_URLS: Record<string, string> = {
   h001: '/models/conscrit_lv2.glb', // Conscrit
   h009: '/models/sapeur_lv3.glb', // Sapeur
   h00A: '/models/lancier_lv4.glb', // Lancier
+  h00E: '/models/eclaireur_lv5.glb', // Éclaireur
 };
 for (const url of Object.values(HUMANOID_MODEL_URLS)) void loadAnimatedCreepModel(url, HUMANOID_CREEP_HEIGHT);
 

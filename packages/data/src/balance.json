@@ -54,7 +54,8 @@
     "n000": { "iconUrl": "/icons/creeps/lv-1-mini.png" },
     "h001": { "iconUrl": "/icons/creeps/lv-2-mini.png" },
     "h009": { "iconUrl": "/icons/creeps/lv-3-mini.png" },
-    "h00A": { "iconUrl": "/icons/creeps/lv-4-mini.png" }
+    "h00A": { "iconUrl": "/icons/creeps/lv-4-mini.png" },
+    "h00E": { "iconUrl": "/icons/creeps/lv-5-mini.png" }
   },
   "shops": {
     "htow": { "world": "Les Enrôlés" },
