@@ -66,8 +66,8 @@
   },
   "shops": {
     "htow": { "world": "Les Enrôlés" },
-    "hkee": { "world": "Les Augmentés", "goldCost": 5000 },
-    "hcas": { "world": "Les Machines", "goldCost": 50000 }
+    "hkee": { "world": "Les Augmentés", "goldCost": 2000 },
+    "hcas": { "world": "Les Machines", "goldCost": 20000 }
   },
   "rules": {
     "bountyPct": 0.15,
