@@ -218,7 +218,7 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
  */
 const HUMANOID_CREEP_HEIGHT = 1.8;
 const HUMANOID_MODEL_URLS: Record<string, string> = {
-  n000: '/models/trainard-lv1.glb', // Trainard
+  n000: '/models/trainard_lv1.glb', // Trainard
   h001: '/models/conscrit_lv2.glb', // Conscrit
   h009: '/models/sapeur_lv3.glb', // Sapeur
 };
