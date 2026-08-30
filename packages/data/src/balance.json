@@ -50,7 +50,9 @@
     "o00A": { "attackType": "normal", "name": "Orgue de tir", "targets": ["ground"], "damageBase": 209, "cooldown": 0.20, "range": 800 },
     "o00B": { "attackType": "normal", "name": "Fauchoir", "targets": ["ground"], "damageBase": 518, "cooldown": 0.18, "range": 900 }
   },
-  "creeps": {},
+  "creeps": {
+    "n000": { "iconUrl": "/icons/creeps/lv-1-mini.png" }
+  },
   "shops": {
     "htow": { "world": "Les Enrôlés" },
     "hkee": { "world": "Les Augmentés", "goldCost": 5000 },
