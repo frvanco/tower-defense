@@ -213,25 +213,27 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
  * par animatedCreepModel.ts ; rendu/anim instancies par arene geres par
  * animatedCreepInstances.ts. Declenche une seule fois ici, par modele ;
  * tant qu'un modele n'est pas pret, spawn() retombe sur la sphere/cone
- * habituelle pour ce creep (aucun blocage). Hauteur cible commune (1.8) :
- * les deux sont des unites humaines de gabarit comparable.
+ * habituelle pour ce creep (aucun blocage). Hauteur cible par creep — 1.8
+ * pour la plupart (gabarit humain courant), reduite pour les paliers 1-3
+ * (retour direct, -20%) : `height` sert aussi a placer la barre de vie
+ * (voir syncHumanoid), donc jamais une constante partagee en dur ailleurs.
  */
-const HUMANOID_CREEP_HEIGHT = 1.8;
-const HUMANOID_MODEL_URLS: Record<string, string> = {
-  n000: '/models/lv1_trainard.glb', // Trainard
-  h001: '/models/lv2_conscrit.glb', // Conscrit
-  h009: '/models/lv3_sapeur.glb', // Sapeur
-  h00A: '/models/lv4_lancier.glb', // Lancier
-  h00B: '/models/lv5_hallebardier.glb', // Hallebardier
-  h00C: '/models/lv6_bretteur.glb', // Bretteur
-  h00D: '/models/lv7_grognard.glb', // Grognard
-  u000: '/models/lv8_fauconnier.glb', // Fauconnier
-  u001: '/models/lv9_chevaucheur_aigle.glb', // Chevaucheur d'aigle
-  h00E: '/models/lv10_eclaireur.glb', // Éclaireur
-  h00F: '/models/lv11_cuirassier.glb', // Cuirassier
-  h00G: '/models/lv12_marechal.glb', // Maréchal
+const HUMANOID_HEIGHT_DEFAULT = 1.8;
+const HUMANOID_MODEL_CONFIG: Record<string, { url: string; height: number }> = {
+  n000: { url: '/models/lv1_trainard.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Trainard
+  h001: { url: '/models/lv2_conscrit.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Conscrit
+  h009: { url: '/models/lv3_sapeur.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Sapeur
+  h00A: { url: '/models/lv4_lancier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Lancier
+  h00B: { url: '/models/lv5_hallebardier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Hallebardier
+  h00C: { url: '/models/lv6_bretteur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Bretteur
+  h00D: { url: '/models/lv7_grognard.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Grognard
+  u000: { url: '/models/lv8_fauconnier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Fauconnier
+  u001: { url: '/models/lv9_chevaucheur_aigle.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Chevaucheur d'aigle
+  h00E: { url: '/models/lv10_eclaireur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Éclaireur
+  h00F: { url: '/models/lv11_cuirassier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Cuirassier
+  h00G: { url: '/models/lv12_marechal.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Maréchal
 };
-for (const url of Object.values(HUMANOID_MODEL_URLS)) void loadAnimatedCreepModel(url, HUMANOID_CREEP_HEIGHT);
+for (const cfg of Object.values(HUMANOID_MODEL_CONFIG)) void loadAnimatedCreepModel(cfg.url, cfg.height);
 
 function creepRadius(def: CreepDef): number {
   return Math.max(0.05, Math.min(0.22, 0.05 + Math.log10(Math.max(1, def.hitPoints)) * 0.045));
@@ -317,6 +319,10 @@ interface TrackedCreepSphere extends TrackedCreepBase {
 interface TrackedCreepHumanoid extends TrackedCreepBase {
   kind: 'humanoid';
   modelUrl: string;
+  /** Hauteur cible de CE modele (voir HUMANOID_MODEL_CONFIG) — place la
+   * barre de vie au bon endroit meme quand elle differe du gabarit par
+   * defaut (paliers 1-3, reduits de 20%). */
+  height: number;
 }
 
 type TrackedCreep = TrackedCreepSphere | TrackedCreepHumanoid;
@@ -376,12 +382,12 @@ export class CreepEntities {
   }
 
   private spawn(c: Creep, def: CreepDef): TrackedCreep {
-    const modelUrl = HUMANOID_MODEL_URLS[def.id];
-    if (modelUrl && this.ensureAnimController(modelUrl, def.id)) {
+    const config = HUMANOID_MODEL_CONFIG[def.id];
+    if (config && this.ensureAnimController(config.url, def.id)) {
       const ring = this.makeRing(c.sender, creepRadius(def));
       const bar = makeHpBar();
       this.layer.add(bar);
-      return { kind: 'humanoid', modelUrl, ring, bar };
+      return { kind: 'humanoid', modelUrl: config.url, height: config.height, ring, bar };
     }
     // Pas de modele dedie pour ce creep, ou pas encore charge : repli sur la
     // sphere/cone generique ci-dessous.
@@ -425,7 +431,7 @@ export class CreepEntities {
     controller.updateAlive(c.eid, sx, sz);
 
     tracked.ring.position.set(sx, 0.02, sz);
-    tracked.bar.position.set(sx, model.groundOffsetY + HUMANOID_CREEP_HEIGHT + 0.16, sz);
+    tracked.bar.position.set(sx, model.groundOffsetY + tracked.height + 0.16, sz);
     paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
     if (poisonDps > 0) this.poisonBubbles.requestSpawn(c.eid, sx, model.groundOffsetY, sz, poisonDps, dt);
     else this.poisonBubbles.clearAccumulator(c.eid);
