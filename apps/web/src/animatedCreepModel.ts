@@ -197,16 +197,26 @@ const DEATH_SAMPLE_STEPS = 24;
 // A l'echelle d'un creep (quelques dizaines de px a l'ecran), les teintes
 // pastel de ces modeles (chemise, peau claire, blanc des yeux) se distinguent
 // mal les unes des autres et donnent une impression generale de blancheur
-// (retour direct). Boost applique une fois ici, au moment ou la couleur du
-// materiau est figee en couleur de sommet — pas de cout de rendu par frame.
-const CREEP_SATURATION_BOOST = 1.45;
-const CREEP_CONTRAST_BOOST = 1.15;
+// (retour direct, x2 — le premier essai n'y suffisait pas). Boost applique
+// une fois ici, au moment ou la couleur du materiau est figee en couleur de
+// sommet — pas de cout de rendu par frame.
+//
+// PAS un etirement de contraste centre sur 0.5 (premier essai) : sur une
+// palette deja tres claire (L moyen ~0.6-0.9 pour la peau/le lin/le blanc
+// des yeux), un tel etirement pousse les valeurs hautes encore PLUS haut
+// (vers 1.0), exactement l'inverse de l'effet recherche. A la place :
+// plafond dur sur la clarte (jamais plus qu'un blanc casse) + leger
+// assombrissement uniforme, qui laisse les teintes deja sombres/saturees
+// (tuniques, accents bleus) presque intactes.
+const CREEP_SATURATION_BOOST = 1.6;
+const CREEP_LIGHTNESS_FACTOR = 0.9;
+const CREEP_LIGHTNESS_CAP = 0.68;
 const tmpHsl = { h: 0, s: 0, l: 0 };
 
 function boostCreepColor(color: THREE.Color): void {
   color.getHSL(tmpHsl);
   const s = Math.min(1, tmpHsl.s * CREEP_SATURATION_BOOST);
-  const l = Math.min(1, Math.max(0, 0.5 + (tmpHsl.l - 0.5) * CREEP_CONTRAST_BOOST));
+  const l = Math.min(CREEP_LIGHTNESS_CAP, tmpHsl.l * CREEP_LIGHTNESS_FACTOR);
   color.setHSL(tmpHsl.h, s, l);
 }
 
