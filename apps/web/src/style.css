@@ -745,6 +745,15 @@ button {
   background: #3a2f1c;
 }
 
+/* Le bouton lui-meme est dore par defaut (color ci-dessus) — sans cette
+   regle, le prix heriterait ce dore MEME quand il n'est pas financable
+   (l'inverse de la nouvelle logique, voir .price-affordable/.cmd-tile-cost
+   plus bas). Meme gris eteint par defaut que .cmd-tile-cost, pour la meme
+   raison. */
+.cmd-unlock-cost {
+  color: #8a7550;
+}
+
 .cmd-unlock-btn[hidden] {
   display: none;
 }
@@ -851,21 +860,27 @@ button {
   display: none;
 }
 
+/* Gris eteint PAR DEFAUT (retour direct : le rouge alertait en permanence
+   pour un etat parfaitement normal — ne pas encore avoir l'or n'est pas une
+   erreur). L'etat "non financable" est donc la couleur de base, discrete,
+   qui ne signale rien — voir .price-affordable ci-dessous pour l'inverse
+   (surligne ce qui EST a portee, plutot que de marquer ce qui ne l'est
+   pas). */
 .cmd-tile-cost {
   font-size: 10.5px;
-  color: #c9a227;
+  color: #8a7550;
 }
 
-/* Seul le PRIX rougit quand l'or manque — jamais la tuile (grisee/desactivee
-   : deja tranche, brief, inchange). Le clic reste possible et affiche "Or
-   insuffisant" via le toast existant (canAffordOrToast) ; la couleur
-   previent, le toast confirme. Meme rouge que la barre de vie basse des
-   creeps (paintHpBar) — deja la teinte "danger" etablie dans ce projet,
-   pas une nouvelle valeur inventee ici. S'applique aussi bien a
+/* Prix financable : dore, MEME teinte que le compteur d'or de
+   #cmd-resources (#f2d24b) — le lien visuel est immediat, "ce chiffre est a
+   ta portee". Seul le PRIX change de couleur — jamais la tuile
+   (grisee/desactivee : deja tranche, brief, inchange). Le clic reste
+   possible en tout temps et affiche "Or insuffisant" via le toast existant
+   (canAffordOrToast) si les fonds manquent. S'applique aussi bien a
    .cmd-tile-cost (tuiles) qu'a .cmd-unlock-cost (bouton de deblocage de
    palier, voir plus bas) : meme regle, un seul nom de classe partage. */
-.price-unaffordable {
-  color: #ff5c5c;
+.price-affordable {
+  color: #f2d24b;
 }
 
 #cmd-abilities-empty {

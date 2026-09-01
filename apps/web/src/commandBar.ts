@@ -187,7 +187,7 @@ export function updateBuildGrid(tiles: BuildTile[], armedId: string | null, aren
   for (const t of tiles) {
     t.button.classList.toggle('armed', t.defId === armedId);
     const def = towers.get(t.defId);
-    if (def) t.costEl.classList.toggle('price-unaffordable', arena.gold < def.goldCost);
+    if (def) t.costEl.classList.toggle('price-affordable', arena.gold >= def.goldCost);
   }
 }
 
@@ -313,7 +313,7 @@ export function updateSendGrid(tiles: SendTile[], state: GameState, arena: Arena
     const st = arena.stock[t.defId];
     if (!def || !st) continue;
 
-    t.costEl.classList.toggle('price-unaffordable', arena.gold < def.goldCost);
+    t.costEl.classList.toggle('price-affordable', arena.gold >= def.goldCost);
 
     const readyAtTick = state.tick < st.availableAt ? st.availableAt : st.count < 1 ? st.nextReplenish : null;
     const totalSec = unavailableWindowSec(def, state, st);
@@ -385,10 +385,12 @@ export function updateUnlockButton(btn: HTMLButtonElement, arena: Arena, allShop
   btn.hidden = false;
   const costStr = `${next.goldCost.toLocaleString('fr-FR')} or`;
   // Span dedie au SEUL prix (pas au libelle entier) : c'est lui, et lui
-  // seul, qui doit rougir quand l'or manque (voir .price-unaffordable) —
-  // sans style propre au-dela de ca, il herite sinon du bouton.
+  // seul, qui doit dorer quand financable (voir .price-affordable /
+  // .cmd-unlock-cost) — sans classe de base propre, il heriterait sinon le
+  // dore du bouton en permanence, y compris quand l'or manque.
   const costEl = document.createElement('span');
-  costEl.classList.toggle('price-unaffordable', arena.gold < next.goldCost);
+  costEl.className = 'cmd-unlock-cost';
+  costEl.classList.toggle('price-affordable', arena.gold >= next.goldCost);
   costEl.textContent = costStr;
   btn.replaceChildren(`${next.name} — `, costEl);
   btn.title = `Débloquer la ${next.name} — ${costStr}`;
