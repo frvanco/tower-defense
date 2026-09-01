@@ -223,26 +223,29 @@ button {
    absolute` en permanence (jamais dans le flux) : le groupe n'est visible
    qu'en observation, et s'il occupait une place dans le flux normal, son
    apparition/disparition redimensionnerait #canvas-wrap -> resizeScene3D ->
-   reconfiguration de la camera Three.js a chaque bascule de vue. Bouton et
-   encart d'income regroupes ICI (centres ensemble comme un seul bloc) —
-   les centrer chacun independamment (left:50% sur les deux) les aurait
-   superposes au milieu au lieu de former une paire. */
+   reconfiguration de la camera Three.js a chaque bascule de vue.
+   Le bouton reste seul contenu en FLUX NORMAL ici (l'encart, lui, est
+   position:absolute — voir #observed-panel) : #observation-bar epouse donc
+   exactement sa largeur (shrink-to-fit, aucune largeur figee a deviner sur
+   le texte "Accueil"), et le centrer via left:50%/translateX(-50%) centre
+   le bouton pile au milieu — comme avant l'ajout de l'encart (retour
+   direct). L'encart se docke ensuite sur le bord droit de CE cadre
+   (left:100%), donc toujours juste a cote du bouton quelle que soit sa
+   largeur a lui. */
 #observation-bar {
   position: absolute;
   left: 50%;
   top: 14px;
   z-index: 10;
   transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
-/* Sans ca, le `display:flex` ci-dessus (selecteur ID, specificite 1-0-0)
-   l'emporte sur la regle par defaut du navigateur [hidden]{display:none}
-   (0-1-0) — l'attribut hidden n'a alors plus aucun effet et le bloc reste
-   affiche en permanence, meme sur sa propre arene (bug deja rencontre et
-   corrige ailleurs sur ce projet, voir #cmd-grid-send.cmd-shop-panel). */
+/* Pas de `display` personnalise ci-dessus (block par defaut) : contrairement
+   a un ancien essai ici (display:flex, retire depuis), rien n'entre en
+   conflit de specificite avec la regle navigateur [hidden]{display:none} —
+   cette regle explicite reste posee par prudence/documentation (le meme
+   piege a deja ete rencontre pour #cmd-grid-send.cmd-shop-panel ailleurs
+   dans ce projet, des qu'un `display` est surcharge sur un selecteur ID). */
 #observation-bar[hidden] {
   display: none;
 }
@@ -268,8 +271,15 @@ button {
    qui restent dans la topbar/console (voir updateTopbar, jamais touche
    par viewedPlayer). Nom dans la couleur du joueur observe (--observed-
    color, deja pose sur #canvas-wrap) : c'est lui qui rattache le chiffre
-   a quelqu'un. */
+   a quelqu'un. `position:absolute` (retire du flux, voir #observation-bar
+   ci-dessus) + `left:100%` : se docke sur le bord droit du bouton, qui
+   reste seul a definir la largeur (et donc le centrage) du cadre commun —
+   ecart de 10px deja valide, repris ici en margin plutot qu'en gap flex. */
 #observed-panel {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin-left: 10px;
   background: #221a13;
   border: 2px solid var(--observed-color, #f2d24b);
   color: #e9e2d3;
