@@ -773,7 +773,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
       );
       updateTopbar(topbarRefs, state);
       updateObservedPanel(state);
-      updateBuildGrid(buildTiles, armedBuildDefId);
+      updateBuildGrid(buildTiles, armedBuildDefId, arena0);
       // Toutes les tuiles de TOUS les paliers restent a jour en permanence
       // (stock/rechargement), pas seulement celles du palier consulte —
       // meme principe que les 6+ arenes synchronisees chaque frame meme non

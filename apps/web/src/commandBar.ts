@@ -183,9 +183,11 @@ export function buildBuildGrid(
   return out;
 }
 
-export function updateBuildGrid(tiles: BuildTile[], armedId: string | null): void {
+export function updateBuildGrid(tiles: BuildTile[], armedId: string | null, arena: Arena): void {
   for (const t of tiles) {
     t.button.classList.toggle('armed', t.defId === armedId);
+    const def = towers.get(t.defId);
+    if (def) t.costEl.classList.toggle('price-unaffordable', arena.gold < def.goldCost);
   }
 }
 
@@ -311,6 +313,8 @@ export function updateSendGrid(tiles: SendTile[], state: GameState, arena: Arena
     const st = arena.stock[t.defId];
     if (!def || !st) continue;
 
+    t.costEl.classList.toggle('price-unaffordable', arena.gold < def.goldCost);
+
     const readyAtTick = state.tick < st.availableAt ? st.availableAt : st.count < 1 ? st.nextReplenish : null;
     const totalSec = unavailableWindowSec(def, state, st);
     if (readyAtTick !== null && totalSec !== null && totalSec > 0) {
@@ -379,8 +383,15 @@ export function updateUnlockButton(btn: HTMLButtonElement, arena: Arena, allShop
     return;
   }
   btn.hidden = false;
-  btn.textContent = `${next.name} — ${next.goldCost.toLocaleString('fr-FR')} or`;
-  btn.title = `Débloquer la ${next.name} — ${next.goldCost.toLocaleString('fr-FR')} or`;
+  const costStr = `${next.goldCost.toLocaleString('fr-FR')} or`;
+  // Span dedie au SEUL prix (pas au libelle entier) : c'est lui, et lui
+  // seul, qui doit rougir quand l'or manque (voir .price-unaffordable) —
+  // sans style propre au-dela de ca, il herite sinon du bouton.
+  const costEl = document.createElement('span');
+  costEl.classList.toggle('price-unaffordable', arena.gold < next.goldCost);
+  costEl.textContent = costStr;
+  btn.replaceChildren(`${next.name} — `, costEl);
+  btn.title = `Débloquer la ${next.name} — ${costStr}`;
 }
 
 // ---------------------------------------------------------------------------

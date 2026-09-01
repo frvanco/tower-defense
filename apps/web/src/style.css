@@ -849,6 +849,18 @@ button {
   color: #c9a227;
 }
 
+/* Seul le PRIX rougit quand l'or manque — jamais la tuile (grisee/desactivee
+   : deja tranche, brief, inchange). Le clic reste possible et affiche "Or
+   insuffisant" via le toast existant (canAffordOrToast) ; la couleur
+   previent, le toast confirme. Meme rouge que la barre de vie basse des
+   creeps (paintHpBar) — deja la teinte "danger" etablie dans ce projet,
+   pas une nouvelle valeur inventee ici. S'applique aussi bien a
+   .cmd-tile-cost (tuiles) qu'a .cmd-unlock-cost (bouton de deblocage de
+   palier, voir plus bas) : meme regle, un seul nom de classe partage. */
+.price-unaffordable {
+  color: #ff5c5c;
+}
+
 #cmd-abilities-empty {
   margin: 0;
   font-size: 12.5px;
