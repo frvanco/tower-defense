@@ -232,6 +232,18 @@ const HUMANOID_MODEL_CONFIG: Record<string, { url: string; height: number }> = {
   h00E: { url: '/models/lv10_eclaireur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Éclaireur
   h00F: { url: '/models/lv11_cuirassier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Cuirassier
   h00G: { url: '/models/lv12_marechal.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Maréchal
+  h00H: { url: '/models/lv13_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Greffé
+  u002: { url: '/models/lv14_voltigeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Voltigeur
+  h00I: { url: '/models/lv15_bras_canon.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Bras-canon
+  h00J: { url: '/models/lv16_sergent_augmente.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Sergent augmenté
+  u003: { url: '/models/lv17_planeur_assaut.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Planeur d'assaut
+  h00K: { url: '/models/lv18_exosquelette_lourd.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Exosquelette lourd
+  u004: { url: '/models/lv19_seraphin.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Séraphin d'acier
+  h00L: { url: '/models/lv20_traqueur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Traqueur
+  h00M: { url: '/models/lv21_broyeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Broyeur
+  u005: { url: '/models/lv22_colosse_aile.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Colosse ailé
+  h00N: { url: '/models/lv23_titan_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Titan greffé
+  h00O: { url: '/models/lv24_prototype_omega.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Prototype Oméga
 };
 for (const cfg of Object.values(HUMANOID_MODEL_CONFIG)) void loadAnimatedCreepModel(cfg.url, cfg.height);
 

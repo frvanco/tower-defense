@@ -62,7 +62,19 @@
     "u001": { "iconUrl": "/icons/creeps/lv9_chevaucheur_aigle_mini.png" },
     "h00E": { "iconUrl": "/icons/creeps/lv10_eclaireur_mini.png" },
     "h00F": { "iconUrl": "/icons/creeps/lv11_cuirassier_mini.png" },
-    "h00G": { "iconUrl": "/icons/creeps/lv12_marechal_mini.png" }
+    "h00G": { "iconUrl": "/icons/creeps/lv12_marechal_mini.png" },
+    "h00H": { "iconUrl": "/icons/creeps/lv13_greffe_mini.png" },
+    "u002": { "iconUrl": "/icons/creeps/lv14_voltigeur_mini.png" },
+    "h00I": { "iconUrl": "/icons/creeps/lv15_bras_canon_mini.png" },
+    "h00J": { "iconUrl": "/icons/creeps/lv16_sergent_augmente_mini.png" },
+    "u003": { "iconUrl": "/icons/creeps/lv17_planeur_assaut_mini.png" },
+    "h00K": { "iconUrl": "/icons/creeps/lv18_exosquelette_lourd_mini.png" },
+    "u004": { "iconUrl": "/icons/creeps/lv19_seraphin_mini.png" },
+    "h00L": { "iconUrl": "/icons/creeps/lv20_traqueur_mini.png" },
+    "h00M": { "iconUrl": "/icons/creeps/lv21_broyeur_mini.png" },
+    "u005": { "iconUrl": "/icons/creeps/lv22_colosse_aile_mini.png" },
+    "h00N": { "iconUrl": "/icons/creeps/lv23_titan_greffe_mini.png" },
+    "h00O": { "iconUrl": "/icons/creeps/lv24_prototype_omega_mini.png" }
   },
   "shops": {
     "htow": { "world": "Les Enrôlés" },
