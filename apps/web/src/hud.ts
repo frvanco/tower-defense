@@ -37,18 +37,55 @@ export interface ResourcesRefs {
   countdown: HTMLElement;
 }
 
+/** En dessous de 10 000 : valeur exacte, `toLocaleString('fr-FR')` (espace
+ * fine insecable comme separateur de milliers — deja le format utilise pour
+ * les couts de palier/tuiles ailleurs dans cette meme console). A partir de
+ * 10 000 : format compact a 1 decimale ("105,5k") — au-dela de ce seuil le
+ * joueur compare a des paliers de 10 000/100 000, la precision a l'unite
+ * n'a plus d'usage (brief). TRONQUE (pas arrondi) a la decimale : 105 555
+ * doit afficher "105,5k", pas "105,6k" que donnerait un arrondi standard
+ * (verifie contre l'exemple explicite du brief). */
+export function formatCompactNumber(n: number): string {
+  const value = Math.max(0, Math.floor(n));
+  if (value < 10000) return value.toLocaleString('fr-FR');
+  const tenths = Math.floor(value / 100);
+  return `${Math.floor(tenths / 10)},${tenths % 10}k`;
+}
+
+/** Palier de taille selon le nombre de caracteres AFFICHES (brief : "tres
+ * grand pour trois ou quatre caracteres, grand pour cinq, moyen au-dela") —
+ * jamais une taille fixe, sans quoi elle est soit trop petite en debut de
+ * partie soit debordante en fin. Le CSS reserve deja la hauteur du plus
+ * grand palier (voir .cmd-resource-value dans style.css), donc changer de
+ * palier ne fait jamais varier la hauteur de la ligne. */
+export function resourceSizeTier(text: string): 'xl' | 'lg' | 'md' {
+  if (text.length <= 4) return 'xl';
+  if (text.length === 5) return 'lg';
+  return 'md';
+}
+
+function applySizeTier(el: HTMLElement, text: string): void {
+  el.textContent = text;
+  const tier = resourceSizeTier(text);
+  el.classList.toggle('cmd-resource-value--xl', tier === 'xl');
+  el.classList.toggle('cmd-resource-value--lg', tier === 'lg');
+  el.classList.toggle('cmd-resource-value--md', tier === 'md');
+}
+
 /** Toujours l'arene du joueur HUMAIN (arena[0]) — jamais celle observee, meme
  * regle que updateTopbar : ces valeurs ne doivent exister qu'a un seul
  * endroit a l'ecran, et ne jamais se confondre avec l'income affiche dans
  * l'encart d'observation (voir main.ts, updateObservedPanel, arena distincte
- * — viewedPlayer — chantier separe). Formatage `toLocaleString('fr-FR')`
- * repris de celui deja utilise pour les couts de palier/tuiles ailleurs
- * dans cette meme console, pour rester lisible a 5-6 chiffres. */
+ * — viewedPlayer — chantier separe). Or ET income passent par le format
+ * compact/taille adaptative ci-dessus (les deux depassent leur plage
+ * confortable en fin de partie, voir le brief) ; le decompte, lui, reste
+ * TOUJOURS exact en m:ss (brief : "la lisibilite precise du temps restant a
+ * une valeur de jeu") — jamais compacte, jamais redimensionne. */
 export function updateResources(refs: ResourcesRefs, state: GameState): void {
   const arena = state.arenas[0];
   if (!arena) return;
-  refs.gold.textContent = Math.floor(arena.gold).toLocaleString('fr-FR');
-  refs.income.textContent = arena.income.toLocaleString('fr-FR');
+  applySizeTier(refs.gold, formatCompactNumber(arena.gold));
+  applySizeTier(refs.income, formatCompactNumber(arena.income));
   refs.countdown.textContent = fmtClock((state.nextRoundAt - state.tick) / TICK_RATE);
 }
 

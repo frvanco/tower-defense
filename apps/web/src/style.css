@@ -1018,18 +1018,63 @@ button {
   font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Or : la seule valeur qui accroche l'oeil (brief) — la plus grosse, la
-   seule coloree. Income/decompte restent gris, volontairement discrets. */
+   seule coloree. Hauteur reservee au plus grand palier (--xl, 22px) DES LE
+   DEPART (brief) : le palier de taille (voir resourceSizeTier, hud.ts) ne
+   doit jamais faire varier la hauteur de la ligne, sans quoi la colonne —
+   et la console — sauterait au franchissement d'un seuil. */
 .cmd-resource-gold .cmd-resource-value {
-  font-size: 15.5px;
+  height: 22px;
   font-weight: 700;
   color: #f2d24b;
 }
 
-.cmd-resource-income .cmd-resource-value,
+.cmd-resource-gold .cmd-resource-value--xl {
+  font-size: 19px;
+}
+
+.cmd-resource-gold .cmd-resource-value--lg {
+  font-size: 15.5px;
+}
+
+.cmd-resource-gold .cmd-resource-value--md {
+  font-size: 12px;
+}
+
+/* Income : meme mecanisme (format compact + palier de taille) mais
+   volontairement plus petit que l'or a chaque palier — reste secondaire
+   visuellement, gris, jamais colore (brief). Meme principe de hauteur
+   reservee, sur SA propre plage (plus petite que celle de l'or). */
+.cmd-resource-income .cmd-resource-value {
+  height: 16px;
+  font-weight: 600;
+  color: #b39a68;
+}
+
+.cmd-resource-income .cmd-resource-value--xl {
+  font-size: 14px;
+}
+
+.cmd-resource-income .cmd-resource-value--lg {
+  font-size: 11.5px;
+}
+
+.cmd-resource-income .cmd-resource-value--md {
+  font-size: 9.5px;
+}
+
+/* Decompte : JAMAIS compacte, JAMAIS redimensionne (brief — "la lisibilite
+   precise du temps restant a une valeur de jeu"). Taille fixe, gris comme
+   l'income — aucune classe de palier n'est appliquee ici (voir
+   updateResources, hud.ts : refs.countdown recoit fmtClock directement,
+   jamais applySizeTier). */
 .cmd-resource-timer .cmd-resource-value {
+  height: 16px;
   font-size: 11.5px;
   font-weight: 600;
   color: #b39a68;
