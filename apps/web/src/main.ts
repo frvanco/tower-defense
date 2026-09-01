@@ -419,6 +419,19 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   let { state, bots } = newGame(seedOverride() ?? (Date.now() | 0), difficulty);
   let speed = 1;
 
+  // Outil de test manuel (voir dev.ts) : chargement dynamique derriere
+  // `import.meta.env.DEV` (constante figee a la compilation) pour que Vite
+  // elague entierement ce module hors des builds de prod — ?dev=1 sur un
+  // build de prod ne fait donc rien, la garde n'existe qu'a l'execution d'un
+  // serveur de dev. `state` est capture par reference (via la closure), pas
+  // par valeur : reste correct meme apres un `state = next.state` fait par
+  // startNewGame() plus bas.
+  if (import.meta.env.DEV && new URLSearchParams(location.search).get('dev') === '1') {
+    void import('./dev.js').then(({ installDevTools }) =>
+      installDevTools({ pendingHuman, getUnlockedTier: () => state.arenas[0]?.unlockedShopTier ?? 0 }),
+    );
+  }
+
   // Barre d'arenes : navigation entre les 6+ arenes (observation seule, voir
   // setViewedPlayer plus bas — le joueur humain est toujours le player 0).
   const arenaPillsEl = byId<HTMLDivElement>('arena-pills');

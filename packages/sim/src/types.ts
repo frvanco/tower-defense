@@ -107,7 +107,20 @@ export type Command =
   | { type: 'sendCreep'; player: number; defId: string }
   /** Debloque le PROCHAIN palier de boutique d'envoi (toujours sequentiel —
    * jamais un palier cible explicite, voir sim.ts#applyCommand). */
-  | { type: 'unlockShop'; player: number };
+  | { type: 'unlockShop'; player: number }
+  /** Debug uniquement (voir apps/web/src/dev.ts, active par ?dev=1, absent du
+   * bundle de prod) — jamais construite ailleurs dans le jeu. Fixe l'or a une
+   * valeur absolue. */
+  | { type: 'debugSetGold'; player: number; amount: number }
+  /** Debug uniquement — fixe les vies a une valeur absolue et ressuscite
+   * l'arene (alive=true) si amount > 0 : seule exception a la regle "la mort
+   * est definitive" du jeu normal, assumee pour cet outil de test local (voir
+   * sim.ts#applyCommand, traitee avant la garde arena.alive). */
+  | { type: 'debugSetLives'; player: number; amount: number }
+  /** Debug uniquement — leve la limite d'achat (stock + delai de reappro) de
+   * tous les creeps vendables de cette arene, pour tester l'envoi en rafale
+   * sans attendre. */
+  | { type: 'debugMaxStock'; player: number };
 
 export type SimEvent =
   | { type: 'roundStart'; round: number }

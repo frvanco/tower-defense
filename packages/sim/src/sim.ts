@@ -90,7 +90,33 @@ function dist2(ax: number, ay: number, bx: number, by: number): number {
 
 function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
   const arena = s.arenas[cmd.player];
-  if (!arena || !arena.alive) return;
+  if (!arena) return;
+
+  // Commandes de debug : traitees AVANT la garde "arene vivante" ci-dessous,
+  // contrairement a toute commande de gameplay normale — un outil de test
+  // doit rester utilisable meme apres une mort accidentelle en cours de test
+  // (voir types.ts#Command pour le detail de chacune).
+  if (cmd.type === 'debugSetGold') {
+    arena.gold = Math.max(0, Math.round(cmd.amount));
+    return;
+  }
+  if (cmd.type === 'debugSetLives') {
+    arena.lives = Math.max(0, Math.round(cmd.amount));
+    arena.alive = arena.lives > 0;
+    return;
+  }
+  if (cmd.type === 'debugMaxStock') {
+    for (const id of allSellableCreeps) {
+      const st = arena.stock[id];
+      if (!st) continue;
+      st.count = 1_000_000_000;
+      st.availableAt = 0;
+      st.nextReplenish = 0;
+    }
+    return;
+  }
+
+  if (!arena.alive) return;
 
   if (cmd.type === 'buildTower') {
     const def = towers.get(cmd.defId);
