@@ -984,13 +984,28 @@ button {
 
 .cmd-resource {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   max-width: 100%;
 }
 
+/* Libelle court (brief : "Or"/"Revenu"/"Prochain") a cote de l'icone, tous
+   deux secondaires visuellement — plus petits et plus discrets que la
+   valeur juste en dessous, qui reste l'element principal. Sans texte
+   invente : ces trois libelles-la, aucun autre. */
+.cmd-resource-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  line-height: 1;
+  color: #8a7550;
+  white-space: nowrap;
+}
+
 .cmd-resource-icon {
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1;
   flex-shrink: 0;
 }
