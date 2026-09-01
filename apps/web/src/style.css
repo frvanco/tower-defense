@@ -220,16 +220,34 @@ button {
 
 /* Ancre en haut (pas en bas) pour se lire comme suspendu juste sous
    #arena-bar, adjacent au controle qui mene a l'observation. `position:
-   absolute` en permanence (jamais dans le flux) : le bouton n'est visible
+   absolute` en permanence (jamais dans le flux) : le groupe n'est visible
    qu'en observation, et s'il occupait une place dans le flux normal, son
    apparition/disparition redimensionnerait #canvas-wrap -> resizeScene3D ->
-   reconfiguration de la camera Three.js a chaque bascule de vue. */
-#back-to-own-arena-btn {
+   reconfiguration de la camera Three.js a chaque bascule de vue. Bouton et
+   encart d'income regroupes ICI (centres ensemble comme un seul bloc) —
+   les centrer chacun independamment (left:50% sur les deux) les aurait
+   superposes au milieu au lieu de former une paire. */
+#observation-bar {
   position: absolute;
   left: 50%;
   top: 14px;
   z-index: 10;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Sans ca, le `display:flex` ci-dessus (selecteur ID, specificite 1-0-0)
+   l'emporte sur la regle par defaut du navigateur [hidden]{display:none}
+   (0-1-0) — l'attribut hidden n'a alors plus aucun effet et le bloc reste
+   affiche en permanence, meme sur sa propre arene (bug deja rencontre et
+   corrige ailleurs sur ce projet, voir #cmd-grid-send.cmd-shop-panel). */
+#observation-bar[hidden] {
+  display: none;
+}
+
+#back-to-own-arena-btn {
   background: #221a13;
   border: 2px solid var(--observed-color, #f2d24b);
   color: #e9e2d3;
@@ -237,10 +255,33 @@ button {
   padding: 8px 20px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 #back-to-own-arena-btn:hover {
   background: #2f2519;
+}
+
+/* Renseignement sur l'arene observee — income UNIQUEMENT (pas ses vies,
+   deja dans #arena-bar en permanence pour tous ; pas son or, qui fluctue
+   sans rien apprendre de durable). Jamais les valeurs du joueur humain,
+   qui restent dans la topbar/console (voir updateTopbar, jamais touche
+   par viewedPlayer). Nom dans la couleur du joueur observe (--observed-
+   color, deja pose sur #canvas-wrap) : c'est lui qui rattache le chiffre
+   a quelqu'un. */
+#observed-panel {
+  background: #221a13;
+  border: 2px solid var(--observed-color, #f2d24b);
+  color: #e9e2d3;
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#observed-name {
+  color: var(--observed-color, #f2d24b);
+  font-weight: 700;
 }
 
 #main {

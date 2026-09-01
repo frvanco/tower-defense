@@ -18,7 +18,7 @@ import { TowerEntities, CreepEntities } from './entities3d.js';
 import { LightningArcs } from './lightningEffects.js';
 import { createSlotMarkers } from './slots3d.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
-import { laneColor, playerColor, toHexNumber } from './colors.js';
+import { laneColor, playerColor, playerLabel, ELIMINATED_COLOR, toHexNumber } from './colors.js';
 import { buildArenaBar, updateArenaBar, stepLivingPlayer, type ArenaBarRefs } from './arenaBar.js';
 import { updateSelectedPanel, updateTopbar, type TopbarRefs, type SelectedRefs } from './hud.js';
 import {
@@ -415,7 +415,10 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   const arenaPillsEl = byId<HTMLDivElement>('arena-pills');
   const arenaPrevBtn = byId<HTMLButtonElement>('arena-prev');
   const arenaNextBtn = byId<HTMLButtonElement>('arena-next');
+  const observationBar = byId<HTMLDivElement>('observation-bar');
   const backToOwnArenaBtn = byId<HTMLButtonElement>('back-to-own-arena-btn');
+  const observedNameEl = byId<HTMLElement>('observed-name');
+  const observedIncomeEl = byId<HTMLElement>('observed-income');
   let viewedPlayer = 0;
 
   /** true des qu'on regarde une arene qui n'est pas la sienne : aucune action
@@ -445,9 +448,30 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
 
     const observing = isObserving();
     commandBarEl.classList.toggle('observing', observing);
-    backToOwnArenaBtn.hidden = !observing;
+    observationBar.hidden = !observing;
     canvasWrap.classList.toggle('observing', observing);
     canvasWrap.style.setProperty('--observed-color', playerColor(viewedPlayer));
+    // Fixe le nom tout de suite (evite un flash de l'ancien joueur observe le
+    // temps de la prochaine frame) ; l'income, lui, est recalcule a CHAQUE
+    // frame (voir updateObservedPanel plus bas) — c'est justement ce qui doit
+    // bouger en direct pendant qu'on observe.
+    if (observing) observedNameEl.textContent = playerLabel(viewedPlayer);
+  }
+
+  /** Income de l'arene OBSERVEE, rien d'autre (voir le brief : pas ses vies,
+   * deja dans #arena-bar en permanence ; pas son or, qui n'apprend rien de
+   * durable). Ne touche jamais topbarRefs/arena0 — les valeurs du joueur
+   * humain restent affichees en permanence dans la topbar/console, quelle
+   * que soit l'arene observee (voir updateTopbar, toujours arena[0]). */
+  function updateObservedPanel(state: GameState): void {
+    if (!isObserving()) return;
+    const arena = state.arenas[viewedPlayer];
+    const alive = arena?.alive ?? false;
+    // Meme convention que #arena-bar pour un joueur elimine (voir
+    // updateArenaBar) : pas de nombre potentiellement trompeur, couleur
+    // neutre plutot que la sienne — jamais de cas particulier invente ici.
+    observedNameEl.style.color = alive ? playerColor(viewedPlayer) : ELIMINATED_COLOR;
+    observedIncomeEl.textContent = alive && arena ? String(arena.income) : '';
   }
 
   let arenaBarRefs = buildArenaBar(arenaPillsEl, rules.maxPlayers, setViewedPlayer);
@@ -510,12 +534,20 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     setCommandMode('build');
     viewedShopTier = 0;
     setViewedShopTier(sendTiersUI, 0);
-    // Revient toujours a sa propre arene au lancement d'une nouvelle partie.
+    // Revient toujours a sa propre arene au lancement d'une nouvelle partie —
+    // y compris l'etat "observation" (classes CSS, bouton Accueil, encart
+    // d'income) : sans ca, "Rejouer" pendant qu'on observe un adversaire
+    // laisserait ces elements colles a l'ecran alors que viewedPlayer repasse
+    // a 0 (lacune preexistante, corrigee au passage — voir setViewedPlayer,
+    // qui fait deja ce reset dans le cas normal mais n'est pas appelee ici).
     for (const g of towerGroups) g.visible = false;
     for (const g of creepGroups) g.visible = false;
     viewedPlayer = 0;
     towerGroups[0]!.visible = true;
     creepGroups[0]!.visible = true;
+    commandBarEl.classList.remove('observing');
+    observationBar.hidden = true;
+    canvasWrap.classList.remove('observing');
     arenaBarRefs = buildArenaBar(arenaPillsEl, rules.maxPlayers, setViewedPlayer);
     // "Rejouer" relance une partie sans repasser par le launcher : sans ce
     // rearm, une partie relancee apres une premiere fin de partie perdrait la
@@ -740,6 +772,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
         armedBuildDefId !== null && !isObserving(),
       );
       updateTopbar(topbarRefs, state);
+      updateObservedPanel(state);
       updateBuildGrid(buildTiles, armedBuildDefId);
       // Toutes les tuiles de TOUS les paliers restent a jour en permanence
       // (stock/rechargement), pas seulement celles du palier consulte —
