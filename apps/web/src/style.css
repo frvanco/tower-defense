@@ -570,12 +570,19 @@ button {
    recollee — retour direct, "elles peuvent etre tout a fait collees ?").
    Ancree directement sur #cmd-grid, elle suit desormais son bord quel que
    soit ce qui change a cote. */
+/* Largeur 220px + 92px : la seconde moitie compense exactement
+   #cmd-resources ajoutee a droite (meme 92px, voir plus bas) — brief,
+   "elargis la zone info de gauche exactement de la largeur ajoutee a
+   droite". Note : la grille (#cmd-grid) est deja centree independamment de
+   cette largeur (position:absolute + calc(50% ...), voir son commentaire) —
+   elle resterait centree meme sans cet elargissement. Fait quand meme tel
+   que demande, pour la symetrie visuelle des deux bords de la console. */
 #cmd-info {
   position: absolute;
-  left: calc(50% - 158px - 220px);
+  left: calc(50% - 158px - 312px);
   top: 0;
   bottom: 0;
-  width: 220px;
+  width: 312px;
   padding: 12px;
   background: rgba(26, 20, 15, 0.94);
   border: 1px solid #6b5432;
@@ -933,6 +940,69 @@ button {
   height: 100%;
   border-radius: 4px;
   background: #3a2f1c;
+}
+
+/* Docee contre le bord DROIT de #cmd-modes, bord a bord (meme technique que
+   les autres boites de la console — voir #cmd-modes juste au-dessus :
+   158+64 = 222). Derniere colonne de la console (brief). Or/income/decompte,
+   plutot que dans la topbar (brief : le joueur regarde la console, pas la
+   topbar, pour decider d'un achat) — jamais duplique aux deux endroits, voir
+   updateResources (hud.ts) qui est desormais l'UNIQUE endroit ou ces 3
+   valeurs sont lues et ecrites a l'ecran. */
+#cmd-resources {
+  position: absolute;
+  left: calc(50% + 222px);
+  top: 0;
+  bottom: 0;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 4px;
+  background: rgba(26, 20, 15, 0.94);
+  border: 1px solid #6b5432;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+}
+
+.cmd-resource {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.cmd-resource-icon {
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Numerales tabulaires sur les 3 valeurs (brief) : sans ca, l'or qui passe
+   de 1 240 a 999 fait sauter toute la colonne a chaque changement de nombre
+   de chiffres — un tremblement permanent juste a cote de la grille. */
+.cmd-resource-value {
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Or : la seule valeur qui accroche l'oeil (brief) — la plus grosse, la
+   seule coloree. Income/decompte restent gris, volontairement discrets. */
+.cmd-resource-gold .cmd-resource-value {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #f2d24b;
+}
+
+.cmd-resource-income .cmd-resource-value,
+.cmd-resource-timer .cmd-resource-value {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #b39a68;
 }
 
 #cmd-tooltip-name {

@@ -20,7 +20,14 @@ import { createSlotMarkers } from './slots3d.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
 import { laneColor, playerColor, playerLabel, ELIMINATED_COLOR, toHexNumber } from './colors.js';
 import { buildArenaBar, updateArenaBar, stepLivingPlayer, type ArenaBarRefs } from './arenaBar.js';
-import { updateSelectedPanel, updateTopbar, type TopbarRefs, type SelectedRefs } from './hud.js';
+import {
+  updateSelectedPanel,
+  updateTopbar,
+  updateResources,
+  type TopbarRefs,
+  type ResourcesRefs,
+  type SelectedRefs,
+} from './hud.js';
 import {
   buildBuildGrid,
   updateBuildGrid,
@@ -194,12 +201,14 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   s3d.scene.add(ghost);
 
   const topbarRefs: TopbarRefs = {
-    gold: byId('stat-gold'),
-    income: byId('stat-income'),
     lives: byId('stat-lives'),
     round: byId('stat-round'),
-    countdown: byId('stat-countdown'),
     elapsed: byId('stat-elapsed'),
+  };
+  const resourcesRefs: ResourcesRefs = {
+    gold: byId('cmd-res-gold'),
+    income: byId('cmd-res-income'),
+    countdown: byId('cmd-res-timer'),
   };
 
   const toastsEl = byId('toasts');
@@ -460,9 +469,10 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
 
   /** Income de l'arene OBSERVEE, rien d'autre (voir le brief : pas ses vies,
    * deja dans #arena-bar en permanence ; pas son or, qui n'apprend rien de
-   * durable). Ne touche jamais topbarRefs/arena0 — les valeurs du joueur
-   * humain restent affichees en permanence dans la topbar/console, quelle
-   * que soit l'arene observee (voir updateTopbar, toujours arena[0]). */
+   * durable). Ne touche jamais topbarRefs/resourcesRefs/arena0 — les valeurs
+   * du joueur humain restent affichees en permanence dans la topbar/console,
+   * quelle que soit l'arene observee (voir updateTopbar/updateResources,
+   * toujours arena[0]). */
   function updateObservedPanel(state: GameState): void {
     if (!isObserving()) return;
     const arena = state.arenas[viewedPlayer];
@@ -772,6 +782,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
         armedBuildDefId !== null && !isObserving(),
       );
       updateTopbar(topbarRefs, state);
+      updateResources(resourcesRefs, state);
       updateObservedPanel(state);
       updateBuildGrid(buildTiles, armedBuildDefId, arena0);
       // Toutes les tuiles de TOUS les paliers restent a jour en permanence

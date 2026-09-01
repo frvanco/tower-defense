@@ -9,26 +9,47 @@ export function fmtClock(totalSeconds: number): string {
 
 // ---------- topbar ----------
 
+/** Or/income/decompte ne sont PLUS ici (voir ResourcesRefs/updateResources
+ * plus bas) — deplaces dans la console pour rester a portee d'oeil de la
+ * grille d'achat (brief). Ne jamais les dupliquer aux deux endroits : une
+ * seule source affichee pour chaque valeur. */
 export interface TopbarRefs {
-  gold: HTMLElement;
-  income: HTMLElement;
   lives: HTMLElement;
   round: HTMLElement;
-  countdown: HTMLElement;
   elapsed: HTMLElement;
 }
 
 export function updateTopbar(refs: TopbarRefs, state: GameState): void {
   const arena = state.arenas[0];
   if (!arena) return;
-  refs.gold.textContent = String(Math.floor(arena.gold));
-  refs.income.textContent = String(arena.income);
   refs.lives.textContent = arena.alive ? String(arena.lives) : 'dead';
   refs.round.textContent = String(state.round);
-  refs.countdown.textContent = fmtClock((state.nextRoundAt - state.tick) / TICK_RATE);
   // Temps de jeu (state.tick), jamais une horloge murale : reste correct sous
   // Pause/2x/4x, et le jour ou la partie sera pilotee par un serveur.
   refs.elapsed.textContent = fmtClock(state.tick / TICK_RATE);
+}
+
+// ---------- ressources (console — voir le brief "Ressources dans la console") ----------
+
+export interface ResourcesRefs {
+  gold: HTMLElement;
+  income: HTMLElement;
+  countdown: HTMLElement;
+}
+
+/** Toujours l'arene du joueur HUMAIN (arena[0]) — jamais celle observee, meme
+ * regle que updateTopbar : ces valeurs ne doivent exister qu'a un seul
+ * endroit a l'ecran, et ne jamais se confondre avec l'income affiche dans
+ * l'encart d'observation (voir main.ts, updateObservedPanel, arena distincte
+ * — viewedPlayer — chantier separe). Formatage `toLocaleString('fr-FR')`
+ * repris de celui deja utilise pour les couts de palier/tuiles ailleurs
+ * dans cette meme console, pour rester lisible a 5-6 chiffres. */
+export function updateResources(refs: ResourcesRefs, state: GameState): void {
+  const arena = state.arenas[0];
+  if (!arena) return;
+  refs.gold.textContent = Math.floor(arena.gold).toLocaleString('fr-FR');
+  refs.income.textContent = arena.income.toLocaleString('fr-FR');
+  refs.countdown.textContent = fmtClock((state.nextRoundAt - state.tick) / TICK_RATE);
 }
 
 // ---------- panneau tour selectionnee (zone info de la barre de commandes) ----------
