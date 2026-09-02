@@ -434,6 +434,54 @@ function buildGate(x: number, z: number, color: number, tangent: Point2, hostile
 const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [0.25, 45, -59];
 const INITIAL_CAMERA_TARGET: readonly [number, number, number] = [0, 0, 1];
 
+/** Marge (unites de scene) ajoutee de chaque cote du rectangle halfWidth x
+ * halfHeight de l'arene -- genereuse plutot que serree (brief) : suivre un
+ * creep jusqu'au bout du chemin ne doit jamais toucher cette limite. */
+const PAN_MARGIN_RATIO = 0.3;
+
+/** Plage verticale (unites de scene) autorisee pour la cible -- le chemin et
+ * les plateformes constructibles vivent entre PATH_SURFACE_Y (~0) et
+ * PLATFORM_HEIGHT (1.2), donc une plage etroite autour de ca suffit. Sans
+ * elle, un clic droit + glisse verticalement N'EST PAS retenu par
+ * maxX/maxZ : OrbitControls pan en espace-ecran (screenSpacePanning=true
+ * par defaut), et un glisse vertical a l'ecran deplace la cible selon le
+ * vecteur "haut" de la camera -- lequel, camera inclinee, pointe surtout
+ * selon Y (avec un peu de Z), pas selon X/Z purs. C'est la 2e porte vers le
+ * vide, laissee grande ouverte par le seul rectangle X/Z (retour direct :
+ * "les cotes sont bons mais je peux aller loin en haut/bas"). */
+const MIN_TARGET_Y = -1;
+const MAX_TARGET_Y = 2;
+
+/** Borne la cible des OrbitControls (translation laterale ET verticale) a
+ * un volume autour de l'arene -- sans ca, glisser la camera sans dezoomer
+ * sort directement dans le vide (brief). Ecrete chaque axe INDEPENDAMMENT
+ * et apres chaque changement (listener 'change', qui se declenche a chaque
+ * update() ou quelque chose a bouge, y compris pendant l'inertie du
+ * damping) : glisser en diagonale le long d'une limite reste donc fluide
+ * (l'axe encore libre continue de suivre la souris normalement) plutot que
+ * de se figer des qu'un seul axe est au bout. `camera.position` recoit la
+ * meme correction que `target` pour garder leur decalage spherique intact :
+ * OrbitControls le relit tel quel au prochain update() (rotation/zoom
+ * continuent de fonctionner normalement). */
+function installPanBounds(controls: OrbitControls, camera: THREE.PerspectiveCamera, frame: Frame3D, span: number): void {
+  const maxX = frame.halfWidth + PAN_MARGIN_RATIO * span;
+  const maxZ = frame.halfHeight + PAN_MARGIN_RATIO * span;
+
+  controls.addEventListener('change', () => {
+    const clampedX = THREE.MathUtils.clamp(controls.target.x, -maxX, maxX);
+    const clampedZ = THREE.MathUtils.clamp(controls.target.z, -maxZ, maxZ);
+    const clampedY = THREE.MathUtils.clamp(controls.target.y, MIN_TARGET_Y, MAX_TARGET_Y);
+    if (clampedX !== controls.target.x || clampedZ !== controls.target.z || clampedY !== controls.target.y) {
+      camera.position.x += clampedX - controls.target.x;
+      camera.position.z += clampedZ - controls.target.z;
+      camera.position.y += clampedY - controls.target.y;
+      controls.target.y = clampedY;
+      controls.target.x = clampedX;
+      controls.target.z = clampedZ;
+    }
+  });
+}
+
 export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Frame3D): Scene3D {
   const span = Math.max(frame.halfWidth, frame.halfHeight);
   const scene = new THREE.Scene();
@@ -452,12 +500,18 @@ export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Fram
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.maxPolarAngle = Math.PI / 2 - 0.02;
+  // Empeche la vue rasante a l'horizon (maxPolarAngle) et la vue strictement
+  // zenithale qui ecraserait le relief du chemin (minPolarAngle) -- l'angle
+  // d'elevation par defaut (~53 deg, cadrage inchange ci-dessous) reste dans
+  // cette plage.
+  controls.minPolarAngle = 0.5;
+  controls.maxPolarAngle = 1.15;
   controls.minDistance = 2;
-  controls.maxDistance = span * 4;
+  controls.maxDistance = span * 2.3;
   camera.position.set(...INITIAL_CAMERA_POSITION);
   controls.target.set(...INITIAL_CAMERA_TARGET);
   controls.update();
+  installPanBounds(controls, camera, frame, span);
 
   scene.add(new THREE.HemisphereLight(0x9eb7c7, 0x2a2619, 1.35));
   scene.add(new THREE.AmbientLight(0x566052, 0.35));
