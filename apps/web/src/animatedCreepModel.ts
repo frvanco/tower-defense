@@ -126,13 +126,18 @@ function resolveAnimatedNode(root: THREE.Object3D, canonicalName: string): THREE
 /**
  * Points de repere plausibles pour "l'avant" d'un modele, du plus au moins
  * specifique — un nez de fantassin, un visage de cavalier (sous un casque
- * ouvert), un museau de monture a cheval, un bec de monture aviaire. Le
- * premier trouve dans le fichier gagne (voir detectHeadingOffset) : les
- * montures (Cuirassier, Marechal, Fauconnier, Chevaucheur d'aigle) n'ont
- * pas de noeud `Nose` (pas de visage humain nu a cet endroit), mais ont
- * toujours L'UN de ces reperes.
+ * ouvert), un museau de monture a cheval, un bec de monture aviaire, une
+ * visiere de casque ferme (aucun visage nu a lire dessous). Le premier
+ * trouve dans le fichier gagne (voir detectHeadingOffset) : les montures
+ * (Cuirassier, Marechal, Fauconnier, Chevaucheur d'aigle) n'ont pas de noeud
+ * `Nose` (pas de visage humain nu a cet endroit), mais ont toujours L'UN de
+ * ces reperes. `Visor_Main` ajoute apres coup (retour direct : le Gardien
+ * Alpha marchait a reculons, repli sur Math.PI faute de repere reconnu —
+ * mesure sur le fichier, Visor_Main/Helmet_FaceMask/Helmet_ChinPlate
+ * pointent tous vers Z local positif, offset 0, l'oppose du repli qui
+ * causait le probleme).
  */
-const FRONT_LANDMARK_CANDIDATES = ['Nose', 'Rider_Face', 'Horse_Muzzle', 'Bird_Beak_Tip'];
+const FRONT_LANDMARK_CANDIDATES = ['Nose', 'Rider_Face', 'Horse_Muzzle', 'Bird_Beak_Tip', 'Visor_Main'];
 
 /**
  * Determine dans quel sens ce modele fait face au repos, en mesurant la

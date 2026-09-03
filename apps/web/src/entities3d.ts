@@ -244,6 +244,18 @@ const HUMANOID_MODEL_CONFIG: Record<string, { url: string; height: number }> = {
   u005: { url: '/models/lv22_colosse_aile.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Colosse ailé
   h00N: { url: '/models/lv23_titan_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Titan greffé
   h00O: { url: '/models/lv24_prototype_omega.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Prototype Oméga
+  u006: { url: '/models/lv26_essaim_drones.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Essaim de drones
+  h00P: { url: '/models/lv27_meute_quadrupede.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Meute quadrupède
+  h00Q: { url: '/models/lv28_marcheur_siege.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Marcheur de siège
+  u007: { url: '/models/lv25_cuirasse_aerien.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Cuirassé aérien
+  h00R: { url: '/models/lv29_ecraseur_chenille.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Écraseur chenillé
+  h00U: { url: '/models/lv30_gardien_alpha.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Gardien Alpha
+  h00V: { url: '/models/lv31_arbitre.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Arbitre
+  u008: { url: '/models/lv33_porte_nefs.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Porte-nefs
+  h00W: { url: '/models/lv34_executeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Exécuteur
+  u00A: { url: '/models/lv35_dreadnought_orbital.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Dreadnought orbital
+  h00X: { url: '/models/lv32_forteresse_mobile.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Forteresse mobile
+  h00Z: { url: '/models/lv36_intelligence_mere.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Intelligence Mère
 };
 for (const cfg of Object.values(HUMANOID_MODEL_CONFIG)) void loadAnimatedCreepModel(cfg.url, cfg.height);
 
