@@ -30,7 +30,8 @@ export const ANIMATED_NODE_NAMES = [
 ] as const;
 
 export interface AnimatedCreepModel {
-  /** Meme ordre que ANIMATED_NODE_NAMES (noeuds absents du fichier filtres). */
+  /** Meme ordre que ANIMATED_NODE_NAMES pour un rig humanoide. Pour un rig
+   * specialise, noms reels des noeuds animes trouves dans Walk/Death. */
   nodeNames: string[];
   /** Une geometrie fusionnee, indexee, par noeud (attributs position/normal/
    * color) — a transformer par la matrice du noeud courant a chaque frame. */
@@ -137,7 +138,17 @@ function resolveAnimatedNode(root: THREE.Object3D, canonicalName: string): THREE
  * pointent tous vers Z local positif, offset 0, l'oppose du repli qui
  * causait le probleme).
  */
-const FRONT_LANDMARK_CANDIDATES = ['Nose', 'Rider_Face', 'Horse_Muzzle', 'Bird_Beak_Tip', 'Visor_Main'];
+const FRONT_LANDMARK_CANDIDATES = [
+  'Nose',
+  'Rider_Face',
+  'Horse_Muzzle',
+  'Bird_Beak_Tip',
+  'Visor_Main',
+  // Reperes equivalents des trois premiers rigs non humanoides du T3.
+  'D0_Sensor_Visor',
+  'Q0_Visor_Main',
+  'Hull_Visor',
+];
 
 /**
  * Determine dans quel sens ce modele fait face au repos, en mesurant la
@@ -194,6 +205,78 @@ function collectOwnedMeshes(node: THREE.Object3D, animatedNames: ReadonlySet<str
   }
   visit(node, true);
   return out;
+}
+
+/**
+ * Extrait les noms de noeuds effectivement vises par les pistes Walk/Death.
+ * GLTFLoader produit des noms de pistes du type `Drone_0.quaternion` ou
+ * `Upper_FL_2.position`; PropertyBinding sait aussi decoder les variantes
+ * plus complexes acceptees par Three.js.
+ */
+function getClipTargetNodeNames(animations: THREE.AnimationClip[]): Set<string> {
+  const out = new Set<string>();
+  for (const clip of animations) {
+    if (clip.name !== 'Walk' && clip.name !== 'Death') continue;
+    for (const track of clip.tracks) {
+      try {
+        const parsed = THREE.PropertyBinding.parseTrackName(track.name);
+        if (parsed.nodeName) {
+          out.add(parsed.nodeName);
+          continue;
+        }
+      } catch {
+        // La forme simple ci-dessous reste exploitable.
+      }
+      // Repli defensif pour les pistes simples generees par nos GLB.
+      const separator = track.name.lastIndexOf('.');
+      if (separator > 0) out.add(track.name.slice(0, separator));
+    }
+  }
+  return out;
+}
+
+interface BucketSelection {
+  nodes: THREE.Object3D[];
+  names: string[];
+}
+
+/**
+ * Repli pour les rigs non humanoides (essaim, quadrupedes, marcheur, etc.).
+ * Chaque noeud anime qui possede de la geometrie devient un bucket. Les
+ * transformations de ses parents animes restent bien incluses dans sa
+ * matrixWorld echantillonnee, meme si ces parents ne possedent aucun mesh.
+ *
+ * Un bucket statique sur `root` recupere aussi les rares meshes qui ne sont
+ * sous aucune piste, sans dupliquer ceux deja attribues a un noeud anime.
+ */
+function resolveGenericAnimationBuckets(
+  root: THREE.Object3D,
+  animations: THREE.AnimationClip[],
+): BucketSelection {
+  const targetNames = getClipTargetNodeNames(animations);
+  const targetNodes: THREE.Object3D[] = [];
+  root.traverse((node) => {
+    if (targetNames.has(node.name)) targetNodes.push(node);
+  });
+
+  // Sans clip exploitable, conserver au minimum un modele statique complet.
+  if (targetNodes.length === 0) {
+    return { nodes: [root], names: [root.name || 'SceneRoot'] };
+  }
+
+  const nodes = targetNodes.filter(
+    (node) => collectOwnedMeshes(node, targetNames).length > 0,
+  );
+
+  // Geometrie hors des sous-arbres animes : elle reste attachee au root.
+  if (collectOwnedMeshes(root, targetNames).length > 0 && !nodes.includes(root)) {
+    nodes.unshift(root);
+  }
+
+  if (nodes.length === 0) {
+    return { nodes: [root], names: [root.name || 'SceneRoot'] };
+  }
+  return { nodes, names: nodes.map((node) => node.name || 'SceneRoot') };
 }
 
 const WALK_SAMPLE_STEPS = 32;
@@ -297,7 +380,12 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
   const box = new THREE.Box3().setFromObject(root);
   const rawHeight = box.max.y - box.min.y;
   const scale = rawHeight > 0 ? targetHeight / rawHeight : 1;
-  const groundOffsetY = -box.min.y * scale;
+  // Un modele pose au sol n'a qu'une petite marge technique sous ses pieds
+  // et doit etre recale sur Y=0. Un modele volant peut en revanche avoir une
+  // garde au sol volontaire importante (l'essaim est place a +1,05 m) : la
+  // supprimer ici ferait finir son clip Death sous le terrain.
+  const hasAuthoredHoverClearance = rawHeight > 0 && box.min.y > rawHeight * 0.25;
+  const groundOffsetY = hasAuthoredHoverClearance ? 0 : -box.min.y * scale;
   const headingOffset = detectHeadingOffset(root);
 
   const bucketNodes: THREE.Object3D[] = [];
@@ -307,6 +395,15 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
     if (!node) continue; // ce modele n'a pas ce noeud (ex. pas de Backpack) : ignore plutot que planter
     bucketNodes.push(node);
     nodeNames.push(name);
+  }
+
+  // Aucun os humanoide : ne pas produire silencieusement zero geometrie.
+  // Les rigs specialises gardent leurs propres articulations et leurs clips;
+  // on cree alors les buckets depuis les cibles reelles de Walk/Death.
+  if (bucketNodes.length === 0) {
+    const generic = resolveGenericAnimationBuckets(root, animations);
+    bucketNodes.push(...generic.nodes);
+    nodeNames.push(...generic.names);
   }
   // Noms REELS des noeuds retenus (pas les cles canoniques ci-dessus) : voir
   // le commentaire de collectOwnedMeshes.
