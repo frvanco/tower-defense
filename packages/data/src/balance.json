@@ -77,9 +77,9 @@
     "h00O": { "iconUrl": "/icons/creeps/lv24_prototype_omega_mini.png" }
   },
   "shops": {
-    "htow": { "world": "Les Enrôlés" },
-    "hkee": { "world": "Les Augmentés", "goldCost": 2000 },
-    "hcas": { "world": "Les Machines", "goldCost": 20000 }
+    "htow": { "name": "Enrôlés", "world": "Les Enrôlés" },
+    "hkee": { "name": "Augmentés", "world": "Les Augmentés", "goldCost": 2000 },
+    "hcas": { "name": "Machines", "world": "Les Machines", "goldCost": 20000 }
   },
   "rules": {
     "bountyPct": 0.15,

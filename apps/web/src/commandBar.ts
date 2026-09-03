@@ -413,8 +413,11 @@ export interface UnlockConfirmRefs {
 }
 
 export function showUnlockConfirm(refs: UnlockConfirmRefs, shop: Shop, arena: Arena): void {
-  refs.title.textContent = `Débloquer la ${shop.name}`;
-  refs.detail.textContent = `Donne accès aux créatures de ${shop.name} pour tous vos envois futurs.`;
+  // "les"/"des" : les 3 paliers sont des noms pluriels ("Enrôlés",
+  // "Augmentés", "Machines", voir balance.json) — jamais un nom singulier
+  // ici, donc pas besoin d'accorder l'article dynamiquement.
+  refs.title.textContent = `Débloquer les ${shop.name}`;
+  refs.detail.textContent = `Donne accès aux créatures des ${shop.name} pour tous vos envois futurs.`;
   refs.cost.textContent = `${shop.goldCost.toLocaleString('fr-FR')} or`;
   refs.before.textContent = `${Math.floor(arena.gold).toLocaleString('fr-FR')} or`;
   refs.after.textContent = `${Math.floor(arena.gold - shop.goldCost).toLocaleString('fr-FR')} or`;
