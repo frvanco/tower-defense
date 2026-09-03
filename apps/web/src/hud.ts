@@ -114,14 +114,23 @@ export function updateSelectedPanel(refs: SelectedRefs, arena: Arena | undefined
   refs.name.textContent = `${def.name} (tier ${branchInfo(tower.defId).tier + 1})`;
   refs.info.textContent = `dmg ${def.damageBase}+${def.dice}d${def.sides} · range ${def.range} · cooldown ${def.cooldown}s`;
 
+  // Le bouton reste toujours visible tant qu'une tour est selectionnee (que
+  // ce soit pour proposer le palier suivant ou pour signaler qu'il n'y en a
+  // plus) : jamais masque via `hidden` ici (retour direct — `#upgrade-btn`
+  // a un `display` fixe en dur dans style.css, plus specifique que le
+  // `[hidden]` par defaut du navigateur, donc `hidden=true` ne masquait rien
+  // en pratique ; le texte de la DERNIERE amelioration valide restait donc
+  // affiche sans indiquer que la tour est au palier max — meme categorie de
+  // bug que #cmd-grid-send/#observation-bar plus tot dans ce projet).
   const nextId = def.upgradesTo[0];
   const next = nextId ? towers.get(nextId) : undefined;
+  refs.upgradeBtn.hidden = false;
   if (next) {
-    refs.upgradeBtn.hidden = false;
     refs.upgradeBtn.textContent = `Upgrade -> ${next.name} (${next.goldCost}g)`;
     refs.upgradeBtn.disabled = !arena.alive || arena.gold < next.goldCost;
   } else {
-    refs.upgradeBtn.hidden = true;
+    refs.upgradeBtn.textContent = 'Améliorée au maximum';
+    refs.upgradeBtn.disabled = true;
   }
 
   refs.sellBtn.hidden = false;

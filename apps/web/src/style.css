@@ -1159,6 +1159,17 @@ button {
   cursor: not-allowed;
 }
 
+/* Le `display: block` ci-dessus (selecteur ID, plus specifique que le
+   [hidden]{display:none} par defaut du navigateur) l'emporterait sinon sur
+   l'attribut hidden -- meme categorie de bug deja rencontree sur
+   #cmd-grid-send/#observation-bar. Aucun des deux boutons n'est plus masque
+   par le code actuel (voir hud.ts#updateSelectedPanel), mais autant fermer
+   cette porte plutot que la laisser ouverte pour un futur appel a `hidden`. */
+#upgrade-btn[hidden],
+#sell-btn[hidden] {
+  display: none;
+}
+
 #launcher[hidden] {
   display: none;
 }
