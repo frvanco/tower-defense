@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { towers } from '../src/index.js';
 
-describe('branche mitrailleuse (o008-o00B) — anti-air retire', () => {
-  // Decision de design : contrer l'aerien passe par la branche Lightning ;
+describe('branche Cadence (o008-o00E) — anti-air retire', () => {
+  // Decision de design : contrer l'aerien passe par la branche Anti-aerien ;
   // une branche polyvalente a tous les paliers viderait cette mecanique de
-  // son sens (voir balance.json).
-  const machineGunIds = ['o008', 'o009', 'o00A', 'o00B'];
+  // son sens (voir balance.json). o00E (5e palier, ajoute au requilibrage
+  // 5-paliers) prolonge la meme regle -- sans quoi le nouveau palier
+  // echapperait a cette garantie sans qu'on le voie.
+  const machineGunIds = ['o008', 'o009', 'o00A', 'o00B', 'o00E'];
 
   it.each(machineGunIds)('%s ne cible pas l\'air', (id) => {
     const def = towers.get(id);

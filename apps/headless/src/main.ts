@@ -1,5 +1,36 @@
 import { createGame, tick, Bot, branchRootOf, TICK_RATE, type Command, type Difficulty, type Arena } from '@tower-defense/sim';
-import { towers, defaultsUsed, rules } from '@tower-defense/data';
+import { towers, defaultsUsed, rules, buildableTowers, buildSlots } from '@tower-defense/data';
+
+// --- Palier (1-indexe) de chaque tour dans sa branche, + cout cumule pour
+// l'atteindre depuis le palier 1 (somme des goldCost successifs, coherent
+// avec sim.ts : une amelioration se paie au prix plein du palier vise, pas
+// au differentiel). Meme algorithme que apps/web/src/branches.ts (BFS depuis
+// buildableTowers via upgradesTo) mais reimplemente ici, sans dependre de
+// apps/web : chaque chaine de ce jeu est lineaire (jamais de fourche), donc
+// un seul id par niveau de frontiere a chaque etape.
+const tierOf = new Map<string, number>();
+const cumulativeCostOf = new Map<string, number>();
+for (const rootId of buildableTowers) {
+  let frontier: string[] = [rootId];
+  let tier = 1;
+  let cumulative = 0;
+  while (frontier.length > 0) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      if (tierOf.has(id)) continue;
+      const def = towers.get(id);
+      if (!def) continue;
+      cumulative += def.goldCost;
+      tierOf.set(id, tier);
+      cumulativeCostOf.set(id, cumulative);
+      next.push(...def.upgradesTo);
+    }
+    frontier = next;
+    tier += 1;
+  }
+}
+
+const TOTAL_SLOTS = buildSlots(0).length;
 
 // Un bot n'a plus de branche racine unique declaree (voir packages/sim/src/bot.ts,
 // refonte de la composition) : la branche "gagnante" est desormais MESUREE sur
@@ -53,6 +84,19 @@ interface Result {
   totalLeaks: number;
   totalBounty: number;
   totalIncome: number;
+  /** Palier de CHAQUE tour encore debout, toutes arenes confondues, mesure
+   * en fin de partie (victoire ou timeout) — brief : "palier median atteint". */
+  standingTiers: number[];
+  /** Round auquel une arene (n'importe laquelle) a la premiere atteint 317/317
+   * emplacements occupes — null si jamais atteint sur cette partie (brief :
+   * "avec 317 emplacements il n'arrivera probablement jamais"). */
+  saturationRound: number | null;
+  /** Or cumule investi (somme des couts de palier successifs, jamais le
+   * differentiel — coherent avec sim.ts) dans les tours ENCORE DEBOUT en fin
+   * de partie, par branche racine. N'inclut pas les tours vendues entre
+   * temps (non reconstruit depuis l'historique, hors de portee sans toucher
+   * packages/sim) — approximation assumee, signalee dans le rapport. */
+  investedGoldByRoot: Map<string, number>;
 }
 
 function playOne(seed: number): Result {
@@ -60,10 +104,22 @@ function playOne(seed: number): Result {
   const bots = s.arenas.map((a, i) => new Bot({ player: a.player, seed: seed + i * 7919, difficulty: DIFFICULTY }));
 
   let t = 0;
+  let lastRound = -1;
+  let saturationRound: number | null = null;
   for (; t < MAX_TICKS && !s.finished; t++) {
     const cmds: Command[] = [];
     for (const b of bots) cmds.push(...b.decide(s));
     tick(s, cmds);
+
+    if (saturationRound === null && s.round !== lastRound) {
+      lastRound = s.round;
+      for (const a of s.arenas) {
+        if (Object.keys(a.occupied).length >= TOTAL_SLOTS) {
+          saturationRound = s.round;
+          break;
+        }
+      }
+    }
   }
 
   // aggression est tiree du RNG interne de chaque bot (personnalite, cf.
@@ -73,6 +129,19 @@ function playOne(seed: number): Result {
   // ci-dessus), pas declare par le bot.
   const winnerBot = s.winner !== null ? bots[s.winner] : null;
   const winnerArena = s.winner !== null ? s.arenas[s.winner] : null;
+
+  const standingTiers: number[] = [];
+  const investedGoldByRoot = new Map<string, number>();
+  for (const a of s.arenas) {
+    for (const twr of a.towers) {
+      const tier = tierOf.get(twr.defId);
+      if (tier !== undefined) standingTiers.push(tier);
+      const root = branchRootOf(twr.defId);
+      const cost = cumulativeCostOf.get(twr.defId);
+      if (root && cost !== undefined) investedGoldByRoot.set(root, (investedGoldByRoot.get(root) ?? 0) + cost);
+    }
+  }
+
   return {
     seed,
     winner: s.winner,
@@ -82,6 +151,9 @@ function playOne(seed: number): Result {
     totalLeaks: s.arenas.reduce((acc, a) => acc + a.leaked, 0),
     totalBounty: s.arenas.reduce((acc, a) => acc + a.goldFromBounty, 0),
     totalIncome: s.arenas.reduce((acc, a) => acc + a.goldFromIncome, 0),
+    standingTiers,
+    saturationRound,
+    investedGoldByRoot,
   };
 }
 
@@ -121,6 +193,41 @@ for (const [root, n] of [...byRoot].sort((a, b) => b[1] - a[1])) {
 console.log('\nvictoires par agressivite (part de l or en creeps, personnalite tiree du RNG de chaque bot) :');
 for (const [a, n] of [...byAggr].sort((x, y) => x[0] - y[0])) {
   console.log(`  ${(a * 100).toFixed(0).padStart(3)}%  ${String(n).padStart(3)}`);
+}
+
+// --- Les 3 mesures du lot "5 paliers par branche" (voir _notes.towerEfficiency).
+const allTiers = results.flatMap((r) => r.standingTiers).sort((a, b) => a - b);
+const median = allTiers.length
+  ? allTiers.length % 2 === 1
+    ? allTiers[(allTiers.length - 1) / 2]!
+    : (allTiers[allTiers.length / 2 - 1]! + allTiers[allTiers.length / 2]!) / 2
+  : NaN;
+console.log(
+  `\npalier median atteint en fin de partie (${allTiers.length} tours mesurees, cible 4) : ${median}`,
+);
+
+const saturated = results.filter((r) => r.saturationRound !== null);
+if (saturated.length) {
+  const rounds = saturated.map((r) => r.saturationRound as number).sort((a, b) => a - b);
+  console.log(
+    `round de saturation de la carte (${TOTAL_SLOTS} emplacements) : atteint dans ${saturated.length}/${GAMES} parties, round median ${rounds[Math.floor(rounds.length / 2)]}`,
+  );
+} else {
+  console.log(`round de saturation de la carte (${TOTAL_SLOTS} emplacements) : jamais atteint sur ${GAMES} parties`);
+}
+
+const investedTotals = new Map<string, number>();
+for (const r of results) {
+  for (const [root, gold] of r.investedGoldByRoot) {
+    investedTotals.set(root, (investedTotals.get(root) ?? 0) + gold);
+  }
+}
+const investedGrandTotal = [...investedTotals.values()].reduce((a, b) => a + b, 0);
+console.log(`\npart de l'or investi par branche (tours encore debout en fin de partie, cout cumule par palier) :`);
+for (const [root, gold] of [...investedTotals].sort((a, b) => b[1] - a[1])) {
+  const name = towers.get(root)?.name ?? root;
+  const share = investedGrandTotal ? (gold / investedGrandTotal) * 100 : 0;
+  console.log(`  ${name.padEnd(22)} ${share.toFixed(1).padStart(5)}%`);
 }
 
 const missing = new Map<string, Set<string>>();

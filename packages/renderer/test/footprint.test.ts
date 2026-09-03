@@ -16,8 +16,8 @@ import { measureSweptRadius, MAX_RADIUS } from '../src/footprint.js';
 describe('emprise au sol — branche Cannon', () => {
   const chain = getBranchChain('h000');
 
-  it('la branche a bien 6 paliers connus', () => {
-    expect(chain.length).toBe(6);
+  it('la branche a bien 5 paliers connus', () => {
+    expect(chain.length).toBe(5);
   });
 
   it.each(chain.map((def, tier) => ({ tier, name: def.name })))(

@@ -1,13 +1,13 @@
 {
   "towers": {
-    "o003": { "attackType": "pierce", "slow": { "pct": 0.12, "maxTargets": 2, "durationSec": 3 } },
-    "o004": { "attackType": "pierce", "slow": { "pct": 0.19, "maxTargets": 3, "durationSec": 3.5 } },
-    "o005": { "attackType": "pierce", "slow": { "pct": 0.26, "maxTargets": 4, "durationSec": 4 } },
-    "o007": { "attackType": "pierce", "slow": { "pct": 0.33, "maxTargets": 6, "durationSec": 4.5 }, "upgradesTo": ["o00C"] },
+    "o003": { "attackType": "pierce", "name": "Givre", "goldCost": 60, "refund": 30, "damageBase": 180, "cooldown": 1.00, "slow": { "pct": 0.12, "maxTargets": 2, "durationSec": 3 } },
+    "o004": { "attackType": "pierce", "name": "Gel", "goldCost": 200, "refund": 100, "damageBase": 387, "cooldown": 0.85, "slow": { "pct": 0.19, "maxTargets": 3, "durationSec": 3.5 } },
+    "o005": { "attackType": "pierce", "name": "Blizzard", "goldCost": 600, "refund": 300, "damageBase": 788, "cooldown": 0.75, "slow": { "pct": 0.26, "maxTargets": 4, "durationSec": 4 } },
+    "o007": { "attackType": "pierce", "name": "Cryogène", "goldCost": 1900, "refund": 950, "damageBase": 1690, "cooldown": 0.65, "slow": { "pct": 0.33, "maxTargets": 6, "durationSec": 4.5 }, "upgradesTo": ["o00C"] },
     "o00C": {
-      "id": "o00C", "name": "Absolute Zero Tower",
-      "goldCost": 1200, "refund": 1200,
-      "damageBase": 500, "dice": 0, "sides": 1, "cooldown": 0.60,
+      "id": "o00C", "name": "Zéro absolu",
+      "goldCost": 6000, "refund": 3000,
+      "damageBase": 3810, "dice": 0, "sides": 1, "cooldown": 0.60,
       "range": 1500, "acquisitionRange": 700,
       "attackType": "pierce", "targets": ["air", "ground"],
       "aoeFull": 80, "aoeMedium": 160, "aoeSmall": 200,
@@ -15,14 +15,14 @@
       "slow": { "pct": 0.40, "maxTargets": 10, "durationSec": 5.0 }
     },
 
-    "o001": { "attackType": "pierce", "poison": { "slowPct": 0.08, "dps": 8, "durationSec": 5 } },
-    "o002": { "attackType": "pierce", "poison": { "slowPct": 0.14, "dps": 20, "durationSec": 7 } },
-    "o000": { "attackType": "pierce", "damageBase": 50, "cooldown": 0.25, "poison": { "slowPct": 0.20, "dps": 45, "durationSec": 9 } },
-    "o006": { "attackType": "pierce", "damageBase": 80, "cooldown": 0.20, "poison": { "slowPct": 0.25, "dps": 90, "durationSec": 12 }, "upgradesTo": ["o00D"] },
+    "o001": { "attackType": "pierce", "name": "Acide", "goldCost": 30, "refund": 15, "damageBase": 38, "cooldown": 0.40, "poison": { "slowPct": 0.08, "dps": 8, "durationSec": 5 } },
+    "o002": { "attackType": "pierce", "name": "Corrosive", "goldCost": 120, "refund": 60, "damageBase": 90, "cooldown": 0.32, "poison": { "slowPct": 0.14, "dps": 20, "durationSec": 7 } },
+    "o000": { "attackType": "pierce", "name": "Dissolvante", "goldCost": 500, "refund": 250, "damageBase": 220, "cooldown": 0.26, "poison": { "slowPct": 0.20, "dps": 45, "durationSec": 9 } },
+    "o006": { "attackType": "pierce", "name": "Nécrose", "goldCost": 2000, "refund": 1000, "damageBase": 539, "cooldown": 0.22, "poison": { "slowPct": 0.25, "dps": 90, "durationSec": 12 }, "upgradesTo": ["o00D"] },
     "o00D": {
-      "id": "o00D", "name": "Pandemic Tower",
-      "goldCost": 4000, "refund": 4000,
-      "damageBase": 110, "dice": 0, "sides": 1, "cooldown": 0.20,
+      "id": "o00D", "name": "Solvant",
+      "goldCost": 8000, "refund": 4000,
+      "damageBase": 1450, "dice": 0, "sides": 1, "cooldown": 0.20,
       "range": 1500, "acquisitionRange": 1000,
       "attackType": "pierce", "targets": ["air", "ground"],
       "aoeFull": 10, "aoeMedium": 20, "aoeSmall": 30,
@@ -30,25 +30,44 @@
       "poison": { "slowPct": 0.30, "dps": 162, "durationSec": 15 }
     },
 
-    "h005": { "attackType": "pierce", "goldCost": 60, "chain": { "bounces": 2, "falloff": 0.60 } },
-    "h006": { "attackType": "pierce", "chain": { "bounces": 3, "falloff": 0.68 } },
-    "h007": { "attackType": "pierce", "chain": { "bounces": 4, "falloff": 0.75 } },
-    "h011": { "attackType": "pierce", "chain": { "bounces": 6, "falloff": 0.82 } },
+    "h005": { "attackType": "pierce", "name": "Flak", "goldCost": 60, "refund": 30, "damageBase": 105, "cooldown": 0.35, "chain": { "bounces": 2, "falloff": 0.60 } },
+    "h006": { "attackType": "pierce", "name": "Arc", "goldCost": 220, "refund": 110, "damageBase": 205, "cooldown": 0.25, "chain": { "bounces": 3, "falloff": 0.68 } },
+    "h007": { "attackType": "pierce", "name": "Foudre", "goldCost": 850, "refund": 425, "damageBase": 423, "cooldown": 0.18, "chain": { "bounces": 4, "falloff": 0.75 }, "upgradesTo": ["h013"] },
+    "h013": {
+      "id": "h013", "name": "Orage",
+      "goldCost": 3200, "refund": 1600,
+      "damageBase": 845, "dice": 0, "sides": 1, "cooldown": 0.13,
+      "range": 1000, "acquisitionRange": 1000,
+      "attackType": "pierce", "targets": ["air"],
+      "aoeFull": 60, "aoeMedium": 120, "aoeSmall": 140,
+      "upgradesTo": ["h011"], "requires": [], "abilities": ["Alit"],
+      "chain": { "bounces": 5, "falloff": 0.785 }
+    },
+    "h011": { "attackType": "pierce", "name": "Tempête", "goldCost": 12000, "refund": 6000, "damageBase": 1800, "cooldown": 0.10, "chain": { "bounces": 6, "falloff": 0.82 } },
 
-    "h000": { "attackType": "pierce", "damageBase": 26 },
+    "h000": { "attackType": "pierce", "name": "Tourelle", "goldCost": 10, "refund": 5, "damageBase": 46, "cooldown": 0.35, "upgradesTo": ["h004"] },
     "h003": { "attackType": "siege", "name": "Canon", "damageBase": 82 },
-    "h004": { "attackType": "siege", "damageBase": 178 },
-    "h002": { "attackType": "siege", "damageBase": 385 },
-    "h012": { "attackType": "siege", "damageBase": 828 },
-    "h010": { "attackType": "siege", "damageBase": 1534 },
+    "h004": { "attackType": "siege", "name": "Canon", "goldCost": 60, "refund": 30, "damageBase": 151, "cooldown": 0.29 },
+    "h002": { "attackType": "siege", "name": "Canon lourd", "goldCost": 370, "refund": 185, "damageBase": 525, "cooldown": 0.25 },
+    "h012": { "attackType": "siege", "name": "Obusier", "goldCost": 2200, "refund": 1100, "damageBase": 1859, "cooldown": 0.22 },
+    "h010": { "attackType": "siege", "name": "Canon à rail", "goldCost": 5500, "refund": 2750, "damageBase": 1400, "cooldown": 0.10 },
 
-    "h008": { "attackType": "siege" },
-    "h00T": { "attackType": "siege" },
+    "h008": { "attackType": "siege", "name": "Réacteur", "goldCost": 30000, "refund": 15000, "damageBase": 25000, "cooldown": 4.0 },
+    "h00T": { "attackType": "siege", "name": "Soleil artificiel", "goldCost": 180000, "refund": 90000, "damageBase": 62500, "cooldown": 2.5 },
 
-    "o008": { "attackType": "normal", "name": "Répétiteur", "targets": ["ground"], "damageBase": 50, "cooldown": 0.25, "range": 600 },
-    "o009": { "attackType": "normal", "name": "Baliste double", "targets": ["ground"], "damageBase": 101, "cooldown": 0.22, "range": 700 },
-    "o00A": { "attackType": "normal", "name": "Orgue de tir", "targets": ["ground"], "damageBase": 209, "cooldown": 0.20, "range": 800 },
-    "o00B": { "attackType": "normal", "name": "Fauchoir", "targets": ["ground"], "damageBase": 518, "cooldown": 0.18, "range": 900 }
+    "o008": { "attackType": "normal", "name": "Répétiteur", "targets": ["ground"], "goldCost": 60, "refund": 30, "damageBase": 78, "cooldown": 0.20, "range": 600 },
+    "o009": { "attackType": "normal", "name": "Mitrailleuse", "targets": ["ground"], "goldCost": 220, "refund": 110, "damageBase": 200, "cooldown": 0.19, "range": 700 },
+    "o00A": { "attackType": "normal", "name": "Gatling", "targets": ["ground"], "goldCost": 850, "refund": 425, "damageBase": 549, "cooldown": 0.18, "range": 800 },
+    "o00B": { "attackType": "normal", "name": "Fauchoir", "targets": ["ground"], "goldCost": 3200, "refund": 1600, "damageBase": 1436, "cooldown": 0.17, "range": 900, "upgradesTo": ["o00E"] },
+    "o00E": {
+      "id": "o00E", "name": "Moissonneuse",
+      "goldCost": 12000, "refund": 6000,
+      "damageBase": 3760, "dice": 0, "sides": 1, "cooldown": 0.16,
+      "range": 1000, "acquisitionRange": 1200,
+      "attackType": "normal", "targets": ["ground"],
+      "aoeFull": 0, "aoeMedium": 0, "aoeSmall": 0,
+      "upgradesTo": [], "requires": [], "abilities": []
+    }
   },
   "creeps": {
     "n000": { "iconUrl": "/icons/creeps/lv1_trainard_mini.png" },
@@ -74,7 +93,19 @@
     "h00M": { "iconUrl": "/icons/creeps/lv21_broyeur_mini.png" },
     "u005": { "iconUrl": "/icons/creeps/lv22_colosse_aile_mini.png" },
     "h00N": { "iconUrl": "/icons/creeps/lv23_titan_greffe_mini.png" },
-    "h00O": { "iconUrl": "/icons/creeps/lv24_prototype_omega_mini.png" }
+    "h00O": { "iconUrl": "/icons/creeps/lv24_prototype_omega_mini.png" },
+    "u006": { "iconUrl": "/icons/creeps/lv26_essaim_drones_mini.png" },
+    "h00P": { "iconUrl": "/icons/creeps/lv27_meute_quadrupede_mini.png" },
+    "h00Q": { "iconUrl": "/icons/creeps/lv28_marcheur_siege_mini.png" },
+    "u007": { "iconUrl": "/icons/creeps/lv25_cuirasse_aerien_mini.png" },
+    "h00R": { "iconUrl": "/icons/creeps/lv29_ecraseur_chenille_mini.png" },
+    "h00U": { "iconUrl": "/icons/creeps/lv30_gardien_alpha_mini.png" },
+    "h00V": { "iconUrl": "/icons/creeps/lv31_arbitre_mini.png" },
+    "u008": { "iconUrl": "/icons/creeps/lv33_porte_nefs_mini.png" },
+    "h00W": { "iconUrl": "/icons/creeps/lv34_executeur_mini.png" },
+    "u00A": { "iconUrl": "/icons/creeps/lv35_dreadnought_orbital_mini.png" },
+    "h00X": { "iconUrl": "/icons/creeps/lv32_forteresse_mobile_mini.png" },
+    "h00Z": { "iconUrl": "/icons/creeps/lv36_intelligence_mere_mini.png" }
   },
   "shops": {
     "htow": { "name": "Enrôlés", "world": "Les Enrôlés" },
@@ -89,8 +120,8 @@
   },
   "_notes": {
     "maxPlayers": "Format definitivement fixe a 6 (1 humain + 5 bots) : les envois etant globaux, la pression subie par joueur depend directement de l'effectif, et le classement de fin de partie (3 premiers/3 derniers) suppose un compte pair. map_data.json garde sa valeur d'origine (8) -- surcharge ici, mecanisme standard de ce fichier. Les lanes 6 et 7 des donnees source restent presentes, simplement inutilisees.",
-    "mitrailleuseVsCannon": "o008-o00B calee a 2.4x le DPS de la branche Cannon (h000/h003/h004/h002/h012/h010) a palier comparable, contre 2x lors du reequilibrage precedent de la mitrailleuse. Deplacement volontaire en sa faveur (elle est mono-cible la ou le Cannon frappe en zone) -- pas une derive a corriger. Champ ignore au chargement (voir packages/data/src/index.ts), present uniquement pour la documentation.",
-    "attackType": "Choix de design assume, plus une lacune des donnees source (voir packages/sim/src/sim.ts pour la table de degats par type x armure). siege (Cannon, Nuclear) : x1.5 contre fort, x0.5 contre medium -- la reponse aux creeps blindes (5/12 en Forge, 4/12 en Fonderie). pierce (Ice, Poison, Lightning) : x1.5 contre normal, x2 contre small, x0.35 contre fort -- bon contre la pietaille, mauvais contre le blindage. normal (mitrailleuse) : neutre partout. Exception assumee : h000 (Arrow Tower, palier 1 de Cannon) est pierce et non siege comme le reste de sa branche -- c'etait deja sa valeur par defaut avant ce lot (heritee d'un baseId different des paliers superieurs dans la map d'origine), conservee telle quelle plutot que forcee a siege pour coller au resume par branche.",
-    "fifthTiers": "o00C (Absolute Zero Tower, Ice) et o00D (Pandemic Tower, Poison) : premieres tours n'existant dans aucune donnee source -- creees entierement via balance.json (voir applyOverrides dans packages/data/src/index.ts, qui cree desormais l'entree si l'id est absent des donnees d'origine plutot que de se contenter d'ignorer une surcharge sans cible). Noms proposes en continuite de la branche : Ice Tower -> Super Ice Tower -> Freeze Tower -> Ultra Freeze Tower -> Absolute Zero Tower ; Poison Tower -> Super Poison Tower -> Disease Tower -> Ultra Disease Tower -> Pandemic Tower. A confirmer, faciles a renommer ici si un autre nom est prefere. Ralentissement cumule lisse sur 5 paliers pour tomber pile sur SLOW_CAP (0.70) quand les DEUX branches sont montees a fond (voir packages/sim/src/status.ts) : Ice 12/19/26/33/40%, Poison 8/14/20/25/30% (o000 et o006 etaient deja a 20/25%, inchanges). Prix : 1200 (Ice, palier 4 actuel 300, ratio x4 contre x1.5-2 sur les paliers precedents de la branche) et 4000 (Poison, palier 4 actuel 1000, ratio x4, coherent avec le dernier saut de la branche qui etait deja x4). Le saut Ice est plus abrupt que l'historique de sa propre branche, mais reste tres en-dessous du sommet des autres branches a ce stade de partie (o00B 1500, h011 8000, h010 20000) -- 300 en palier 4 etait l'exception basse, pas 1200 en palier 5 ; a ajuster si ca semble encore trop bas ou trop haut une fois mesure en jeu. Palier 5 n'apporte plus de ralentissement supplementaire (deja plafonne au niveau du jeu) mais autre chose : Ice gagne en rayon (aoeFull 10 -> 80, o007 avait une valeur anormalement basse dans les donnees source, ecart deja present avant ce lot et non corrige ici) et en cibles simultanees (6 -> 10) plus une duree de ralentissement prolongee (4.5 -> 5.0s) ; Poison gagne en duree du DoT (12 -> 15s) et en degats par seconde du DoT (90 -> 162), tandis que les degats directs restent volontairement moderes (110 base, cooldown 0.20s inchange = 550 DPS direct contre 400 en palier 4, une hausse bien plus faible que le x4 du prix) pour rester coherent avec l'esprit du nerf Poison de ce meme lot : la valeur du palier 5 vient du DoT, pas du coup direct."
+    "towerEfficiency": "Reequilibrage complet (27 tours actives + h003 mort, ex-'mitrailleuseVsCannon') : 5 paliers pour chacune des 5 branches de combat (Balistique/Cadence/Anti-aerien/Givre/Acide) + 2 pour le Reacteur, prix et DPS derives d'une seule regle uniforme : l'efficacite en DPS par or est divisee par 1.5 chaque fois que le prix est multiplie par 6 (elasticite log-log constante, exposant ln(1.5)/ln(6)=0.2263). Verifiee de bout en bout (palier 1 a 5) sur 4 des 5 branches de combat malgre des etendues de prix par palier tres differentes (Cadence/Anti-aerien vont jusqu'a x200 sur 5 paliers, Givre seulement x100 : la meme elasticite s'applique aux deux, seuls les paliers intermediaires different). Le Reacteur (2 paliers seulement) suit la regle a la lettre plutot que de faire exception : prix x6 (30000 -> 180000), efficacite /1.5 exactement -- h00T etait a 100000 avant ce lot, remonte pour ne pas laisser le palier 2 plus rentable que le palier 1 (retour direct : jamais d'exception a la regle, meme pour 2 paliers). Objectif mecanique : construire en largeur reste 1.5x plus rentable que monter d'un palier, tant qu'il reste des emplacements libres. Champ ignore au chargement (voir packages/data/src/index.ts), present uniquement pour la documentation. EXCEPTION ASSUMEE, Balistique palier 5 (h010, 'Canon a rail') : la branche Balistique est la SEULE a avoir une geometrie 3D dediee (packages/renderer/src/towers/cannon.ts, intouchable dans ce lot), dont le calibre des canons croit en sqrt(damageBase) -- a tier 4 (3 canons en couronne), le damageBase max qui tient dans MAX_RADIUS (packages/renderer/src/footprint.ts) est ~1534, qui se trouve etre EXACTEMENT l'ancienne valeur de h010 : la tour etait deja au plafond geometrique avant ce lot. Le plancher de cooldown existant (0.10s, voir packages/data/test/towers.test.ts) empeche de compenser par la cadence : DPS max atteignable ~14000-15300 contre 41000 vise par la grille initiale. h010 est donc fixe a damageBase 1400 / cooldown 0.10 (DPS 14000, marge de 2% sous MAX_RADIUS) avec un prix (5500, refund 2750) recalcule pour rester sur la meme regle d'efficacite relative au palier 4 (ecart mesure 1.6% -- comparable aux ecarts palier-a-palier des autres branches). Consequence assumee : le palier 5 de la Balistique est mecaniquement moins spectaculaire que celui des 4 autres branches de combat (~14000 DPS contre 18000-23500), sa courbe P1->P5 devie de l'elasticite commune (exposant mesure 0.256 contre 0.226 ailleurs) -- deviation geometrique, pas une erreur de calcul.h003 (ancien palier 2 de la Balistique) est retire de la chaine (h000.upgradesTo pointe directement sur h004) : les donnees source le laissent en place tel quel (id mort, jamais reconstruit ni reference par le code hors de ce commentaire) -- son name 'Canon' entre en collision avec le nouveau palier 2 (h004), assume plutot que corrige puisque h003 n'est plus jamais affiche.",
+    "attackType": "Choix de design assume, plus une lacune des donnees source (voir packages/sim/src/sim.ts pour la table de degats par type x armure). siege (Balistique, Reacteur) : x1.5 contre fort, x0.5 contre medium -- la reponse aux creeps blindes (5/12 en Forge, 4/12 en Fonderie). pierce (Givre, Acide, Anti-aerien) : x1.5 contre normal, x2 contre small, x0.35 contre fort -- bon contre la pietaille, mauvais contre le blindage. normal (Cadence) : neutre partout. Exception assumee : h000 (Tourelle, palier 1 de la Balistique) est pierce et non siege comme le reste de sa branche -- c'etait deja sa valeur par defaut avant le lot precedent (heritee d'un baseId different des paliers superieurs dans la map d'origine), conservee telle quelle plutot que forcee a siege pour coller au resume par branche.",
+    "fifthTiers": "o00C (Zero absolu, Givre) et o00D (Solvant, Acide) : tours n'existant dans aucune donnee source -- creees entierement via balance.json (voir applyOverrides dans packages/data/src/index.ts, qui cree l'entree si l'id est absent des donnees d'origine plutot que de se contenter d'ignorer une surcharge sans cible). Meme mecanisme pour h013 (Orage, Anti-aerien, 4e palier sur 5) et o00E (Moissonneuse, Cadence, 5e palier) -- voir towerEfficiency pour le prix/DPS des 27 tours, INCHANGE ici : ralentissement (Givre) et poison (Acide) cumules restent lisses sur 5 paliers pour tomber pile sur SLOW_CAP (0.70) quand les deux branches sont montees a fond (voir packages/sim/src/status.ts) : Givre 12/19/26/33/40%, Acide 8/14/20/25/30%. Palier 5 n'apporte plus de ralentissement/poison supplementaire (deja plafonne) mais autre chose, egalement inchange par ce lot : Givre gagne en rayon d'AoE et en cibles simultanees (6 -> 10) plus une duree de ralentissement prolongee (4.5 -> 5.0s) ; Acide gagne en duree du DoT (12 -> 15s) et en degats par seconde du DoT (90 -> 162). h013 (Anti-aerien, chain lightning) prolonge la progression bounces/falloff de sa branche a mi-chemin entre le palier 3 (h007, 4 rebonds/0.75) et l'ancien palier 5 devenu palier 5 (h011, 6 rebonds/0.82) : 5 rebonds/0.785, aucune valeur choisie au hasard."
   }
 }
