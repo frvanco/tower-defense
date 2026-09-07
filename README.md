@@ -109,8 +109,15 @@ Tout dans `packages/data/src/balance.json`, jamais dans `map_data.json`.
 
 - **Bots** (`packages/sim/src/bot.ts`) : trois niveaux de difficulté
   (`easy`/`medium`/`hard`, défaut `medium`) qui ne changent que la
-  *compétence* — vitesse de décision, tri des emplacements de construction
-  par distance au chemin, réaction aux vagues aériennes. La *personnalité*
+  *compétence* — vitesse de décision, placement selon la longueur de chemin
+  couverte à portée, réaction aux vagues aériennes. Les envois de creeps
+  sont limités uniquement par le budget d'attaque et le stock disponible.
+  Chaque bot est limité à **200 tours simultanées**,
+  puis continue les améliorations et les envois. Les bots medium/hard
+  financent une défense anti-aérienne d'urgence avant leurs autres dépenses
+  et préservent leur dernière tour capable de toucher l'air pendant une
+  vague aérienne. Le coût des boutiques est réservé avant les autres achats.
+  La *personnalité*
   (agressivité, branche de tour préférée) est tirée du RNG propre du bot,
   indépendamment du niveau : un bot agressif n'est pas plus fort, juste
   différent. `pnpm headless [parties] [difficulté] [effectif]` mesure
@@ -186,4 +193,3 @@ au chemin sur les bras et le connecteur).
 - `h00T` (Hydrogen Fusion Tower, palier suivant de la Nuclear Tower) a une
   portée de 2000, largement au-dessus de la borne visée ailleurs (900 max
   sur les autres branches).
-

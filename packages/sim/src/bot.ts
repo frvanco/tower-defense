@@ -1,9 +1,12 @@
 import { towers, creeps, shops, buildSlots, lanes, type Slot, type Lane } from '@tower-defense/data';
 import { nextRandom } from './rng.js';
-import { TICK_RATE, type Command, type GameState, type Tower } from './types.js';
+import { TICK_RATE, type Command, type GameState } from './types.js';
 import type { TowerDef } from '@tower-defense/data';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
+
+/** Limite par bot, constructions du cycle courant comprises. */
+const MAX_BOT_TOWERS = 200;
 
 /** defId de creep -> index de palier de boutique (meme derivation que
  * creepShopTier dans sim.ts, dupliquee ici plutot que partagee : bot.ts ne
@@ -128,23 +131,25 @@ function phaseAggressionDelta(round: number): number {
   return -0.15 + 0.3 * t;
 }
 
-/** Distance d'un point a un segment [a, b] — plus petite distance a la
- * portion de chemin, pas seulement aux waypoints. Fonction pure, sans etat. */
-function pointToSegmentDistance(
+/** Longueur du segment [a, b] a l'interieur de la portee d'une tour. */
+function segmentLengthInRange(
   px: number,
   py: number,
   ax: number,
   ay: number,
   bx: number,
   by: number,
+  range: number,
 ): number {
   const dx = bx - ax;
   const dy = by - ay;
-  const lenSq = dx * dx + dy * dy;
-  const t = lenSq > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq)) : 0;
-  const cx = ax + t * dx;
-  const cy = ay + t * dy;
-  return Math.hypot(px - cx, py - cy);
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return 0;
+  const projection = ((px - ax) * dx + (py - ay) * dy) / length;
+  const perpendicular = ((px - ax) * dy - (py - ay) * dx) / length;
+  if (Math.abs(perpendicular) >= range) return 0;
+  const halfChord = Math.sqrt(range * range - perpendicular * perpendicular);
+  return Math.max(0, Math.min(length, projection + halfChord) - Math.max(0, projection - halfChord));
 }
 
 export interface BotConfig {
@@ -182,6 +187,7 @@ export interface BotConfig {
 export class Bot {
   private rng: number;
   private slots: Slot[] | null = null;
+  private readonly slotsByRange = new Map<number, Slot[]>();
 
   private readonly difficulty: Difficulty;
   /** Personnalite — toujours tiree du RNG si non fournie, quel que soit le
@@ -263,39 +269,38 @@ export class Bot {
     return ['h005'];
   }
 
-  /** Trie les emplacements par distance croissante au chemin (les plus utiles
-   * — portee vraiment exploitee — en premier). Egalites departagees par un
-   * tirage du RNG du bot, pour que deux bots ne remplissent pas dans le meme
-   * ordre. Calcule une seule fois, au premier decide(). */
-  private rankSlotsByPath(slots: Slot[], lane: Lane): Slot[] {
+  /** Favorise les positions couvrant plusieurs bras du U. Le classement
+   * depend de la portee, avec egalites departagees par le RNG du bot. */
+  private rankSlotsByPath(slots: Slot[], lane: Lane, range: number): Slot[] {
     const points: Array<[number, number]> = [lane.spawn, ...lane.waypoints];
     const scored = slots.map((slot) => {
-      let dist = Infinity;
+      let coverage = 0;
       for (let i = 0; i < points.length - 1; i++) {
         const [ax, ay] = points[i]!;
         const [bx, by] = points[i + 1]!;
-        const d = pointToSegmentDistance(slot.x, slot.y, ax, ay, bx, by);
-        if (d < dist) dist = d;
+        coverage += segmentLengthInRange(slot.x, slot.y, ax, ay, bx, by, range);
       }
-      return { slot, dist, tiebreak: this.rand() };
+      return { slot, coverage, tiebreak: this.rand() };
     });
-    scored.sort((a, b) => a.dist - b.dist || a.tiebreak - b.tiebreak);
+    scored.sort((a, b) => b.coverage - a.coverage || a.tiebreak - b.tiebreak);
     return scored.map((x) => x.slot);
+  }
+
+  private slotsForTower(def: TowerDef): Slot[] {
+    if (this.difficulty === 'easy') return this.slots!;
+    const cached = this.slotsByRange.get(def.range);
+    if (cached) return cached;
+    const lane = lanes.find((l) => l.player === this.cfg.player);
+    const ranked = lane ? this.rankSlotsByPath(this.slots!, lane, def.range) : this.slots!;
+    this.slotsByRange.set(def.range, ranked);
+    return ranked;
   }
 
   decide(s: GameState): Command[] {
     const arena = s.arenas[this.cfg.player];
-    if (!arena || !arena.alive) return [];
+    if (s.finished || !arena || !arena.alive) return [];
     if (!this.slots) {
-      const raw = buildSlots(this.cfg.player);
-      // easy : ordre brut de buildSlots (comportement d'origine). medium/hard
-      // : trie par utilite reelle (distance au chemin).
-      if (this.difficulty === 'easy') {
-        this.slots = raw;
-      } else {
-        const lane = lanes.find((l) => l.player === this.cfg.player);
-        this.slots = lane ? this.rankSlotsByPath(raw, lane) : raw;
-      }
+      this.slots = buildSlots(this.cfg.player);
     }
 
     // Achat de palier de boutique — verifie a CHAQUE appel de decide() (donc
@@ -307,12 +312,16 @@ export class Bot {
     // d'income lui-meme. Deterministe par construction (comparaison de seuil
     // pure, aucun rand() necessaire ni utilise).
     const cmds: Command[] = [];
+    let availableGold = arena.gold;
+    let unlockedShopTier = arena.unlockedShopTier;
     if (s.round !== this.lastSeenRound) {
       this.lastSeenRound = s.round;
       const nextTier = arena.unlockedShopTier + 1;
       const nextShop = shops[nextTier];
       if (nextShop && arena.gold >= nextShop.goldCost * SHOP_UNLOCK_RESERVE_FACTOR) {
         cmds.push({ type: 'unlockShop', player: this.cfg.player });
+        availableGold -= nextShop.goldCost;
+        unlockedShopTier = nextTier;
       }
     }
 
@@ -322,14 +331,39 @@ export class Bot {
     const jitter = 0.8 + this.rand() * 0.4;
     this.nextDecisionTick = s.tick + Math.max(1, Math.round(DECISION_PERIOD_TICKS[this.difficulty] * jitter));
 
+    const claimed = new Set<string>();
+    const airCreepCount = arena.creeps.filter((c) => creeps.get(c.defId)?.isAir).length;
+    const airThreat = this.difficulty !== 'easy' && airCreepCount > 0;
+    let antiAirCount = arena.towers.filter((t) => towers.get(t.defId)?.targets.includes('air')).length;
+
+    // Financer l'urgence AVANT les autres depenses, sinon les ameliorations
+    // peuvent absorber tout l'or et repousser indefiniment la defense air.
+    if (
+      airThreat && airCreepCount / arena.creeps.length > AIR_THREAT_SHARE &&
+      antiAirCount === 0 && arena.towers.length < MAX_BOT_TOWERS
+    ) {
+      const def = towers.get('h005')!;
+      if (def.goldCost <= availableGold) {
+        const slot = this.slotsForTower(def).find((sl) => !arena.occupied[sl.id]);
+        if (slot) {
+          cmds.push({ type: 'buildTower', player: this.cfg.player, defId: def.id, x: slot.x, y: slot.y });
+          claimed.add(slot.id);
+          availableGold -= def.goldCost;
+          this.spent.antiair += def.goldCost;
+          antiAirCount++;
+        }
+      }
+    }
+
     const effectiveAggression =
       this.difficulty === 'hard'
         ? Math.min(0.95, Math.max(0.05, this.aggression + phaseAggressionDelta(s.round)))
         : this.aggression;
-    const creepBudget = arena.gold * effectiveAggression;
-    let towerBudget = arena.gold - creepBudget;
+    const creepBudget = availableGold * effectiveAggression;
+    let towerBudget = availableGold - creepBudget;
 
-    // 1. Envoyer le creep le plus cher qu'on peut se payer et qui est en stock.
+    // 1. Envoyer les creeps les plus chers accessibles, sans plafond de
+    // nombre : seuls le budget d'attaque et le stock bornent chaque salve.
     let spend = creepBudget;
     const affordable = [...creeps.values()]
       .filter((c) => {
@@ -339,46 +373,39 @@ export class Bot {
         // decision serait gaspille au lieu de retomber sur un creep
         // reellement envoyable ce tour-ci.
         const tier = creepShopTierForBot.get(c.id) ?? 0;
-        if (tier > arena.unlockedShopTier) return false;
+        if (tier > unlockedShopTier) return false;
         const st = arena.stock[c.id];
         return st && st.count > 0 && s.tick >= st.availableAt && c.goldCost <= spend;
       })
       .sort((a, b) => b.goldCost - a.goldCost);
-    const pick = affordable[0];
-    if (pick) {
-      cmds.push({ type: 'sendCreep', player: this.cfg.player, defId: pick.id });
-      spend -= pick.goldCost;
+    for (const pick of affordable) {
+      const count = arena.stock[pick.id]!.count;
+      for (let i = 0; i < count && pick.goldCost <= spend; i++) {
+        cmds.push({ type: 'sendCreep', player: this.cfg.player, defId: pick.id });
+        spend -= pick.goldCost;
+      }
     }
 
-    // 2. Ameliorer TOUT ce qui est finançable avant de poser une seule tour
-    // neuve. L'ancienne version ne tentait qu'UNE amelioration par cycle de
-    // decision alors qu'elle pouvait poser plusieurs tours neuves dans le
-    // meme cycle — elle favorisait donc systematiquement la largeur (plus de
-    // tours de base) sur la profondeur (des tours amelioree). C'etait le
-    // defaut le plus coûteux du bot precedent (brief de ce lot) : une seule
-    // branche jamais amelioree domine juste parce que c'est tout ce qui se
-    // construit. Niveau easy : ignore la PASSE entiere d'amelioration une
-    // fois sur deux (tire du RNG du bot, meme frequence qu'avant), le reste
-    // du comportement est identique aux autres niveaux.
+    // 2. Hors urgence air, ameliorer avant de construire, meme au plafond.
+    // Un seul tri par cout permet de financer les ameliorations les moins
+    // cheres en premier, au plus une par tour et par decision. Easy saute
+    // volontairement cette passe une fois sur deux.
     const skipUpgrades = this.difficulty === 'easy' && this.rand() < 0.5;
     if (!skipUpgrades) {
-      const touchedThisCycle = new Set<number>();
-      for (;;) {
-        const candidates = arena.towers
-          .filter((t) => !touchedThisCycle.has(t.eid))
-          .map((t) => ({ t, def: towers.get(t.defId)! }))
-          .filter((x) => x.def.upgradesTo.length > 0)
-          .map((x) => ({ ...x, next: towers.get(x.def.upgradesTo[0]!)! }))
-          .filter((x) => x.next && x.next.goldCost <= towerBudget);
-        if (candidates.length === 0) break;
-        // le moins cher d'abord : maximise le nombre d'ameliorations
-        // financees par ce cycle plutot que d'en griller tout le budget sur
-        // une seule tour.
-        candidates.sort((a, b) => a.next.goldCost - b.next.goldCost);
-        const up = candidates[0]!;
+      const candidates = arena.towers
+        .map((t) => ({ t, def: towers.get(t.defId)! }))
+        .filter((x) => x.def.upgradesTo.length > 0)
+        .map((x) => ({ ...x, next: towers.get(x.def.upgradesTo[0]!)! }))
+        .filter((x) => x.next && x.next.goldCost <= towerBudget)
+        .sort((a, b) => a.next.goldCost - b.next.goldCost);
+      for (const up of candidates) {
+        if (up.next.goldCost > towerBudget) break;
+        const hadAir = up.def.targets.includes('air');
+        const hasAir = up.next.targets.includes('air');
+        if (airThreat && hadAir && !hasAir && antiAirCount <= 1) continue;
         cmds.push({ type: 'upgradeTower', player: this.cfg.player, eid: up.t.eid, defId: up.next.id });
         towerBudget -= up.next.goldCost;
-        touchedThisCycle.add(up.t.eid);
+        antiAirCount += Number(hasAir) - Number(hadAir);
         this.spent[categoryOf(up.next.id)] += up.next.goldCost;
       }
     }
@@ -388,45 +415,25 @@ export class Bot {
     // composition — ordonnancement proportionnel-equitable simple, qui
     // garantit les planchers (MIN_CONTROL_SHARE, MIN_ANTIAIR_SHARE) sans
     // figer une branche unique pour toute la partie.
-    //
-    // Urgence anti-air (medium/hard uniquement, inchangee dans l'esprit de
-    // l'ancien code) : si une part significative des creeps de l'arene est
-    // aerienne et qu'aucune tour actuelle ne peut la cibler, la toute
-    // premiere construction de ce cycle est forcee sur la categorie
-    // anti-air (Lightning), peu importe son retard relatif — le temps que
-    // l'ordonnancement normal reprenne la main.
-    let forcedCat: Category | null = null;
-    if (this.difficulty !== 'easy') {
-      const airCreepCount = arena.creeps.filter((c) => creeps.get(c.defId)?.isAir).length;
-      const airShare = arena.creeps.length > 0 ? airCreepCount / arena.creeps.length : 0;
-      const hasAntiAir = arena.towers.some((t) => towers.get(t.defId)?.targets.includes('air'));
-      if (airShare > AIR_THREAT_SHARE && !hasAntiAir) forcedCat = 'antiair';
-    }
-
-    const claimed = new Set<string>();
     const blocked = new Set<Category>();
     const hasFreeSlot = () => this.slots!.some((sl) => !arena.occupied[sl.id] && !claimed.has(sl.id));
-    while (towerBudget > 0 && blocked.size < 3 && hasFreeSlot()) {
-      let cat: Category;
-      if (forcedCat && !blocked.has(forcedCat)) {
-        cat = forcedCat;
-      } else {
-        const totalSpent = this.spent.damage + this.spent.control + this.spent.antiair;
-        let best: Category | null = null;
-        let bestDeficit = -Infinity;
-        for (const c of ['damage', 'control', 'antiair'] as Category[]) {
-          if (blocked.has(c)) continue;
-          const actual = totalSpent > 0 ? this.spent[c] / totalSpent : 0;
-          const deficit = this.targetShares[c] - actual;
-          if (deficit > bestDeficit) {
-            bestDeficit = deficit;
-            best = c;
-          }
+    while (
+      arena.towers.length + claimed.size < MAX_BOT_TOWERS &&
+      towerBudget > 0 && blocked.size < 3 && hasFreeSlot()
+    ) {
+      const totalSpent = this.spent.damage + this.spent.control + this.spent.antiair;
+      let cat: Category | null = null;
+      let bestDeficit = -Infinity;
+      for (const c of ['damage', 'control', 'antiair'] as Category[]) {
+        if (blocked.has(c)) continue;
+        const actual = totalSpent > 0 ? this.spent[c] / totalSpent : 0;
+        const deficit = this.targetShares[c] - actual;
+        if (deficit > bestDeficit) {
+          bestDeficit = deficit;
+          cat = c;
         }
-        if (!best) break;
-        cat = best;
       }
-      forcedCat = null;
+      if (!cat) break;
 
       let built = false;
       for (const rootId of this.rootsFor(cat)) {
@@ -439,7 +446,7 @@ export class Bot {
         // tick() — une commande qu'on vient d'emettre dans CETTE meme
         // decide() n'y figure pas encore. `claimed` evite donc de viser deux
         // fois le meme emplacement dans le meme lot de commandes.
-        const slot = this.slots!.find((sl) => !arena.occupied[sl.id] && !claimed.has(sl.id));
+        const slot = this.slotsForTower(rootDef).find((sl) => !arena.occupied[sl.id] && !claimed.has(sl.id));
         if (!slot) break;
         claimed.add(slot.id);
         cmds.push({ type: 'buildTower', player: this.cfg.player, defId: rootDef.id, x: slot.x, y: slot.y });
