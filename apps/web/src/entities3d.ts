@@ -214,9 +214,14 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
  * animatedCreepInstances.ts. Declenche une seule fois ici, par modele ;
  * tant qu'un modele n'est pas pret, spawn() retombe sur la sphere/cone
  * habituelle pour ce creep (aucun blocage). Hauteur cible par creep — 1.8
- * pour la plupart (gabarit humain courant), reduite pour les paliers 1-3
- * (retour direct, -20%) : `height` sert aussi a placer la barre de vie
- * (voir syncHumanoid), donc jamais une constante partagee en dur ailleurs.
+ * (gabarit humain courant) comme reference, avec un multiplicateur par creep
+ * la ou le gabarit livre ne tenait pas a l'echelle du jeu (retours directs
+ * successifs : -20% sur les paliers 1-3, puis les ajustements unitaires
+ * ci-dessous). C'est le SEUL reglage de taille : buildModel() normalise
+ * chaque modele sur cette hauteur quelle que soit son echelle interne (voir
+ * animatedCreepModel.ts), donc redimensionner un .glb n'aurait aucun effet.
+ * `height` sert aussi a placer la barre de vie (voir syncHumanoid), donc
+ * jamais une constante partagee en dur ailleurs.
  */
 const HUMANOID_HEIGHT_DEFAULT = 1.8;
 const HUMANOID_MODEL_CONFIG: Record<string, { url: string; height: number }> = {
@@ -238,26 +243,30 @@ const HUMANOID_MODEL_CONFIG: Record<string, { url: string; height: number }> = {
   h00J: { url: '/models/lv16_sergent_augmente.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Sergent augmenté
   u003: { url: '/models/lv17_planeur_assaut.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Planeur d'assaut
   h00K: { url: '/models/lv18_exosquelette_lourd.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Exosquelette lourd
-  u004: { url: '/models/lv19_seraphin.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Séraphin d'acier
+  u004: { url: '/models/lv19_seraphin.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Séraphin d'acier
   h00L: { url: '/models/lv20_traqueur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Traqueur
   h00M: { url: '/models/lv21_broyeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Broyeur
   u005: { url: '/models/lv22_colosse_aile.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Colosse ailé
   h00N: { url: '/models/lv23_titan_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Titan greffé
   h00O: { url: '/models/lv24_prototype_omega.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Prototype Oméga
-  u006: { url: '/models/lv26_essaim_drones.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Essaim de drones
-  h00P: { url: '/models/lv27_meute_quadrupede.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Meute quadrupède
+  u006: { url: '/models/lv26_essaim_drones.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.2 }, // Essaim de drones
+  h00P: { url: '/models/lv27_meute_quadrupede.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.3 }, // Meute quadrupède
   h00Q: { url: '/models/lv28_marcheur_siege.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Marcheur de siège
-  u007: { url: '/models/lv25_cuirasse_aerien.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Cuirassé aérien
-  h00R: { url: '/models/lv29_ecraseur_chenille.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Écraseur chenillé
-  h00U: { url: '/models/lv30_gardien_alpha.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Gardien Alpha
-  h00V: { url: '/models/lv31_arbitre.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Arbitre
-  u008: { url: '/models/lv33_porte_nefs.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Porte-nefs
-  h00W: { url: '/models/lv34_executeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Exécuteur
+  u007: { url: '/models/lv25_cuirasse_aerien.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.7 }, // Cuirassé aérien
+  h00R: { url: '/models/lv29_ecraseur_chenille.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.15 }, // Écraseur chenillé
+  h00U: { url: '/models/lv30_gardien_alpha.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.3 }, // Gardien Alpha
+  h00V: { url: '/models/lv31_arbitre.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.3 }, // Arbitre
+  u008: { url: '/models/lv33_porte_nefs.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.72 }, // Porte-nefs
+  h00W: { url: '/models/lv34_executeur.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.4 }, // Exécuteur
   u00A: { url: '/models/lv35_dreadnought_orbital.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Dreadnought orbital
-  h00X: { url: '/models/lv32_forteresse_mobile.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Forteresse mobile
+  h00X: { url: '/models/lv32_forteresse_mobile.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.2 }, // Forteresse mobile
   h00Z: { url: '/models/lv36_intelligence_mere.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Intelligence Mère
 };
-for (const cfg of Object.values(HUMANOID_MODEL_CONFIG)) void loadAnimatedCreepModel(cfg.url, cfg.height);
+// HUMANOID_HEIGHT_DEFAULT en 3e argument : l'altitude de vol des creeps
+// volants reste calibree sur le gabarit commun, elle ne suit donc PAS le
+// multiplicateur de taille propre a chaque creep (voir loadAnimatedCreepModel).
+for (const cfg of Object.values(HUMANOID_MODEL_CONFIG))
+  void loadAnimatedCreepModel(cfg.url, cfg.height, HUMANOID_HEIGHT_DEFAULT);
 
 function creepRadius(def: CreepDef): number {
   return Math.max(0.05, Math.min(0.22, 0.05 + Math.log10(Math.max(1, def.hitPoints)) * 0.045));
@@ -455,9 +464,12 @@ export class CreepEntities {
     controller.updateAlive(c.eid, sx, sz);
 
     tracked.ring.position.set(sx, 0.02, sz);
-    tracked.bar.position.set(sx, model.groundOffsetY + tracked.height + 0.16, sz);
+    // `baseY` (bas reel du modele) et non `groundOffsetY` (simple correction
+    // de rendu) : les deux se confondent pour un modele terrestre, mais pas
+    // pour un volant, dont la barre finissait A L'INTERIEUR du modele.
+    tracked.bar.position.set(sx, model.baseY + tracked.height + 0.16, sz);
     paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
-    if (poisonDps > 0) this.poisonBubbles.requestSpawn(c.eid, sx, model.groundOffsetY, sz, poisonDps, dt);
+    if (poisonDps > 0) this.poisonBubbles.requestSpawn(c.eid, sx, model.baseY, sz, poisonDps, dt);
     else this.poisonBubbles.clearAccumulator(c.eid);
   }
 

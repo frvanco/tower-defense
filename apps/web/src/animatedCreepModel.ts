@@ -52,8 +52,16 @@ export interface AnimatedCreepModel {
    * fichier, l'echelle se compose proprement par-dessus au rendu. */
   scale: number;
   /** Decalage vertical (unites de scene, donc deja multiplie par `scale`) a
-   * ajouter a la position au sol pour que les pieds reposent a Y=0. */
+   * ajouter a la position au sol pour que le modele se pose a `baseY` — les
+   * pieds a Y=0 pour un modele terrestre, la garde au sol authoree pour un
+   * volant. C'est une CORRECTION a appliquer au rendu (voir writePose dans
+   * animatedCreepInstances.ts), jamais l'altitude finale : pour placer
+   * quelque chose par rapport au modele (barre de vie, bulles), lire `baseY`. */
   groundOffsetY: number;
+  /** Altitude reelle (unites de scene) du bas du modele une fois pose : 0
+   * pour un modele terrestre, la garde au sol authoree dans le fichier pour
+   * un volant. Le sommet du modele est donc a `baseY + targetHeight`. */
+  baseY: number;
   /** Poses echantillonnees du clip "Walk" (boucle) : walkFrames[pas][noeud].
    * 32 pas repartis sur [0, duree) — pas de doublon du premier/dernier pas,
    * la boucle doit se refermer sans a-coup. */
@@ -80,15 +88,25 @@ const loadPromises = new Map<string, Promise<AnimatedCreepModel>>();
  * scene) une seule fois par URL — mis en cache par url, sans effet si deja
  * charge ou en cours pour cette meme url. Repli existant cote appelant tant
  * que la Promise n'est pas resolue (voir entities3d.ts).
+ *
+ * `hoverReferenceHeight` : gabarit auquel la garde au sol d'un modele VOLANT
+ * est calibree (voir buildModel). Sert a garder l'altitude de vol constante
+ * quand on ne redimensionne que le modele — passer le gabarit commun du jeu
+ * plutot que la hauteur de CE creep. Par defaut la hauteur cible, ce qui
+ * remet les deux valeurs en phase (altitude proportionnelle a la taille).
  */
-export function loadAnimatedCreepModel(url: string, targetHeight: number): Promise<AnimatedCreepModel> {
+export function loadAnimatedCreepModel(
+  url: string,
+  targetHeight: number,
+  hoverReferenceHeight: number = targetHeight,
+): Promise<AnimatedCreepModel> {
   const existing = loadPromises.get(url);
   if (existing) return existing;
   const promise = new Promise<AnimatedCreepModel>((resolve, reject) => {
     new GLTFLoader().load(
       url,
       (gltf) => {
-        const model = buildModel(gltf.scene, gltf.animations, targetHeight);
+        const model = buildModel(gltf.scene, gltf.animations, targetHeight, hoverReferenceHeight);
         cachedModels.set(url, model);
         resolve(model);
       },
@@ -371,7 +389,12 @@ function sampleClip(
   return result;
 }
 
-function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], targetHeight: number): AnimatedCreepModel {
+function buildModel(
+  root: THREE.Group,
+  animations: THREE.AnimationClip[],
+  targetHeight: number,
+  hoverReferenceHeight: number,
+): AnimatedCreepModel {
   root.updateMatrixWorld(true);
 
   // Echelle/assise — mesure sur la hierarchie NATURELLE (echelle 1), jamais
@@ -385,7 +408,13 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
   // garde au sol volontaire importante (l'essaim est place a +1,05 m) : la
   // supprimer ici ferait finir son clip Death sous le terrain.
   const hasAuthoredHoverClearance = rawHeight > 0 && box.min.y > rawHeight * 0.25;
-  const groundOffsetY = hasAuthoredHoverClearance ? 0 : -box.min.y * scale;
+  // L'altitude d'un volant est calibree sur le gabarit COMMUN du jeu, pas sur
+  // la hauteur cible de ce creep-la : redimensionner un volant ne doit changer
+  // que sa taille (retour direct — l'essaim de drones reduit de 80% se
+  // retrouvait a raser le sol, son altitude ayant ete divisee d'autant).
+  const hoverScale = rawHeight > 0 ? hoverReferenceHeight / rawHeight : 1;
+  const baseY = hasAuthoredHoverClearance ? box.min.y * hoverScale : 0;
+  const groundOffsetY = baseY - box.min.y * scale;
   const headingOffset = detectHeadingOffset(root);
 
   const bucketNodes: THREE.Object3D[] = [];
@@ -503,6 +532,7 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
     restMatrices,
     scale,
     groundOffsetY,
+    baseY,
     walkFrames,
     walkClipDuration: walkClip?.duration ?? 1,
     deathFrames,
