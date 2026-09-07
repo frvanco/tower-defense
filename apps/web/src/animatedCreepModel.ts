@@ -468,7 +468,15 @@ function buildModel(root: THREE.Group, animations: THREE.AnimationClip[], target
   // plus de la moitie d'une sphere de meme couleur, Basic la restitue
   // fidelement en integralite). L'ombre PORTEE au sol (castShadow) ne depend
   // pas du type de materiau — elle est intacte avec Basic.
-  const material = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false });
+  // toneMapped: false — le renderer applique ACESFilmic + une exposure 1.14
+  // (voir createScene3D). Sur une couleur plate non eclairee, ACES desature
+  // les teintes vives vers le pastel et l'exposure les surexpose : c'est
+  // exactement le "delave" observe par rapport a un viewer glTF. En sortant
+  // ces materiaux du tone mapping, la couleur de sommet (deja figee depuis le
+  // baseColorFactor lineaire du GLB) n'est plus que convertie lineaire->sRGB
+  // a l'affichage, fidele au fichier. Les autres meshes de la scene restent
+  // tone-mappes.
+  const material = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false });
 
   // Echantillonnage des animations — APRES la fusion ci-dessus (qui a besoin
   // de la pose de repos), sur la meme hierarchie temporaire. Repart d'une
