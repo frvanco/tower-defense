@@ -112,6 +112,14 @@
     "hkee": { "name": "Augmentés", "world": "Les Augmentés", "goldCost": 2000 },
     "hcas": { "name": "Machines", "world": "Les Machines", "goldCost": 20000 }
   },
+  "branches": {
+    "h000": { "name": "Balistique", "slug": "balistique" },
+    "o001": { "name": "Acide", "slug": "acide" },
+    "o003": { "name": "Givre", "slug": "givre" },
+    "h005": { "name": "Anti-aérien", "slug": "anti-aerien" },
+    "h008": { "name": "Réacteur", "slug": "reacteur" },
+    "o008": { "name": "Cadence", "slug": "cadence" }
+  },
   "rules": {
     "bountyPct": 0.15,
     "startIncome": 60,

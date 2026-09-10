@@ -1,4 +1,4 @@
-import { towers, buildableTowers } from '@tower-defense/data';
+import { towers, buildableTowers, branches } from '@tower-defense/data';
 
 export interface BranchInfo {
   branch: number;
@@ -33,7 +33,17 @@ export function branchInfo(defId: string): BranchInfo {
   return info.get(defId) ?? { branch: 0, tier: 0 };
 }
 
-/** One distinct hue per buildable root branch (Cannon, Poison, Ice, Lightning, Nuclear, Water — in `buildableTowers` order). */
+/** Nom affichable de la branche d'une tour — Balistique, Acide, Givre,
+ * Anti-aerien, Reacteur, Cadence (voir la section `branches` de balance.json).
+ * A preferer au nom de la tour racine pour designer la branche : ce dernier
+ * change au fil des rebalances. */
+export function branchName(defId: string): string {
+  const branch = branchInfo(defId).branch;
+  return branches[branch]?.name ?? '';
+}
+
+/** Une teinte distincte par branche, dans l'ordre de `buildableTowers` :
+ * Balistique, Acide, Givre, Anti-aerien, Reacteur, Cadence. */
 const BRANCH_HUES = [8, 265, 195, 100, 48, 322];
 
 export function branchHue(defId: string): number {

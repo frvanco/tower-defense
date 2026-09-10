@@ -1,6 +1,6 @@
 import { towers } from '@tower-defense/data';
 import { TICK_RATE, type GameState, type Arena } from '@tower-defense/sim';
-import { branchInfo } from './branches.js';
+import { branchInfo, branchName } from './branches.js';
 
 export function fmtClock(totalSeconds: number): string {
   const s = Math.max(0, Math.ceil(totalSeconds));
@@ -111,7 +111,17 @@ export function updateSelectedPanel(refs: SelectedRefs, arena: Arena | undefined
     return;
   }
   refs.section.hidden = false;
-  refs.name.textContent = `${def.name} (tier ${branchInfo(tower.defId).tier + 1})`;
+  // Nom de BRANCHE en plus du palier : « Canon lourd (Balistique, palier 3) »
+  // situe la tour dans son arbre, ce que « tier 3 » seul ne faisait pas — et
+  // le nom de branche ne bouge pas quand une tour est renommee (voir
+  // branchName / la section `branches` de balance.json). Omis quand il
+  // repete le nom de la tour : plusieurs branches portent le nom de leur
+  // racine (Givre, Acide, Reacteur), « Givre (Givre, palier 1) » n'apprend
+  // rien.
+  const branch = branchName(tower.defId);
+  const tier = branchInfo(tower.defId).tier + 1;
+  const qualifier = branch && branch !== def.name ? `${branch}, palier ${tier}` : `palier ${tier}`;
+  refs.name.textContent = `${def.name} (${qualifier})`;
   refs.info.textContent = `dmg ${def.damageBase}+${def.dice}d${def.sides} · range ${def.range} · cooldown ${def.cooldown}s`;
 
   // Le bouton reste toujours visible tant qu'une tour est selectionnee (que

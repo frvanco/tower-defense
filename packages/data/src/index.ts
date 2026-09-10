@@ -267,6 +267,35 @@ for (const c of creeps.values()) {
 /** Tours constructibles directement par le Peasant (racines des 6 branches). */
 export const buildableTowers = ['h000', 'o001', 'o003', 'h005', 'h008', 'o008'];
 
+export interface Branch {
+  /** Id de la tour RACINE : une branche n'a pas d'identite propre dans les
+   * donnees source, elle est definie par la chaine d'upgrades partant de la. */
+  rootId: string;
+  /** Nom affichable, absent des donnees source (defini dans balance.json, meme
+   * convention que Shop.name/world). A preferer au nom de la tour racine
+   * partout ou on designe la BRANCHE : le nom d'une tour change au fil des
+   * rebalances (« Tourelle » a ete renommee), le nom de branche non. */
+  name: string;
+  /** Forme sans accent ni espace du nom — sert de nom de dossier et de chemin
+   * d'asset (voir apps/web/public/models/towers/). Separe du nom pour que
+   * renommer une branche a l'ecran ne casse pas des chemins de fichiers. */
+  slug: string;
+}
+
+/**
+ * Les 6 branches de tours, dans l'ordre de `buildableTowers`. Les ids racines
+ * (`h000`, `o001`, ...) sont herites de la carte WC3 d'origine et restent la
+ * cle interne — ils sont la seule chose stable qui relie ces donnees a leur
+ * source (voir `baseId` dans map_data.json). `name`/`slug` sont la couche
+ * lisible par-dessus, exactement comme pour les boutiques.
+ */
+const rawBranches = (balance.branches ?? {}) as Record<string, { name?: string; slug?: string }>;
+export const branches: Branch[] = buildableTowers.map((rootId) => ({
+  rootId,
+  name: rawBranches[rootId]?.name ?? towers.get(rootId)?.name ?? rootId,
+  slug: rawBranches[rootId]?.slug ?? rootId,
+}));
+
 export { type Slot, type SlotZoneBounds, SLOT_SIZE, buildSlots, nearestSlot, buildZones } from './slots.js';
 export { type LaneAnchors, laneAnchors } from './laneGeometry.js';
 export {
