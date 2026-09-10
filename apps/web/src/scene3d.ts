@@ -434,6 +434,37 @@ function buildGate(x: number, z: number, color: number, tangent: Point2, hostile
 const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [0.25, 45, -59];
 const INITIAL_CAMERA_TARGET: readonly [number, number, number] = [0, 0, 1];
 
+/** Cap (convention `aimTurret` : atan2(dx, dz), 0 = +Z) d'une tour vers la
+ * camera initiale. Derive des constantes ci-dessus plutot qu'ecrit en dur :
+ * recadrer la camera un jour reoriente les tours avec elle. */
+const CAMERA_YAW = Math.atan2(
+  INITIAL_CAMERA_POSITION[0] - INITIAL_CAMERA_TARGET[0],
+  INITIAL_CAMERA_POSITION[2] - INITIAL_CAMERA_TARGET[2],
+);
+
+/**
+ * Ecart ajoute au cap camera pour l'orientation de repos. Un quart de tour
+ * place le canon a mi-chemin entre « face au spectateur » et « plein droite »
+ * (retour direct : plein face etait juste, mais trop frontal — un leger
+ * trois-quarts se lit mieux).
+ *
+ * Le SIGNE suppose une camera situee du cote des Z negatifs, ce qui est le cas
+ * ici : la droite de l'ecran est alors le -X du monde (mesure, pas deduit).
+ * Deplacer la camera de l'autre cote de l'arene demanderait de l'inverser.
+ */
+const TURRET_REST_TOWARD_RIGHT = Math.PI / 4;
+
+/**
+ * Orientation d'une tourelle tant qu'elle n'a aucune cible. Les modeles
+ * (procedural comme .glb) pointent leur canon vers +Z au repos, or la camera
+ * est en Z negatif — sans correction, une tour qui vient d'etre posee montre
+ * son dos, ce qui se lit comme un defaut.
+ *
+ * Constante et non suivie en continu : les tours ne doivent pas pivoter quand
+ * on orbite autour de l'arene.
+ */
+export const TURRET_REST_ANGLE = CAMERA_YAW + TURRET_REST_TOWARD_RIGHT;
+
 /** Marge (unites de scene) ajoutee de chaque cote du rectangle halfWidth x
  * halfHeight de l'arene -- genereuse plutot que serree (brief) : suivre un
  * creep jusqu'au bout du chemin ne doit jamais toucher cette limite. */

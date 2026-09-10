@@ -263,7 +263,7 @@ function buildCannonTower(visual: TowerVisual, teamColor: number): THREE.Group {
   foot.name = 'footprint';
   g.add(foot);
 
-  g.userData = { tier, def, turret, body, build: null, recoil: 0 };
+  g.userData = { tier, def, turret, body, build: null, recoil: 0, progressRadii: [width * 1.15, width * 1.32] };
 
   // Mesure du RAYON BALAYE (voir footprint.ts), pas de la boite au repos.
   const radius = measureSweptRadius(body);

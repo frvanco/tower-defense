@@ -5,7 +5,11 @@ import { buildableTowers, towers as towerDefs, creeps as creepDefs, type TowerDe
 import {
   makeCannonTower,
   makePlaceholderTower,
+  makeModelTower,
+  updateTowerAnimation,
+  playTowerFire,
   hasDedicatedGeometry,
+  getBranchChain,
   startBuild,
   updateBuild,
   aimTurret,
@@ -16,6 +20,7 @@ import { branchInfo, branchHue } from './branches.js';
 import { ARMOR_COLORS } from './colors.js';
 import { worldToScene, type Frame3D } from './world3d.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
+import { TURRET_REST_ANGLE } from './scene3d.js';
 import {
   ICE_TINT_COLOR,
   ICE_TINT_MAX_PCT,
@@ -28,6 +33,7 @@ import {
 import { PoisonBubbles, POISON_EMISSIVE_COLOR, POISON_PULSE_HZ, POISON_PULSE_MIN } from './poisonEffects.js';
 import { loadAnimatedCreepModel, getAnimatedCreepModel, type AnimatedCreepModel } from './animatedCreepModel.js';
 import { AnimatedCreepController } from './animatedCreepInstances.js';
+import { getTowerModel, preloadTowerModels } from './towerModel.js';
 import { getCreepBodyGeometry, getCreepRingGeometry, getCreepRingMaterial, getFrostShardGeometry, getFrostShardMaterial } from './creepVisualCache.js';
 
 /** Meme vitesse de rotation que la galerie de demo validee (packages/renderer/demo). */
@@ -37,16 +43,21 @@ const TURN_RATE = 2.6;
  * Libere geometrie + materiau de chaque mesh d'un groupe de tour retire de la
  * scene (upgrade, vente, ou fin de partie) — jamais les materiaux partages
  * (MAT.*, teamMaterial(color), voir packages/renderer/src/materials.ts) qui
- * restent utilises par d'autres tours. Les geometries, elles, sont TOUJOURS
- * propres a l'instance : ni cannon.ts ni placeholder.ts n'en partagent
- * aucune entre deux tours (chaque `new THREE.XxxGeometry(...)` y est un
- * appel distinct), donc toujours sures a disposer ici.
+ * restent utilises par d'autres tours. Les geometries des tours PROCEDURALES
+ * sont propres a l'instance (chaque `new THREE.XxxGeometry(...)` de cannon.ts
+ * et placeholder.ts est un appel distinct), donc sures a disposer ; celles
+ * des tours issues d'un .glb sont partagees et marquees comme telles.
  */
 function disposeTowerGroup(group: THREE.Group): void {
   group.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if (!mesh.isMesh) return;
-    mesh.geometry?.dispose();
+    // Exception a la regle ci-dessus : les tours issues d'un .glb sont des
+    // CLONES d'un modele en cache, et un clone Three.js partage la geometrie
+    // de sa source. La disposer a la vente d'une tour detruirait toutes les
+    // autres tours du meme type, et le modele en cache avec (voir
+    // prepareTowerModel, qui pose ce drapeau).
+    if (!mesh.userData.sharedGeometry) mesh.geometry?.dispose();
     const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
     const materials = Array.isArray(material) ? material : material ? [material] : [];
     for (const m of materials) {
@@ -62,6 +73,10 @@ function disposeTowerGroup(group: THREE.Group): void {
 interface TrackedTower {
   defId: string;
   group: THREE.Group;
+  /** `cooldown` de cette tour au dernier passage — sert a detecter les tirs
+   * (voir update). Initialise a la valeur courante, jamais a une sentinelle :
+   * une tour qui apparait ne doit pas jouer un recul au premier passage. */
+  lastCooldown: number;
 }
 
 export class TowerEntities {
@@ -76,10 +91,25 @@ export class TowerEntities {
   private makeMesh(defId: string, eid: number): THREE.Group {
     const { branch, tier } = branchInfo(defId);
     const root = buildableTowers[branch]!;
-    const group = hasDedicatedGeometry(root)
-      ? makeCannonTower(tier, this.teamColor)
-      : makePlaceholderTower(root, tier, branchHue(defId), this.teamColor);
+    // Ordre de preference : modele .glb s'il est charge, sinon la geometrie
+    // dediee de la branche, sinon le placeholder. Un modele pas encore charge
+    // (ou illisible) donne donc la tour procedurale — jamais rien a l'ecran.
+    const model = getTowerModel(defId);
+    const def = towerDefs.get(defId);
+    let group: THREE.Group;
+    if (model && def) {
+      group = makeModelTower(model, def, tier, getBranchChain(root).length, this.teamColor);
+    } else if (hasDedicatedGeometry(root)) {
+      group = makeCannonTower(tier, this.teamColor);
+    } else {
+      group = makePlaceholderTower(root, tier, branchHue(defId), this.teamColor);
+    }
     group.userData.eid = eid;
+    // Orientation de depart, avant toute cible : face au spectateur plutot que
+    // de dos (voir TURRET_REST_ANGLE). Pose ici, au seul endroit qui cree les
+    // trois types de tours, pour qu'elles soient coherentes entre elles.
+    const turret = group.userData.turret as THREE.Object3D | undefined;
+    if (turret) turret.rotation.y = TURRET_REST_ANGLE;
     return group;
   }
 
@@ -101,7 +131,7 @@ export class TowerEntities {
         this.place(group, t);
         this.layer.add(group);
         startBuild(group, DEFAULT_BUILD_DURATION_SEC);
-        this.byEid.set(t.eid, { defId: t.defId, group });
+        this.byEid.set(t.eid, { defId: t.defId, group, lastCooldown: t.cooldown });
         continue;
       }
       if (tracked.defId !== t.defId) {
@@ -121,6 +151,7 @@ export class TowerEntities {
         startBuild(group, DEFAULT_BUILD_DURATION_SEC);
         tracked.defId = t.defId;
         tracked.group = group;
+        tracked.lastCooldown = t.cooldown;
       }
     }
     for (const [eid, tracked] of this.byEid) {
@@ -138,7 +169,16 @@ export class TowerEntities {
       const tracked = this.byEid.get(t.eid);
       if (!tracked) continue;
       updateBuild(tracked.group, dt);
+      updateTowerAnimation(tracked.group, dt);
       const building = !!tracked.group.userData.build;
+
+      // Detection du tir SANS toucher a packages/sim : `cooldown` decroit d'un
+      // tick a chaque tick et n'est remis a sa valeur pleine qu'au moment ou
+      // la tour tire (voir fireTowers). Une REMONTEE de cette valeur signale
+      // donc un tir qui vient de partir — signal en lecture seule, suffisant
+      // pour jouer le recul au bon moment.
+      if (t.cooldown > tracked.lastCooldown) playTowerFire(tracked.group);
+      tracked.lastCooldown = t.cooldown;
 
       if (!building) {
         const def = towerDefs.get(t.defId);
@@ -273,6 +313,10 @@ const HUMANOID_MODEL_CONFIG: Record<string, { url: string; height: number }> = {
 // multiplicateur de taille propre a chaque creep (voir loadAnimatedCreepModel).
 for (const cfg of Object.values(HUMANOID_MODEL_CONFIG))
   void loadAnimatedCreepModel(cfg.url, cfg.height, HUMANOID_HEIGHT_DEFAULT);
+
+// Modeles de tours (voir towerModel.ts) — meme principe : charges une fois au
+// demarrage, avec repli sur la geometrie procedurale tant qu'ils ne le sont pas.
+preloadTowerModels();
 
 function creepRadius(def: CreepDef): number {
   return Math.max(0.05, Math.min(0.22, 0.05 + Math.log10(Math.max(1, def.hitPoints)) * 0.045));

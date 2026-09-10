@@ -9,6 +9,13 @@ export {
 } from './materials.js';
 export { CELL, WORLD_TO_SCENE, FOOTPRINT_FACTOR, MAX_RADIUS, measureSweptRadius } from './footprint.js';
 export {
+  prepareTowerModel,
+  makeModelTower,
+  updateTowerAnimation,
+  playTowerFire,
+  type PreparedTowerModel,
+} from './towers/fromModel.js';
+export {
   type BranchId,
   type TowerVisual,
   getBranchChain,

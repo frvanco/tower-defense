@@ -49,6 +49,17 @@ export function isSharedTowerMaterial(m: THREE.Material): boolean {
 }
 
 /**
+ * Declare un materiau comme partage entre plusieurs tours, donc a ne jamais
+ * disposer par instance. Utilise par les tours issues d'un .glb : le modele
+ * est charge une fois puis CLONE a chaque tour, et un clone Three.js partage
+ * les materiaux (et les geometries) de sa source — les disposer a la vente
+ * d'une tour vandaliserait toutes les autres, et le modele en cache avec.
+ */
+export function registerSharedTowerMaterial(m: THREE.Material): void {
+  sharedTowerMaterials.add(m);
+}
+
+/**
  * Le prototype avait un unique MAT.team modifiable via un color-picker (une
  * seule tour, une seule equipe a la fois). En jeu il y a jusqu'a 8 joueurs :
  * un materiau par couleur d'equipe, mis en cache pour ne pas en recreer un a
