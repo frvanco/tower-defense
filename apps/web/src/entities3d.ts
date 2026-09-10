@@ -222,45 +222,51 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
  * animatedCreepModel.ts), donc redimensionner un .glb n'aurait aucun effet.
  * `height` sert aussi a placer la barre de vie (voir syncHumanoid), donc
  * jamais une constante partagee en dur ailleurs.
+ *
+ * Les fichiers vivent dans `public/models/creeps/`, un sous-dossier par type
+ * d'entite — meme convention que `public/icons/creeps/`. Les modeles de tours,
+ * quand il y en aura, vont dans `public/models/towers/` : les tours sont
+ * aujourd'hui entierement procedurales (packages/renderer/src/towers), donc
+ * aucune n'a de .glb pour l'instant.
  */
 const HUMANOID_HEIGHT_DEFAULT = 1.8;
 const HUMANOID_MODEL_CONFIG: Record<string, { url: string; height: number }> = {
-  n000: { url: '/models/lv1_trainard.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Trainard
-  h001: { url: '/models/lv2_conscrit.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Conscrit
-  h009: { url: '/models/lv3_sapeur.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Sapeur
-  h00A: { url: '/models/lv4_lancier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Lancier
-  h00B: { url: '/models/lv5_hallebardier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Hallebardier
-  h00C: { url: '/models/lv6_bretteur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Bretteur
-  h00D: { url: '/models/lv7_grognard.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Grognard
-  u000: { url: '/models/lv8_fauconnier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Fauconnier
-  u001: { url: '/models/lv9_chevaucheur_aigle.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Chevaucheur d'aigle
-  h00E: { url: '/models/lv10_eclaireur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Éclaireur
-  h00F: { url: '/models/lv11_cuirassier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Cuirassier
-  h00G: { url: '/models/lv12_marechal.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Maréchal
-  h00H: { url: '/models/lv13_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Greffé
-  u002: { url: '/models/lv14_voltigeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Voltigeur
-  h00I: { url: '/models/lv15_bras_canon.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Bras-canon
-  h00J: { url: '/models/lv16_sergent_augmente.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Sergent augmenté
-  u003: { url: '/models/lv17_planeur_assaut.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Planeur d'assaut
-  h00K: { url: '/models/lv18_exosquelette_lourd.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Exosquelette lourd
-  u004: { url: '/models/lv19_seraphin.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Séraphin d'acier
-  h00L: { url: '/models/lv20_traqueur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Traqueur
-  h00M: { url: '/models/lv21_broyeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Broyeur
-  u005: { url: '/models/lv22_colosse_aile.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Colosse ailé
-  h00N: { url: '/models/lv23_titan_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Titan greffé
-  h00O: { url: '/models/lv24_prototype_omega.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Prototype Oméga
-  u006: { url: '/models/lv26_essaim_drones.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.2 }, // Essaim de drones
-  h00P: { url: '/models/lv27_meute_quadrupede.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.3 }, // Meute quadrupède
-  h00Q: { url: '/models/lv28_marcheur_siege.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Marcheur de siège
-  u007: { url: '/models/lv25_cuirasse_aerien.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.7 }, // Cuirassé aérien
-  h00R: { url: '/models/lv29_ecraseur_chenille.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.15 }, // Écraseur chenillé
-  h00U: { url: '/models/lv30_gardien_alpha.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.3 }, // Gardien Alpha
-  h00V: { url: '/models/lv31_arbitre.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.3 }, // Arbitre
-  u008: { url: '/models/lv33_porte_nefs.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.72 }, // Porte-nefs
-  h00W: { url: '/models/lv34_executeur.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.4 }, // Exécuteur
-  u00A: { url: '/models/lv35_dreadnought_orbital.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Dreadnought orbital
-  h00X: { url: '/models/lv32_forteresse_mobile.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.2 }, // Forteresse mobile
-  h00Z: { url: '/models/lv36_intelligence_mere.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Intelligence Mère
+  n000: { url: '/models/creeps/lv1_trainard.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Trainard
+  h001: { url: '/models/creeps/lv2_conscrit.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Conscrit
+  h009: { url: '/models/creeps/lv3_sapeur.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Sapeur
+  h00A: { url: '/models/creeps/lv4_lancier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Lancier
+  h00B: { url: '/models/creeps/lv5_hallebardier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Hallebardier
+  h00C: { url: '/models/creeps/lv6_bretteur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Bretteur
+  h00D: { url: '/models/creeps/lv7_grognard.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Grognard
+  u000: { url: '/models/creeps/lv8_fauconnier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Fauconnier
+  u001: { url: '/models/creeps/lv9_chevaucheur_aigle.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Chevaucheur d'aigle
+  h00E: { url: '/models/creeps/lv10_eclaireur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Éclaireur
+  h00F: { url: '/models/creeps/lv11_cuirassier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Cuirassier
+  h00G: { url: '/models/creeps/lv12_marechal.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Maréchal
+  h00H: { url: '/models/creeps/lv13_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Greffé
+  u002: { url: '/models/creeps/lv14_voltigeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Voltigeur
+  h00I: { url: '/models/creeps/lv15_bras_canon.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Bras-canon
+  h00J: { url: '/models/creeps/lv16_sergent_augmente.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Sergent augmenté
+  u003: { url: '/models/creeps/lv17_planeur_assaut.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Planeur d'assaut
+  h00K: { url: '/models/creeps/lv18_exosquelette_lourd.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Exosquelette lourd
+  u004: { url: '/models/creeps/lv19_seraphin.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Séraphin d'acier
+  h00L: { url: '/models/creeps/lv20_traqueur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Traqueur
+  h00M: { url: '/models/creeps/lv21_broyeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Broyeur
+  u005: { url: '/models/creeps/lv22_colosse_aile.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Colosse ailé
+  h00N: { url: '/models/creeps/lv23_titan_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Titan greffé
+  h00O: { url: '/models/creeps/lv24_prototype_omega.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Prototype Oméga
+  u006: { url: '/models/creeps/lv26_essaim_drones.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.2 }, // Essaim de drones
+  h00P: { url: '/models/creeps/lv27_meute_quadrupede.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.3 }, // Meute quadrupède
+  h00Q: { url: '/models/creeps/lv28_marcheur_siege.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Marcheur de siège
+  u007: { url: '/models/creeps/lv25_cuirasse_aerien.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.7 }, // Cuirassé aérien
+  h00R: { url: '/models/creeps/lv29_ecraseur_chenille.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.15 }, // Écraseur chenillé
+  h00U: { url: '/models/creeps/lv30_gardien_alpha.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.3 }, // Gardien Alpha
+  h00V: { url: '/models/creeps/lv31_arbitre.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.3 }, // Arbitre
+  u008: { url: '/models/creeps/lv33_porte_nefs.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.72 }, // Porte-nefs
+  h00W: { url: '/models/creeps/lv34_executeur.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.4 }, // Exécuteur
+  u00A: { url: '/models/creeps/lv35_dreadnought_orbital.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Dreadnought orbital
+  h00X: { url: '/models/creeps/lv32_forteresse_mobile.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.2 }, // Forteresse mobile
+  h00Z: { url: '/models/creeps/lv36_intelligence_mere.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Intelligence Mère
 };
 // HUMANOID_HEIGHT_DEFAULT en 3e argument : l'altitude de vol des creeps
 // volants reste calibree sur le gabarit commun, elle ne suit donc PAS le
