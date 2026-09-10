@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { TowerDef } from '@tower-defense/data';
 import { MAT, teamMaterial } from '../materials.js';
 import { MAX_RADIUS, measureSweptRadius } from '../footprint.js';
-import { deriveTowerVisual, getBranchChain } from './types.js';
+import { deriveTowerVisual, getBranchChain, SOCLE_FLARE } from './types.js';
 import { makeScaffold } from './cannon.js';
 import { mesh } from './mesh.js';
 
@@ -32,11 +32,17 @@ export function makePlaceholderTower(
   if (!def) {
     throw new Error(`palier ${tier} inexistant sur la branche ${rootId} (${chain.length} paliers connus)`);
   }
-  return buildPlaceholderTower(def, tier, branchHue, teamColor);
+  return buildPlaceholderTower(def, tier, chain.length, branchHue, teamColor);
 }
 
-function buildPlaceholderTower(def: TowerDef, tier: number, branchHue: number, teamColor: number): THREE.Group {
-  const visual = deriveTowerVisual(def, tier);
+function buildPlaceholderTower(
+  def: TowerDef,
+  tier: number,
+  chainLength: number,
+  branchHue: number,
+  teamColor: number,
+): THREE.Group {
+  const visual = deriveTowerVisual(def, tier, chainLength);
   const { height, width, armor } = visual;
   const accent = new THREE.MeshLambertMaterial({ color: new THREE.Color().setHSL(branchHue / 360, 0.55, 0.5) });
 
@@ -45,23 +51,30 @@ function buildPlaceholderTower(def: TowerDef, tier: number, branchHue: number, t
   body.name = 'body';
   g.add(body);
 
+  // Meme convention que makeCannonTower : les hauteurs sont des FRACTIONS de
+  // `height` (H = height / hauteur de reference 2.0), les rayons restent
+  // pilotes par `width`. Une tour plus haute grandit ainsi dans ses
+  // proportions au lieu de s'etirer en tige.
+  const H = height / 2.0;
+
   // --- Fut unique, pas de socle multi-etage ni de plateforme crenelee : c'est
   // volontairement le degre de detail minimal qui reste identifiable comme
   // "une tour" sans emprunter la lecture visuelle d'une branche existante.
-  body.add(mesh(new THREE.CylinderGeometry(width, width * 1.1, 0.24, 8), MAT.stone2, 0, 0.12, 0));
+  const socleH = 0.24 * H;
+  body.add(mesh(new THREE.CylinderGeometry(width, width * SOCLE_FLARE, socleH, 8), MAT.stone2, 0, socleH / 2, 0));
   const shaftH = height * 0.6;
-  body.add(mesh(new THREE.CylinderGeometry(width * 0.62, width * 0.78, shaftH, 8), MAT.stone, 0, 0.24 + shaftH / 2, 0));
-  const platY = 0.24 + shaftH;
+  body.add(mesh(new THREE.CylinderGeometry(width * 0.62, width * 0.78, shaftH, 8), MAT.stone, 0, socleH + shaftH / 2, 0));
+  const platY = socleH + shaftH;
 
   // --- Tourelle : un simple bloc excentre pour que la visee (aimTurret) reste
   // visible malgre la simplicite — un cube parfaitement symetrique ne montrerait
   // aucune rotation.
   const turret = new THREE.Group();
-  turret.position.y = platY + 0.12;
+  turret.position.y = platY + 0.12 * H;
   turret.name = 'turret';
   body.add(turret);
 
-  const markerSize = 0.14 + armor * 0.1;
+  const markerSize = (0.14 + armor * 0.1) * H;
   turret.add(mesh(new THREE.BoxGeometry(markerSize, markerSize, markerSize), accent, 0, markerSize / 2, 0));
   const snout = mesh(
     new THREE.BoxGeometry(markerSize * 0.4, markerSize * 0.4, markerSize * 1.4),
@@ -77,17 +90,23 @@ function buildPlaceholderTower(def: TowerDef, tier: number, branchHue: number, t
   turret.add(muzzle);
 
   // --- Fanion d'equipe, meme convention que les branches reelles.
-  const poleH = 0.26 + armor * 0.5;
+  const poleH = (0.26 + armor * 0.5) * H;
   const fx = width * 0.5;
   const fz = -width * 0.5;
-  body.add(mesh(new THREE.CylinderGeometry(0.016, 0.016, poleH, 5), MAT.metal, fx, platY + poleH / 2, fz));
-  const flag = mesh(new THREE.BoxGeometry(0.18, 0.12, 0.014), teamMaterial(teamColor), fx + 0.1, platY + poleH - 0.08, fz);
+  body.add(mesh(new THREE.CylinderGeometry(0.016 * H, 0.016 * H, poleH, 5), MAT.metal, fx, platY + poleH / 2, fz));
+  const flag = mesh(
+    new THREE.BoxGeometry(0.18 * H, 0.12 * H, 0.014 * H),
+    teamMaterial(teamColor),
+    fx + 0.1 * H,
+    platY + poleH - 0.08 * H,
+    fz,
+  );
   flag.name = 'flag';
   body.add(flag);
 
   // --- Echafaudage/anneaux : memes noms que les branches reelles pour que
   // build.ts et le jeu n'aient pas de cas particulier a gerer.
-  const scaffold = makeScaffold(width, platY + 0.25);
+  const scaffold = makeScaffold(width, platY + 0.25 * H);
   scaffold.visible = false;
   scaffold.name = 'scaffold';
   g.add(scaffold);

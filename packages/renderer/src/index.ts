@@ -7,7 +7,7 @@ export {
   isSharedTowerMaterial,
   disposeSharedTowerMaterials,
 } from './materials.js';
-export { CELL, MAX_RADIUS, measureSweptRadius } from './footprint.js';
+export { CELL, WORLD_TO_SCENE, FOOTPRINT_FACTOR, MAX_RADIUS, measureSweptRadius } from './footprint.js';
 export {
   type BranchId,
   type TowerVisual,

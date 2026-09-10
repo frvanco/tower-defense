@@ -141,8 +141,8 @@ moment ou j'ai commence :
   non comme "aucune mutation de son argument" — les deux lectures sont
   possibles, je n'ai pas de moyen de trancher laquelle etait voulue.
 - **Le facteur d'echelle de l'anneau de portee (`range * 0.0028`) est
-  incoherent avec l'echelle CELL/MAX_RADIUS** (64 unites monde = 2.0 unites
-  de scene, soit un ratio de 0.03125, pas 0.0028). Je l'ai porte tel quel :
+  incoherent avec l'echelle de rendu** (`WORLD_TO_SCENE` = 2.0 / 64, soit un
+  ratio de 0.03125, pas 0.0028). Je l'ai porte tel quel :
   la consigne etait de ne pas changer le rendu, et rien n'indique que cette
   incoherence est un bug plutot qu'un choix deliberement decoratif du
   prototype (l'anneau de portee y est visiblement disproportionne par

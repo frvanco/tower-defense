@@ -17,10 +17,16 @@ export const PATH_CLEARANCE = 84;
 
 /** Emprise minimale entre deux tours (packages/sim/src/sim.ts) — aussi
  * l'espacement, exact, des emplacements le long d'une bande ou d'une grille
- * (les tours sont collees). Duplique le SLOT_SIZE de slots.js (meme
+ * (les tours sont quasi collees). Duplique le SLOT_SIZE de slots.js (meme
  * convention, pas reexporte d'ici pour eviter un conflit de nom au niveau
- * de index.ts). */
-const SLOT_SIZE = 64;
+ * de index.ts) ; les deux DOIVENT rester egaux, et build_slots.json doit etre
+ * regenere (scripts/gen_slots.ts) apres tout changement de cette valeur.
+ *
+ * Passe de 64 a 80 (choix de game design assume) : moins d'emplacements par
+ * arene — 317 -> 236, soit -26% — mais chaque tour dispose de 25% de place en
+ * plus, ce qui est ce qui rend les tours visiblement plus imposantes que les
+ * creeps (voir CELL dans packages/renderer/src/footprint.ts, derive d'ici). */
+const SLOT_SIZE = 80;
 
 /** Profondeur des bandes exterieures (nombre de colonnes/rangees). */
 const DEPTH = 3;
@@ -71,6 +77,22 @@ function range(start: number, end: number, step: number): number[] {
     for (let v = start; v >= end; v -= step) out.push(v);
   }
   return out;
+}
+
+/**
+ * Comme `range`, mais les points sont CENTRES dans [start, end] au lieu d'etre
+ * colles a `start` : on garde le meme nombre de points espaces de `step`, et le
+ * reliquat (la largeur qui n'est pas un multiple entier de `step`) est reparti
+ * a parts egales des deux cotes. Necessaire des que la largeur disponible ne
+ * tombe pas juste sur `step`, sans quoi la grille est decalee vers `start` et
+ * la symetrie gauche/droite est perdue.
+ */
+function centeredRange(start: number, end: number, step: number): number[] {
+  const span = end - start;
+  if (span < 0) return [];
+  const count = Math.floor(span / step) + 1;
+  const margin = (span - (count - 1) * step) / 2;
+  return Array.from({ length: count }, (_, i) => start + margin + i * step);
 }
 
 /**
@@ -173,7 +195,13 @@ export function laneBandSlots(lane: Lane): BandSlots[] {
   const armClearanceTopY = armTopY - PATH_CLEARANCE;
 
   // --- Interieur : grille pleine ---
-  const interiorXs = range(leftArmX + PATH_CLEARANCE, rightArmX - PATH_CLEARANCE, SLOT_SIZE);
+  // Colonnes CENTREES entre les deux bras, pas alignees sur le bord gauche :
+  // la largeur disponible n'est pas un multiple exact de SLOT_SIZE, et un
+  // simple range() depuis la gauche laisse tout le reste en marge a droite —
+  // la grille se retrouve decalee, ce qui casse la symetrie gauche/droite du
+  // U (verifiee par packages/sim/test/slots.test.ts). Invisible tant que
+  // SLOT_SIZE valait 64 (la largeur tombait juste), apparu en passant a 80.
+  const interiorXs = centeredRange(leftArmX + PATH_CLEARANCE, rightArmX - PATH_CLEARANCE, SLOT_SIZE);
   const interiorYs = range(connectorY + PATH_CLEARANCE, armTopY, SLOT_SIZE);
 
   const bands: BandSlots[] = [];

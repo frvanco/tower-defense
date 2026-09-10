@@ -25,32 +25,43 @@ describe('emplacements de construction — layout', () => {
   const slots = buildSlots(0);
 
   it('le nombre d\'emplacements correspond a une grille pleine interieure + un contour exterieur de profondeur 3', () => {
-    // 317, pas 323 : depuis l'ajout des bras horizontaux d'entree/sortie en
-    // haut de chaque bras vertical (laneGeometry.ts), le coin haut n'est
-    // plus une extremite "ouverte" du chemin — le chemin continue au-dela,
-    // en tournant a 90°. Les bandes exterieures (gauche/droite) s'arretent
-    // donc a PATH_CLEARANCE de ce coin, comme elles le faisaient deja pour
-    // les coins du bas (armClearanceTopY dans laneBandSlots) : chaque
-    // colonne perd exactement 1 rangee du haut (3 colonnes x 2 cotes = -6).
-    // L'interieur (125) est inchange : ses colonnes s'arretent deja a
-    // PATH_CLEARANCE des bras verticaux, largement a l'ecart des bras
-    // horizontaux. Voir packages/data/scripts/gen_slots.ts pour le detail
-    // par groupe.
-    expect(slots.length).toBe(317);
+    // Instantane, entierement determine par SLOT_SIZE : la zone constructible
+    // est fixe, donc plus les emplacements sont ecartes, moins il y en a.
+    // 317 a SLOT_SIZE = 64 ; 236 depuis le passage a 80 (choix de game design
+    // assume — moins de tours par arene, mais chacune sensiblement plus
+    // grande, voir zoneFootprints.ts). Regenerer build_slots.json avec
+    // packages/data/scripts/gen_slots.ts apres tout changement de SLOT_SIZE,
+    // puis mettre ce nombre a jour avec celui qu'il affiche.
+    expect(slots.length).toBe(236);
   });
 
-  it('l\'interieur du U forme une grille pleine de 5 x 25 sans case manquante', () => {
-    const interiorGroups = Array.from({ length: 25 }, (_, i) => `interieur-r${i + 1}`);
-    const byGroup = new Map<string, typeof slots>();
+  it('l\'interieur du U forme une grille pleine et rectangulaire, sans case manquante', () => {
+    // Ne fige plus les dimensions (c'etait 5 x 25 a SLOT_SIZE = 64, 4 x 20 a
+    // 80) : ce qui doit rester vrai quel que soit l'ecartement, c'est que
+    // l'interieur est un RECTANGLE plein — toutes les rangees ont le meme
+    // nombre de colonnes, aux memes X. Une rangee plus courte que les autres
+    // signalerait un trou dans la grille, ce que la version chiffree
+    // attrapait aussi mais en obligeant a la reecrire a chaque changement.
+    const rows = new Map<string, typeof slots>();
     for (const s of slots) {
-      if (!byGroup.has(s.groupId)) byGroup.set(s.groupId, []);
-      byGroup.get(s.groupId)!.push(s);
+      if (!s.groupId.startsWith('interieur-r')) continue;
+      if (!rows.has(s.groupId)) rows.set(s.groupId, []);
+      rows.get(s.groupId)!.push(s);
     }
-    for (const groupId of interiorGroups) {
-      const group = byGroup.get(groupId);
-      expect(group, `groupe ${groupId} manquant`).toBeDefined();
-      expect(group!.length, `groupe ${groupId} incomplet`).toBe(5);
+    expect(rows.size, "aucune rangee interieure").toBeGreaterThan(0);
+
+    const signatures = new Set<string>();
+    for (const [groupId, row] of rows) {
+      const xs = row.map((s) => s.x).sort((a, b) => a - b);
+      // Toutes les rangees doivent partager exactement le meme jeu de X.
+      signatures.add(xs.join(','));
+      // Et a l'interieur d'une rangee, l'ecart entre deux colonnes voisines
+      // est exactement SLOT_SIZE (pas de colonne sautee).
+      for (let i = 1; i < xs.length; i++) {
+        expect(xs[i]! - xs[i - 1]!, `colonne manquante dans ${groupId}`).toBeCloseTo(SLOT_SIZE, 6);
+      }
     }
+    expect(signatures.size, 'les rangees interieures n\'ont pas toutes les memes colonnes').toBe(1);
   });
 
   it('le contour exterieur est continu : chaque emplacement a un voisin proche, meme aux coins', () => {

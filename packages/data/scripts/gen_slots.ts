@@ -20,7 +20,7 @@ import { lanes, laneBandSlots, PATH_CLEARANCE } from '../src/index.js';
 
 /** Emprise minimale entre deux tours (packages/sim/src/sim.ts) : aussi
  * l'espacement cible ici, les tours se touchent. */
-const SLOT_SIZE = 64;
+const SLOT_SIZE = 80;
 
 const lane = lanes.find((l) => l.player === 0);
 if (!lane) throw new Error('lane 0 introuvable');
