@@ -87,6 +87,9 @@ importers:
       '@tower-defense/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@tower-defense/lobby':
+        specifier: workspace:*
+        version: link:../../packages/lobby
       '@tower-defense/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer

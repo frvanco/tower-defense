@@ -1,5 +1,9 @@
 import type { Difficulty } from '@tower-defense/sim';
 import { ApiError, claim, fetchMe, guest, login, logout, type PublicUser } from './api.js';
+import { createLobbyClient } from './lobbyClient.js';
+import { openLobbyScreen, type LobbySession } from './lobbyScreen.js';
+import { normalizeLobbyCode, LOBBY_CODE_LENGTH } from '@tower-defense/lobby';
+import { initToasts, toast } from './toast.js';
 import {
   DIFFICULTY_LABELS,
   DIFFICULTY_DESCRIPTIONS,
@@ -8,7 +12,16 @@ import {
   storeDifficulty,
 } from './difficulty.js';
 
-type Screen = 'chargement' | 'pseudo' | 'pseudo-login' | 'menu' | 'menu-claim' | 'difficulte' | 'partie';
+type Screen =
+  | 'chargement'
+  | 'pseudo'
+  | 'pseudo-login'
+  | 'menu'
+  | 'menu-claim'
+  | 'difficulte'
+  | 'salon-rejoindre'
+  | 'salon'
+  | 'partie';
 
 const root = document.getElementById('launcher');
 if (!root) throw new Error('missing #launcher');
@@ -16,12 +29,18 @@ if (!root) throw new Error('missing #launcher');
 const appEl = document.getElementById('app');
 if (!appEl) throw new Error('missing #app');
 
+const launcherToasts = document.getElementById('launcher-toasts');
+if (!launcherToasts) throw new Error('missing #launcher-toasts');
+
 let user: PublicUser | null = null;
 let stopGame: (() => void) | null = null;
 /** Niveau de la partie en cours, a cote de stopGame ci-dessus — la source de
  * verite pour "Rejouer" reste le closure de main.ts (jamais reassignee tant
  * que le launcher n'est pas repasse), ceci suit juste quel niveau tourne. */
 let currentDifficulty: Difficulty | null = null;
+/** Salon en cours, s'il y en a un. Toujours dispose avant de changer d'ecran :
+ * un evenement tardif redessinerait sinon un salon deja quitte. */
+let lobbySession: LobbySession | null = null;
 
 const ICON_USER =
   '<svg class="launcher-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-4 4.2-6 7.5-6s6.1 2 7.5 6"/></svg>';
@@ -53,6 +72,7 @@ function render(screen: Screen, error?: string): void {
   else if (screen === 'menu') renderMenuScreen();
   else if (screen === 'menu-claim') renderClaimScreen(error);
   else if (screen === 'difficulte') renderDifficultyScreen();
+  else if (screen === 'salon-rejoindre') renderJoinLobbyScreen(error);
 }
 
 // Echap ferme le panneau de difficulte et revient au menu — un seul listener
@@ -133,12 +153,24 @@ function renderMenuScreen(): void {
            "Jouer" seul : annonce qu'un mode multijoueur existera, et laisse
            la place a un second bouton plus tard sans redessiner l'ecran. -->
       <button id="play-btn" class="launcher-play">Jouer contre des bots</button>
+      <div class="launcher-lobby-actions">
+        <button id="create-lobby-btn" class="launcher-secondary">Créer un salon</button>
+        <button id="join-lobby-btn" class="launcher-secondary">Rejoindre</button>
+      </div>
       ${u.isGuest ? `<a href="#" id="save-account" class="launcher-save">Sauvegarder mon compte</a>` : ''}
       <a href="#" id="logout-link" class="launcher-logout">Se déconnecter</a>
     </div>
   `;
   root!.querySelector<HTMLButtonElement>('#play-btn')!.addEventListener('click', () => {
     render('difficulte');
+  });
+  // « Créer un salon » entre DIRECTEMENT dans le salon, en tant qu'hôte : pas
+  // d'écran intermédiaire, c'est la règle retenue.
+  root!.querySelector<HTMLButtonElement>('#create-lobby-btn')!.addEventListener('click', () => {
+    enterLobby((client) => client.create().then(() => ({ ok: true })), 'Création du salon…');
+  });
+  root!.querySelector<HTMLButtonElement>('#join-lobby-btn')!.addEventListener('click', () => {
+    render('salon-rejoindre');
   });
   root!.querySelector<HTMLAnchorElement>('#save-account')?.addEventListener('click', (ev) => {
     ev.preventDefault();
@@ -233,6 +265,77 @@ function renderClaimScreen(error?: string): void {
   });
 }
 
+/**
+ * Ecran de saisie du code. La normalisation (casse, espaces autour) est faite
+ * par le contrat, jamais reimplementee ici — c'est la meme regle cote serveur.
+ */
+function renderJoinLobbyScreen(error?: string): void {
+  root!.innerHTML = `
+    <div class="launcher-screen">
+      <h1>Rejoindre un salon</h1>
+      ${DIVIDER}
+      <form id="join-lobby-form" class="launcher-form">
+        <label class="sr-only" for="lobby-code-input">Code du salon</label>
+        <div class="launcher-input">
+          <input id="lobby-code-input" class="lobby-code-input" placeholder="Code"
+                 maxlength="${LOBBY_CODE_LENGTH}" autocomplete="off" autocapitalize="characters"
+                 spellcheck="false" required />
+        </div>
+        ${error ? `<p class="launcher-error">${escapeHtml(error)}</p>` : ''}
+        <button type="submit">Rejoindre</button>
+      </form>
+      <a href="#" id="join-lobby-back">Retour</a>
+    </div>
+  `;
+  root!.querySelector<HTMLFormElement>('#join-lobby-form')!.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const raw = root!.querySelector<HTMLInputElement>('#lobby-code-input')!.value;
+    const code = normalizeLobbyCode(raw);
+    if (code.length !== LOBBY_CODE_LENGTH) {
+      render('salon-rejoindre', `Le code fait ${LOBBY_CODE_LENGTH} caractères.`);
+      return;
+    }
+    enterLobby((client) => client.join(code), 'Connexion au salon…');
+  });
+  root!.querySelector<HTMLAnchorElement>('#join-lobby-back')!.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    render('menu');
+  });
+}
+
+/**
+ * Point d'entree commun a « Créer un salon » et « Rejoindre » : un seul chemin
+ * pour ouvrir l'ecran, poser l'abonnement et gerer la sortie.
+ *
+ * `lobbySession` est toujours dispose avant d'en ouvrir une autre — sans ca,
+ * l'abonnement precedent survivrait et redessinerait par-dessus.
+ */
+function enterLobby(
+  enter: Parameters<typeof openLobbyScreen>[1],
+  pendingMessage: string,
+): void {
+  lobbySession?.dispose();
+  // Re-cible les toasts sur le conteneur du launcher : main.ts les bascule sur
+  // celui du jeu au lancement d'une partie, et #toasts est dans #app, masque
+  // ici — sans ce rappel, un toast de salon apres une partie serait perdu.
+  initToasts(launcherToasts!);
+  root!.dataset.screen = 'salon';
+  lobbySession = openLobbyScreen(
+    {
+      root: root!,
+      client: createLobbyClient(user!),
+      viewerId: user!.id,
+      onExit: () => {
+        lobbySession = null;
+        render('menu');
+      },
+      notify: (message, kind) => toast(message, kind),
+    },
+    enter,
+    pendingMessage,
+  );
+}
+
 async function startGameScreen(difficulty: Difficulty): Promise<void> {
   const { startGame } = await import('./main.js');
   root!.hidden = true;
@@ -272,6 +375,13 @@ function escapeHtml(s: string): string {
 
 async function boot(): Promise<void> {
   render('chargement');
+  // Controles de dev du salon (voir lobbyDev.ts) : import dynamique derriere
+  // `import.meta.env.DEV`, constante figee a la compilation, donc le module
+  // est entierement elague du bundle de prod. Meme motif que dev.ts.
+  if (import.meta.env.DEV && new URLSearchParams(location.search).get('dev') === '1') {
+    const { installLobbyDevTools } = await import('./lobbyDev.js');
+    installLobbyDevTools();
+  }
   try {
     user = await fetchMe();
     render('menu');

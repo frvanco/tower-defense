@@ -321,6 +321,21 @@ button {
    vers le haut a partir d'un bord bas fixe, c'est le message le plus
    recent qui reste au plus pres de la console — les plus anciens sont
    repousses vers le haut au fur et a mesure. */
+/* Toasts du launcher : meme apparence que ceux du jeu (.toast), mais ancres
+   au viewport puisqu'il n'y a pas de canvas pour servir de reference. */
+#launcher-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
 #toasts {
   position: absolute;
   left: 50%;
@@ -1416,4 +1431,258 @@ button {
   font-size: 12px;
   color: #b39a68;
   line-height: 1.35;
+}
+
+/* ---------------------------------------------------------------------------
+   Salon prive. Reprend les tokens de .launcher-screen (panneau brun degrade,
+   bordure doree #8a6f3f) plutot que d'ouvrir une seconde charte : le salon est
+   un ecran du launcher, pas une surface a part.
+   --------------------------------------------------------------------------- */
+
+#launcher[data-screen='salon'] {
+  background:
+    linear-gradient(180deg, rgba(11, 8, 5, 0.05) 0%, rgba(11, 8, 5, 0.15) 55%, rgba(11, 8, 5, 0.35) 100%),
+    url('/images/bg-accueil.jpg') center / cover no-repeat;
+}
+
+/* Plus large que les ecrans de formulaire : six lignes avec pseudo, badge et
+   actions ne tiennent pas dans les 340px du panneau standard. */
+.lobby-screen {
+  width: 460px;
+}
+
+.lobby-title {
+  font-size: 22px;
+}
+
+.lobby-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lobby-count {
+  font-variant-numeric: tabular-nums;
+  color: #b39a68;
+  font-weight: 600;
+}
+
+.lobby-code-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lobby-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 20px;
+  letter-spacing: 0.22em;
+  /* Compense l'interlettrage, qui ajoute une avance APRES le dernier
+     caractere et decentrerait visuellement le code. */
+  text-indent: 0.22em;
+  color: #f0dfae;
+}
+
+.lobby-copy,
+.lobby-action,
+.lobby-leave {
+  background: #2a2018;
+  color: #d8c79a;
+  border: 1px solid #6b5432;
+  border-radius: 3px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.lobby-copy:hover,
+.lobby-action:hover,
+.lobby-leave:hover {
+  background: #3a2c20;
+  color: #f0dfae;
+}
+
+.lobby-action-danger {
+  border-color: #7a3a30;
+  color: #e0a79a;
+}
+
+.lobby-action-danger:hover {
+  background: #47201a;
+  color: #f5c9bd;
+}
+
+.lobby-slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lobby-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid #3a2c20;
+  border-radius: 3px;
+  min-height: 38px;
+}
+
+.lobby-slot-empty {
+  border-style: dashed;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* La pastille porte la couleur FIXE de la place (PLAYER_COLORS) : elle ne
+   change jamais, meme quand l'occupant part. */
+.lobby-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--slot-color, #5a5f6b);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  flex: none;
+}
+
+.lobby-seat {
+  color: #8a7a5c;
+  font-size: 12px;
+  font-weight: 600;
+  width: 22px;
+  flex: none;
+}
+
+.lobby-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e6dcc4;
+  font-size: 14px;
+}
+
+.lobby-empty {
+  color: #6f6450;
+  font-style: italic;
+}
+
+.lobby-bot {
+  color: #9fb0c4;
+}
+
+.lobby-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #f0dfae;
+  background: #4a3a1e;
+  border: 1px solid #8a6f3f;
+  border-radius: 2px;
+  padding: 2px 6px;
+  flex: none;
+}
+
+.lobby-badge-self {
+  color: #cfe0f0;
+  background: #23313f;
+  border-color: #3f5f7a;
+}
+
+.lobby-slot-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.lobby-difficulty {
+  background: #2a2018;
+  color: #d8c79a;
+  border: 1px solid #6b5432;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.lobby-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.lobby-start {
+  flex: 1;
+  margin: 0;
+}
+
+.lobby-start:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.lobby-waiting {
+  flex: 1;
+  margin: 0;
+  text-align: right;
+  color: #8a7a5c;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.lobby-code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 20px;
+}
+
+.lobby-countdown-screen {
+  align-items: center;
+}
+
+.lobby-countdown {
+  font-size: 64px;
+  font-weight: 700;
+  color: #f0dfae;
+  margin: 12px 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lobby-provisional {
+  color: #8a7a5c;
+  font-size: 12px;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Les deux entrees du salon sur l'accueil, sous le bouton principal. */
+.launcher-lobby-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.launcher-secondary {
+  flex: 1;
+  background: #2a2018;
+  color: #d8c79a;
+  border: 1px solid #6b5432;
+  border-radius: 3px;
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.launcher-secondary:hover {
+  background: #3a2c20;
+  color: #f0dfae;
 }

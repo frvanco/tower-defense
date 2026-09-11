@@ -8,6 +8,11 @@
   </head>
   <body>
     <div id="launcher"></div>
+    <!-- Conteneur de toasts PROPRE au launcher : #toasts vit dans #app, qui est
+         masque tant qu'on est sur les ecrans d'accueil/salon — y ecrire serait
+         invisible. initToasts() bascule entre les deux selon la surface
+         affichee (voir launcher.ts et main.ts). -->
+    <div id="launcher-toasts"></div>
     <div id="app" hidden>
       <header id="topbar">
         <div id="topbar-stats">
