@@ -17,6 +17,12 @@ const TOWER_MODEL_CONFIG: Record<string, string> = {
   h002: '/models/towers/balistique/lv3_balistique.glb', // Canon lourd    — palier 3
   h012: '/models/towers/balistique/lv4_balistique.glb', // Obusier        — palier 4
   h010: '/models/towers/balistique/lv5_balistique.glb', // Canon à rail   — palier 5
+  // Acide
+  o001: '/models/towers/acide/lv1_acide.glb', // Acide        — palier 1
+  o002: '/models/towers/acide/lv2_acide.glb', // Corrosive    — palier 2
+  o000: '/models/towers/acide/lv3_acide.glb', // Dissolvante  — palier 3
+  o006: '/models/towers/acide/lv4_acide.glb', // Nécrose      — palier 4
+  o00D: '/models/towers/acide/lv5_acide.glb', // Solvant      — palier 5
   // Givre
   o003: '/models/towers/givre/lv1_givre.glb', // Givre        — palier 1
   o004: '/models/towers/givre/lv2_givre.glb', // Gel          — palier 2
