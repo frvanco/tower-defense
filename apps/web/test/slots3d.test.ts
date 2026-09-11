@@ -11,6 +11,7 @@ function makeArena(): Arena {
   return {
     player: 0,
     alive: true,
+    unlockedShopTier: 0,
     gold: 0,
     income: 0,
     lives: 20,

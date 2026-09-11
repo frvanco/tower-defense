@@ -26,6 +26,7 @@ function makeArena(creeps: Creep[]): Arena {
   return {
     player: 0,
     alive: true,
+    unlockedShopTier: 0,
     gold: 0,
     income: 0,
     lives: 20,
@@ -58,7 +59,7 @@ function findRings(layer: THREE.Group): THREE.Mesh[] {
 
 describe('CreepEntities — cycle de vie des creeps generiques (sphere/cone)', () => {
   let layer: THREE.Group;
-  let entities: CreepEntities;
+  let entities: InstanceType<typeof CreepEntities>;
 
   // Pas de jsdom/happy-dom dans ce depot (vitest tourne en environnement Node
   // pur) — makeHpBar() n'a besoin de `document.createElement('canvas')` que

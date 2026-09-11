@@ -12,6 +12,7 @@ function makeModel(): AnimatedCreepModel {
     restMatrices: [pose],
     scale: 1,
     groundOffsetY: 0,
+    baseY: 0,
     walkFrames: [[pose]],
     walkClipDuration: 1,
     deathFrames: [[pose]],

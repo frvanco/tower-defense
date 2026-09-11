@@ -21,6 +21,7 @@ function makeArena(towers: Tower[]): Arena {
   return {
     player: 0,
     alive: true,
+    unlockedShopTier: 0,
     gold: 0,
     income: 0,
     lives: 20,
@@ -54,7 +55,7 @@ function collectDisposables(group: THREE.Object3D): { geometries: THREE.BufferGe
 
 describe('TowerEntities — cycle de vie des ressources (build/upgrade/vente/clear)', () => {
   let layer: THREE.Group;
-  let entities: TowerEntities;
+  let entities: InstanceType<typeof TowerEntities>;
 
   beforeEach(() => {
     layer = new THREE.Group();
