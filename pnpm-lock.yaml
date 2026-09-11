@@ -106,6 +106,12 @@ importers:
 
   packages/data: {}
 
+  packages/lobby:
+    devDependencies:
+      '@tower-defense/sim':
+        specifier: workspace:*
+        version: link:../sim
+
   packages/renderer:
     dependencies:
       '@tower-defense/data':

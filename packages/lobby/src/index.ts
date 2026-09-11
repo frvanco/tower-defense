@@ -1,0 +1,26 @@
+export {
+  LOBBY_SIZE,
+  LOBBY_CODE_ALPHABET,
+  LOBBY_CODE_LENGTH,
+  normalizeLobbyCode,
+  emptySlots,
+  firstEmptySlotIndex,
+  isLobbyFull,
+  occupiedCount,
+  slotOfPlayer,
+  isHost,
+  type BotDifficulty,
+  type PlayerId,
+  type SlotOccupant,
+  type LobbySlot,
+  type Lobby,
+  type JoinError,
+  type CommandError,
+  type CommandResult,
+  type JoinResult,
+  type LobbyEvent,
+  type Unsubscribe,
+  type LobbyClient,
+} from './contract.js';
+
+export { MockLobbyServer, createMockLobbyClient, MOCK_LATENCY_MS, type MockPlayer } from './mock.js';
