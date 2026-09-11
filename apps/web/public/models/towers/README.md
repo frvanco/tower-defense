@@ -77,10 +77,13 @@ par la scène.
 
 ## État actuel
 
-Une seule tour sur 27 a un modèle : `h000` (Balistique palier 1). Toutes les
-autres restent **procédurales** — géométrie générée à partir des stats dans
-`packages/renderer/src/towers/` (`cannon.ts` pour Balistique, `placeholder.ts`
-pour les cinq autres branches).
+Deux branches sur six sont modélisées — **Balistique** et **Givre**, 5 paliers
+chacune, soit 10 tours sur 27. Les 17 autres restent **procédurales** :
+géométrie générée à partir des stats dans `packages/renderer/src/towers/`
+(`cannon.ts`, `placeholder.ts`).
+
+Restent à modéliser : `acide/`, `anti-aerien/`, `cadence/` (5 paliers chacune)
+et `reacteur/` (2 paliers).
 
 Les deux coexistent sans cas particulier : `makeModelTower` produit exactement
 le même contrat que les fabriques procédurales (mêmes enfants nommés, même
