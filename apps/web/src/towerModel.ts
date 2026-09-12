@@ -23,6 +23,12 @@ const TOWER_MODEL_CONFIG: Record<string, string> = {
   o000: '/models/towers/acide/lv3_acide.glb', // Dissolvante  — palier 3
   o006: '/models/towers/acide/lv4_acide.glb', // Nécrose      — palier 4
   o00D: '/models/towers/acide/lv5_acide.glb', // Solvant      — palier 5
+  // Anti-aérien
+  h005: '/models/towers/anti-aerien/lv1_anti-aerien.glb', // Flak     — palier 1
+  h006: '/models/towers/anti-aerien/lv2_anti-aerien.glb', // Arc      — palier 2
+  h007: '/models/towers/anti-aerien/lv3_anti-aerien.glb', // Foudre   — palier 3
+  h013: '/models/towers/anti-aerien/lv4_anti-aerien.glb', // Orage    — palier 4
+  h011: '/models/towers/anti-aerien/lv5_anti-aerien.glb', // Tempête  — palier 5
   // Givre
   o003: '/models/towers/givre/lv1_givre.glb', // Givre        — palier 1
   o004: '/models/towers/givre/lv2_givre.glb', // Gel          — palier 2
