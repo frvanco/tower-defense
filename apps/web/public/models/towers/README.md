@@ -77,13 +77,15 @@ par la scène.
 
 ## État actuel
 
-Quatre branches sur six sont modélisées — **Balistique**, **Givre**, **Acide**
-et **Anti-aérien**, 5 paliers chacune, soit 20 tours sur 27. Les 7 autres
-restent **procédurales** : géométrie générée à partir des stats dans
-`packages/renderer/src/towers/` (`cannon.ts`, `placeholder.ts`).
+**Les six branches sont modélisées** — 27 tours sur 27. La géométrie
+procédurale de `packages/renderer/src/towers/` (`cannon.ts`, `placeholder.ts`)
+reste en place comme repli : une tour dont le modèle n'est pas encore chargé,
+ou dont le fichier est illisible, y retombe silencieusement.
 
-Restent à modéliser : `cadence/` (5 paliers) et `reacteur/` (2 paliers, mais
-alignés sur les paliers 4-5 — donc budget resserré dès le premier modèle).
+Une tour est actuellement **réduite** faute de place : le Réacteur palier 1,
+dont le rapport rayon/hauteur vaut 0.437 pour 0.341 admis — il rend à 2.74 au
+lieu de 3.50. Un avertissement `[emprise]` le signale en console au chargement,
+avec le rapport à viser au réexport.
 
 Les deux coexistent sans cas particulier : `makeModelTower` produit exactement
 le même contrat que les fabriques procédurales (mêmes enfants nommés, même

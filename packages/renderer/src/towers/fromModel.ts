@@ -22,13 +22,20 @@ export const MODEL_FIRE_CLIP = 'Fire';
 const DEFAULT_TEAM_COLOR = 0xc0392b;
 
 /**
- * Marge sous MAX_RADIUS pour le calcul d'echelle. Le rayon est mesure sur les
- * sommets AVANT mise a l'echelle puis extrapole ; l'arrondi flottant peut
- * placer le resultat exactement sur la limite, que `radius > MAX_RADIUS`
- * rejette alors au hasard (meme piege que le plafond de largeur des tours
- * procedurales, voir MAX_WIDTH dans types.ts).
+ * Marge sous MAX_RADIUS pour le calcul d'echelle. Son SEUL role est d'eviter
+ * qu'un modele authore pile a la limite ne tombe exactement dessus, ou le test
+ * strict `radius > MAX_RADIUS` se deciderait au dernier bit (meme piege que le
+ * plafond de largeur des tours procedurales, voir MAX_WIDTH dans types.ts).
+ *
+ * Volontairement TENUE. Une marge large ne protege de rien de plus : la mise a
+ * l'echelle est une multiplication uniforme, l'ecart entre le rayon extrapole
+ * et le rayon mesure est de l'ordre de 1e-15, pas du pourcent. En revanche
+ * elle coute de la hauteur a tout modele qui tient legitimement — mesure sur
+ * la Moissonneuse (Cadence palier 5), dont le rayon a pleine hauteur vaut
+ * 1.1889 pour 1.200 admis : a 2% de marge elle etait rabotee de 1.1% sans
+ * qu'aucun debordement ne la menace.
  */
-const FOOTPRINT_SAFETY = 0.98;
+const FOOTPRINT_SAFETY = 0.995;
 
 export interface PreparedTowerModel {
   /** Scene du .glb, materiaux deja convertis et partages. Jamais ajoutee telle
@@ -132,6 +139,21 @@ export function makeModelTower(
   const byHeight = visual.height / model.naturalHeight;
   const byFootprint = (MAX_RADIUS * FOOTPRINT_SAFETY) / model.naturalRadius;
   const scale = Math.min(byHeight, byFootprint);
+
+  // Un modele trop large pour sa case est reduit plutot que laisse a deborder
+  // — mais SILENCIEUSEMENT, il passerait inapercu : la tour se rend juste plus
+  // petite que son palier, ce qui ne ressemble pas a une erreur. On le signale
+  // donc, avec le rapport a viser au reexport (la hauteur est imposee par le
+  // palier, c'est la LARGEUR du modele qui doit ceder).
+  if (byFootprint < byHeight) {
+    const maxRatio = (MAX_RADIUS * FOOTPRINT_SAFETY) / visual.height;
+    console.warn(
+      `[emprise] ${def.name} (palier ${tier + 1}) est trop large pour sa case : reduit a ` +
+        `${(model.naturalHeight * scale).toFixed(2)} au lieu de ${visual.height.toFixed(2)} ` +
+        `(-${((1 - scale / byHeight) * 100).toFixed(0)}%). Rapport rayon/hauteur du modele ` +
+        `${(model.naturalRadius / model.naturalHeight).toFixed(3)}, maximum admis ${maxRatio.toFixed(3)}.`,
+    );
+  }
 
   const g = new THREE.Group();
   const body = new THREE.Group();

@@ -29,6 +29,18 @@ const TOWER_MODEL_CONFIG: Record<string, string> = {
   h007: '/models/towers/anti-aerien/lv3_anti-aerien.glb', // Foudre   — palier 3
   h013: '/models/towers/anti-aerien/lv4_anti-aerien.glb', // Orage    — palier 4
   h011: '/models/towers/anti-aerien/lv5_anti-aerien.glb', // Tempête  — palier 5
+  // Cadence
+  o008: '/models/towers/cadence/lv1_cadence.glb', // Répétiteur   — palier 1
+  o009: '/models/towers/cadence/lv2_cadence.glb', // Mitrailleuse — palier 2
+  o00A: '/models/towers/cadence/lv3_cadence.glb', // Gatling      — palier 3
+  o00B: '/models/towers/cadence/lv4_cadence.glb', // Fauchoir     — palier 4
+  o00E: '/models/towers/cadence/lv5_cadence.glb', // Moissonneuse — palier 5
+  // Réacteur — 2 paliers seulement, mais alignes sur les paliers 4-5 (late
+  // game, 30 000 et 180 000 or) : budget d'emprise resserre des le premier.
+  // Ces deux modeles n'ont ni Barrel_Recoil ni clip Fire — un reacteur n'a pas
+  // de canon qui recule. Le rendu le gere : pas de mixer, pas de recul.
+  h008: '/models/towers/reacteur/lv1_reacteur.glb', // Réacteur          — palier 1
+  h00T: '/models/towers/reacteur/lv2_reacteur.glb', // Soleil artificiel — palier 2
   // Givre
   o003: '/models/towers/givre/lv1_givre.glb', // Givre        — palier 1
   o004: '/models/towers/givre/lv2_givre.glb', // Gel          — palier 2
