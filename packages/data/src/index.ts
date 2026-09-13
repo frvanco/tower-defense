@@ -264,8 +264,19 @@ for (const c of creeps.values()) {
   c.moveSpeed = Math.round(c.moveSpeed * rules.creepSpeedMultiplier);
 }
 
-/** Tours constructibles directement par le Peasant (racines des 6 branches). */
-export const buildableTowers = ['h000', 'o001', 'o003', 'h005', 'h008', 'o008'];
+/**
+ * Tours constructibles directement par le Peasant (racines des 6 branches).
+ * Cet ordre est aussi celui de la barre d'achat : le Reacteur est place en
+ * DERNIER, apres Cadence — c'est la seule branche de fin de partie (30 000 or
+ * d'entree, 2 paliers), elle n'a rien a faire au milieu des branches qu'on
+ * ouvre des les premieres manches.
+ *
+ * Reordonner cette liste est sans consequence ailleurs : les couleurs de
+ * branche sont indexees par id de racine (voir BRANCH_HUES dans
+ * apps/web/src/branches.ts) et tout le reste la parcourt sans dependre des
+ * positions.
+ */
+export const buildableTowers = ['h000', 'o001', 'o003', 'h005', 'o008', 'h008'];
 
 export interface Branch {
   /** Id de la tour RACINE : une branche n'a pas d'identite propre dans les

@@ -52,9 +52,21 @@
                 <div id="cmd-tooltip-desc"></div>
               </div>
               <div id="cmd-info-selected" class="cmd-info-content" hidden>
-                <div id="selected-name"></div>
+                <!-- Deux icones, deux roles distincts et non interchangeables :
+                     celle du TITRE montre ce qu'on possede, celle du BOUTON ce
+                     qu'on achete. Les separer ainsi evite qu'une information
+                     d'action soit lue comme une description de la tour posee
+                     (retour direct : un apercu du palier suivant place dans la
+                     zone descriptive se lisait comme le palier courant). -->
+                <div class="selected-header">
+                  <span id="selected-icon" class="selected-icon" aria-hidden="true"></span>
+                  <span id="selected-name"></span>
+                </div>
                 <div id="selected-info"></div>
-                <button id="upgrade-btn"></button>
+                <button id="upgrade-btn">
+                  <span id="upgrade-btn-icon" class="upgrade-btn-icon" aria-hidden="true" hidden></span>
+                  <span id="upgrade-btn-label"></span>
+                </button>
                 <button id="sell-btn"></button>
               </div>
             </section>

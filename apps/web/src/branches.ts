@@ -42,13 +42,25 @@ export function branchName(defId: string): string {
   return branches[branch]?.name ?? '';
 }
 
-/** Une teinte distincte par branche, dans l'ordre de `buildableTowers` :
- * Balistique, Acide, Givre, Anti-aerien, Reacteur, Cadence. */
-const BRANCH_HUES = [8, 265, 195, 100, 48, 322];
+/**
+ * Une teinte distincte par branche, indexee par l'ID DE SA RACINE et non par
+ * sa position dans `buildableTowers`. Cette liste fixe aussi l'ordre de la
+ * barre d'achat : indexer les couleurs dessus les faisait permuter des qu'on
+ * reordonnait les tuiles, alors qu'une branche doit garder sa couleur quoi
+ * qu'il arrive — c'est un reperage pour le joueur, pas une decoration.
+ */
+const BRANCH_HUES: Record<string, number> = {
+  h000: 8, // Balistique — rouge
+  o001: 265, // Acide — violet
+  o003: 195, // Givre — cyan
+  h005: 100, // Anti-aerien — vert
+  h008: 48, // Reacteur — jaune
+  o008: 322, // Cadence — rose
+};
 
 export function branchHue(defId: string): number {
-  const branch = branchInfo(defId).branch;
-  return BRANCH_HUES[branch % BRANCH_HUES.length] ?? 0;
+  const rootId = buildableTowers[branchInfo(defId).branch];
+  return (rootId !== undefined ? BRANCH_HUES[rootId] : undefined) ?? 0;
 }
 
 export function branchColor(defId: string, alpha = 1): string {

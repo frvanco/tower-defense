@@ -95,8 +95,24 @@ export interface SelectedRefs {
   section: HTMLElement;
   name: HTMLElement;
   info: HTMLElement;
+  /** Icone de la tour POSEE, dans l'en-tete. */
+  nameIcon: HTMLElement;
   upgradeBtn: HTMLButtonElement;
+  /** Icone du palier SUIVANT, dans le bouton — masquee au palier maximum. */
+  upgradeBtnIcon: HTMLElement;
+  /** Libelle du bouton, separe de l'icone : ecrire dans le `textContent` du
+   * bouton lui-meme detruirait l'icone a chaque rendu. */
+  upgradeBtnLabel: HTMLElement;
   sellBtn: HTMLButtonElement;
+}
+
+/** `iconUrl` n'existe pas encore dans le type TowerDef : il est fourni par
+ * balance.json et traverse `applyOverrides` tel quel. Meme lecture defensive
+ * que celle des tuiles (voir iconUrlOf dans commandBar.ts) — une tour sans
+ * icone n'est pas une erreur, l'apercu se contente de ne rien afficher. */
+function iconUrlOf(def: object): string | undefined {
+  const v = (def as { iconUrl?: unknown }).iconUrl;
+  return typeof v === 'string' && v.length > 0 ? v : undefined;
 }
 
 export function updateSelectedPanel(refs: SelectedRefs, arena: Arena | undefined, eid: number | null): void {
@@ -124,6 +140,12 @@ export function updateSelectedPanel(refs: SelectedRefs, arena: Arena | undefined
   refs.name.textContent = `${def.name} (${qualifier})`;
   refs.info.textContent = `dmg ${def.damageBase}+${def.dice}d${def.sides} · range ${def.range} · cooldown ${def.cooldown}s`;
 
+  // Icone de la tour POSEE. Retiree (et non laissee vide) si cette tour n'a
+  // pas d'icone : un cadre creux dans l'en-tete se lirait comme un defaut.
+  const ownIcon = iconUrlOf(def);
+  refs.nameIcon.hidden = !ownIcon;
+  if (ownIcon) refs.nameIcon.style.backgroundImage = `url(${ownIcon})`;
+
   // Le bouton reste toujours visible tant qu'une tour est selectionnee (que
   // ce soit pour proposer le palier suivant ou pour signaler qu'il n'y en a
   // plus) : jamais masque via `hidden` ici (retour direct — `#upgrade-btn`
@@ -136,12 +158,20 @@ export function updateSelectedPanel(refs: SelectedRefs, arena: Arena | undefined
   const next = nextId ? towers.get(nextId) : undefined;
   refs.upgradeBtn.hidden = false;
   if (next) {
-    refs.upgradeBtn.textContent = `Upgrade -> ${next.name} (${next.goldCost}g)`;
+    // `upgradeBtnLabel`, jamais `upgradeBtn` : ecrire dans le textContent du
+    // bouton effacerait l'icone qu'il contient.
+    refs.upgradeBtnLabel.textContent = `Upgrade -> ${next.name} (${next.goldCost}g)`;
     refs.upgradeBtn.disabled = !arena.alive || arena.gold < next.goldCost;
   } else {
-    refs.upgradeBtn.textContent = 'Améliorée au maximum';
+    refs.upgradeBtnLabel.textContent = 'Améliorée au maximum';
     refs.upgradeBtn.disabled = true;
   }
+
+  // Icone du palier SUIVANT, sur le bouton qui l'achete — pas dans la zone
+  // descriptive au-dessus, ou elle se lirait comme le palier courant.
+  const nextIcon = next ? iconUrlOf(next) : undefined;
+  refs.upgradeBtnIcon.hidden = !nextIcon;
+  if (nextIcon) refs.upgradeBtnIcon.style.backgroundImage = `url(${nextIcon})`;
 
   refs.sellBtn.hidden = false;
   refs.sellBtn.textContent = `Sell (+${def.refund}g)`;

@@ -1,11 +1,12 @@
 {
   "towers": {
-    "o003": { "attackType": "pierce", "name": "Givre", "goldCost": 60, "refund": 30, "damageBase": 180, "cooldown": 1.00, "slow": { "pct": 0.12, "maxTargets": 2, "durationSec": 3 } },
-    "o004": { "attackType": "pierce", "name": "Gel", "goldCost": 200, "refund": 100, "damageBase": 387, "cooldown": 0.85, "slow": { "pct": 0.19, "maxTargets": 3, "durationSec": 3.5 } },
-    "o005": { "attackType": "pierce", "name": "Blizzard", "goldCost": 600, "refund": 300, "damageBase": 788, "cooldown": 0.75, "slow": { "pct": 0.26, "maxTargets": 4, "durationSec": 4 } },
-    "o007": { "attackType": "pierce", "name": "Cryogène", "goldCost": 1900, "refund": 950, "damageBase": 1690, "cooldown": 0.65, "slow": { "pct": 0.33, "maxTargets": 6, "durationSec": 4.5 }, "upgradesTo": ["o00C"] },
+    "o003": { "attackType": "pierce", "name": "Givre", "iconUrl": "/icons/towers/givre/lv1_givre_mini.png", "goldCost": 60, "refund": 30, "damageBase": 180, "cooldown": 1.00, "slow": { "pct": 0.12, "maxTargets": 2, "durationSec": 3 } },
+    "o004": { "attackType": "pierce", "name": "Gel", "iconUrl": "/icons/towers/givre/lv2_givre_mini.png", "goldCost": 200, "refund": 100, "damageBase": 387, "cooldown": 0.85, "slow": { "pct": 0.19, "maxTargets": 3, "durationSec": 3.5 } },
+    "o005": { "attackType": "pierce", "name": "Blizzard", "iconUrl": "/icons/towers/givre/lv3_givre_mini.png", "goldCost": 600, "refund": 300, "damageBase": 788, "cooldown": 0.75, "slow": { "pct": 0.26, "maxTargets": 4, "durationSec": 4 } },
+    "o007": { "attackType": "pierce", "name": "Cryogène", "iconUrl": "/icons/towers/givre/lv4_givre_mini.png", "goldCost": 1900, "refund": 950, "damageBase": 1690, "cooldown": 0.65, "slow": { "pct": 0.33, "maxTargets": 6, "durationSec": 4.5 }, "upgradesTo": ["o00C"] },
     "o00C": {
       "id": "o00C", "name": "Zéro absolu",
+      "iconUrl": "/icons/towers/givre/lv5_givre_mini.png",
       "goldCost": 6000, "refund": 3000,
       "damageBase": 3810, "dice": 0, "sides": 1, "cooldown": 0.60,
       "range": 1500, "acquisitionRange": 700,
@@ -15,12 +16,13 @@
       "slow": { "pct": 0.40, "maxTargets": 10, "durationSec": 5.0 }
     },
 
-    "o001": { "attackType": "pierce", "name": "Acide", "goldCost": 30, "refund": 15, "damageBase": 38, "cooldown": 0.40, "poison": { "slowPct": 0.08, "dps": 8, "durationSec": 5 } },
-    "o002": { "attackType": "pierce", "name": "Corrosive", "goldCost": 120, "refund": 60, "damageBase": 90, "cooldown": 0.32, "poison": { "slowPct": 0.14, "dps": 20, "durationSec": 7 } },
-    "o000": { "attackType": "pierce", "name": "Dissolvante", "goldCost": 500, "refund": 250, "damageBase": 220, "cooldown": 0.26, "poison": { "slowPct": 0.20, "dps": 45, "durationSec": 9 } },
-    "o006": { "attackType": "pierce", "name": "Nécrose", "goldCost": 2000, "refund": 1000, "damageBase": 539, "cooldown": 0.22, "poison": { "slowPct": 0.25, "dps": 90, "durationSec": 12 }, "upgradesTo": ["o00D"] },
+    "o001": { "attackType": "pierce", "name": "Acide", "iconUrl": "/icons/towers/acide/lv1_acide_mini.png", "goldCost": 30, "refund": 15, "damageBase": 38, "cooldown": 0.40, "poison": { "slowPct": 0.08, "dps": 8, "durationSec": 5 } },
+    "o002": { "attackType": "pierce", "name": "Corrosive", "iconUrl": "/icons/towers/acide/lv2_acide_mini.png", "goldCost": 120, "refund": 60, "damageBase": 90, "cooldown": 0.32, "poison": { "slowPct": 0.14, "dps": 20, "durationSec": 7 } },
+    "o000": { "attackType": "pierce", "name": "Dissolvante", "iconUrl": "/icons/towers/acide/lv3_acide_mini.png", "goldCost": 500, "refund": 250, "damageBase": 220, "cooldown": 0.26, "poison": { "slowPct": 0.20, "dps": 45, "durationSec": 9 } },
+    "o006": { "attackType": "pierce", "name": "Nécrose", "iconUrl": "/icons/towers/acide/lv4_acide_mini.png", "goldCost": 2000, "refund": 1000, "damageBase": 539, "cooldown": 0.22, "poison": { "slowPct": 0.25, "dps": 90, "durationSec": 12 }, "upgradesTo": ["o00D"] },
     "o00D": {
       "id": "o00D", "name": "Solvant",
+      "iconUrl": "/icons/towers/acide/lv5_acide_mini.png",
       "goldCost": 8000, "refund": 4000,
       "damageBase": 1450, "dice": 0, "sides": 1, "cooldown": 0.20,
       "range": 1500, "acquisitionRange": 1000,
@@ -30,11 +32,12 @@
       "poison": { "slowPct": 0.30, "dps": 162, "durationSec": 15 }
     },
 
-    "h005": { "attackType": "pierce", "name": "Flak", "goldCost": 60, "refund": 30, "damageBase": 105, "cooldown": 0.35, "chain": { "bounces": 2, "falloff": 0.60 } },
-    "h006": { "attackType": "pierce", "name": "Arc", "goldCost": 220, "refund": 110, "damageBase": 205, "cooldown": 0.25, "chain": { "bounces": 3, "falloff": 0.68 } },
-    "h007": { "attackType": "pierce", "name": "Foudre", "goldCost": 850, "refund": 425, "damageBase": 423, "cooldown": 0.18, "chain": { "bounces": 4, "falloff": 0.75 }, "upgradesTo": ["h013"] },
+    "h005": { "attackType": "pierce", "name": "Flak", "iconUrl": "/icons/towers/anti-aerien/lv1_anti-aerien_mini.png", "goldCost": 60, "refund": 30, "damageBase": 105, "cooldown": 0.35, "chain": { "bounces": 2, "falloff": 0.60 } },
+    "h006": { "attackType": "pierce", "name": "Arc", "iconUrl": "/icons/towers/anti-aerien/lv2_anti-aerien_mini.png", "goldCost": 220, "refund": 110, "damageBase": 205, "cooldown": 0.25, "chain": { "bounces": 3, "falloff": 0.68 } },
+    "h007": { "attackType": "pierce", "name": "Foudre", "iconUrl": "/icons/towers/anti-aerien/lv3_anti-aerien_mini.png", "goldCost": 850, "refund": 425, "damageBase": 423, "cooldown": 0.18, "chain": { "bounces": 4, "falloff": 0.75 }, "upgradesTo": ["h013"] },
     "h013": {
       "id": "h013", "name": "Orage",
+      "iconUrl": "/icons/towers/anti-aerien/lv4_anti-aerien_mini.png",
       "goldCost": 3200, "refund": 1600,
       "damageBase": 845, "dice": 0, "sides": 1, "cooldown": 0.13,
       "range": 1000, "acquisitionRange": 1000,
@@ -43,24 +46,25 @@
       "upgradesTo": ["h011"], "requires": [], "abilities": ["Alit"],
       "chain": { "bounces": 5, "falloff": 0.785 }
     },
-    "h011": { "attackType": "pierce", "name": "Tempête", "goldCost": 12000, "refund": 6000, "damageBase": 1800, "cooldown": 0.10, "chain": { "bounces": 6, "falloff": 0.82 } },
+    "h011": { "attackType": "pierce", "name": "Tempête", "iconUrl": "/icons/towers/anti-aerien/lv5_anti-aerien_mini.png", "goldCost": 12000, "refund": 6000, "damageBase": 1800, "cooldown": 0.10, "chain": { "bounces": 6, "falloff": 0.82 } },
 
-    "h000": { "attackType": "pierce", "name": "Tourelle", "goldCost": 10, "refund": 5, "damageBase": 46, "cooldown": 0.35, "upgradesTo": ["h004"] },
+    "h000": { "attackType": "pierce", "name": "Tourelle", "iconUrl": "/icons/towers/balistique/lv1_balistique_mini.png", "goldCost": 10, "refund": 5, "damageBase": 46, "cooldown": 0.35, "upgradesTo": ["h004"] },
     "h003": { "attackType": "siege", "name": "Canon", "damageBase": 82 },
-    "h004": { "attackType": "siege", "name": "Canon", "goldCost": 60, "refund": 30, "damageBase": 151, "cooldown": 0.29 },
-    "h002": { "attackType": "siege", "name": "Canon lourd", "goldCost": 370, "refund": 185, "damageBase": 525, "cooldown": 0.25 },
-    "h012": { "attackType": "siege", "name": "Obusier", "goldCost": 2200, "refund": 1100, "damageBase": 1859, "cooldown": 0.22 },
-    "h010": { "attackType": "siege", "name": "Canon à rail", "goldCost": 5500, "refund": 2750, "damageBase": 1400, "cooldown": 0.10 },
+    "h004": { "attackType": "siege", "name": "Canon", "iconUrl": "/icons/towers/balistique/lv2_balistique_mini.png", "goldCost": 60, "refund": 30, "damageBase": 151, "cooldown": 0.29 },
+    "h002": { "attackType": "siege", "name": "Canon lourd", "iconUrl": "/icons/towers/balistique/lv3_balistique_mini.png", "goldCost": 370, "refund": 185, "damageBase": 525, "cooldown": 0.25 },
+    "h012": { "attackType": "siege", "name": "Obusier", "iconUrl": "/icons/towers/balistique/lv4_balistique_mini.png", "goldCost": 2200, "refund": 1100, "damageBase": 1859, "cooldown": 0.22 },
+    "h010": { "attackType": "siege", "name": "Canon à rail", "iconUrl": "/icons/towers/balistique/lv5_balistique_mini.png", "goldCost": 5500, "refund": 2750, "damageBase": 1400, "cooldown": 0.10 },
 
-    "h008": { "attackType": "siege", "name": "Réacteur", "goldCost": 30000, "refund": 15000, "damageBase": 25000, "cooldown": 4.0 },
-    "h00T": { "attackType": "siege", "name": "Soleil artificiel", "goldCost": 180000, "refund": 90000, "damageBase": 62500, "cooldown": 2.5 },
+    "h008": { "attackType": "siege", "name": "Réacteur", "iconUrl": "/icons/towers/reacteur/lv1_reacteur_mini.png", "goldCost": 30000, "refund": 15000, "damageBase": 25000, "cooldown": 4.0 },
+    "h00T": { "attackType": "siege", "name": "Soleil artificiel", "iconUrl": "/icons/towers/reacteur/lv2_reacteur_mini.png", "goldCost": 180000, "refund": 90000, "damageBase": 62500, "cooldown": 2.5 },
 
-    "o008": { "attackType": "normal", "name": "Répétiteur", "targets": ["ground"], "goldCost": 60, "refund": 30, "damageBase": 78, "cooldown": 0.20, "range": 600 },
-    "o009": { "attackType": "normal", "name": "Mitrailleuse", "targets": ["ground"], "goldCost": 220, "refund": 110, "damageBase": 200, "cooldown": 0.19, "range": 700 },
-    "o00A": { "attackType": "normal", "name": "Gatling", "targets": ["ground"], "goldCost": 850, "refund": 425, "damageBase": 549, "cooldown": 0.18, "range": 800 },
-    "o00B": { "attackType": "normal", "name": "Fauchoir", "targets": ["ground"], "goldCost": 3200, "refund": 1600, "damageBase": 1436, "cooldown": 0.17, "range": 900, "upgradesTo": ["o00E"] },
+    "o008": { "attackType": "normal", "name": "Répétiteur", "iconUrl": "/icons/towers/cadence/lv1_cadence_mini.png", "targets": ["ground"], "goldCost": 60, "refund": 30, "damageBase": 78, "cooldown": 0.20, "range": 600 },
+    "o009": { "attackType": "normal", "name": "Mitrailleuse", "iconUrl": "/icons/towers/cadence/lv2_cadence_mini.png", "targets": ["ground"], "goldCost": 220, "refund": 110, "damageBase": 200, "cooldown": 0.19, "range": 700 },
+    "o00A": { "attackType": "normal", "name": "Gatling", "iconUrl": "/icons/towers/cadence/lv3_cadence_mini.png", "targets": ["ground"], "goldCost": 850, "refund": 425, "damageBase": 549, "cooldown": 0.18, "range": 800 },
+    "o00B": { "attackType": "normal", "name": "Fauchoir", "iconUrl": "/icons/towers/cadence/lv4_cadence_mini.png", "targets": ["ground"], "goldCost": 3200, "refund": 1600, "damageBase": 1436, "cooldown": 0.17, "range": 900, "upgradesTo": ["o00E"] },
     "o00E": {
       "id": "o00E", "name": "Moissonneuse",
+      "iconUrl": "/icons/towers/cadence/lv5_cadence_mini.png",
       "goldCost": 12000, "refund": 6000,
       "damageBase": 3760, "dice": 0, "sides": 1, "cooldown": 0.16,
       "range": 1000, "acquisitionRange": 1200,

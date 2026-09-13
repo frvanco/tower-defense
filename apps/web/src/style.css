@@ -1138,9 +1138,10 @@ button {
 
 #selected-name {
   font-weight: 600;
-  margin-bottom: 4px;
   color: #f1e6c8;
   font-size: 13px;
+  /* La marge basse est portee par .selected-header, qui contient aussi
+     l'icone — la laisser ici decalerait le texte par rapport a elle. */
 }
 
 #selected-info {
@@ -1149,9 +1150,68 @@ button {
   margin-bottom: 10px;
 }
 
+/* En-tete du panneau : l'icone de la tour POSEE, a gauche de son nom. Elle ne
+   dit pas la meme chose que celle du bouton d'amelioration plus bas — ici
+   « ce que tu as », la-bas « ce que tu achetes ». */
+.selected-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+/* Taille COMMUNE aux deux icones du panneau (titre et bouton d'amelioration).
+   Une seule valeur, parce que l'egalite est une exigence de lisibilite et non
+   une coincidence : a 22px, celle du bouton etait trop petite pour qu'on
+   reconnaisse la tour (retour direct). Les deux doivent bouger ensemble. */
+#cmd-info-selected {
+  --tower-icon-size: 34px;
+}
+
+.selected-icon {
+  width: var(--tower-icon-size);
+  height: var(--tower-icon-size);
+  flex: none;
+  border-radius: 4px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(179, 154, 104, 0.25);
+}
+
+/* Sans image (tour sans icone declaree), le cadre vide ferait un trou dans la
+   ligne : on le retire de la mise en page plutot que de l'afficher vide. */
+.selected-icon[hidden] {
+  display: none;
+}
+
+/* Icone du palier SUIVANT, dans le bouton d'amelioration — meme taille que
+   celle du titre (voir --tower-icon-size). */
+.upgrade-btn-icon {
+  width: var(--tower-icon-size);
+  height: var(--tower-icon-size);
+  flex: none;
+  border-radius: 4px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(179, 154, 104, 0.3);
+}
+
+.upgrade-btn-icon[hidden] {
+  display: none;
+}
+
+/* Passe en flex (au lieu de block) pour aligner l'icone du palier suivant avec
+   son libelle. `justify-content: center` conserve le centrage d'origine quand
+   il n'y a pas d'icone (palier maximum). */
+#upgrade-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 #upgrade-btn,
 #sell-btn {
-  display: block;
   width: 100%;
   background: #2a2118;
   border: 1px solid #6b5432;

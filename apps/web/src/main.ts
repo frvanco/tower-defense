@@ -219,7 +219,10 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     section: byId('cmd-info-selected'),
     name: byId('selected-name'),
     info: byId('selected-info'),
+    nameIcon: byId('selected-icon'),
     upgradeBtn: byId('upgrade-btn'),
+    upgradeBtnIcon: byId('upgrade-btn-icon'),
+    upgradeBtnLabel: byId('upgrade-btn-label'),
     sellBtn: byId('sell-btn'),
   };
 
