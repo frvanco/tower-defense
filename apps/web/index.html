@@ -86,8 +86,12 @@
               </div>
             </section>
             <section id="cmd-modes">
-              <button id="cmd-mode-back" class="cmd-mode-btn" type="button" aria-label="Retour à la construction" hidden>
-                <div class="cmd-portrait"></div>
+              <!-- Les trois modes sont TOUJOURS visibles, y compris celui qui
+                   est actif : c'est un selecteur, pas un bouton « retour ». La
+                   construction en faisait exception (masquee quand active), ce
+                   qui la rendait invisible precisement quand on s'en servait. -->
+              <button id="cmd-mode-build" class="cmd-mode-btn" type="button" aria-label="Construire des tours">
+                <span class="cmd-mode-icon">🔨</span>
               </button>
               <button id="cmd-mode-send" class="cmd-mode-btn" type="button" aria-label="Envoyer des créatures">
                 <span class="cmd-mode-icon">🎺</span>

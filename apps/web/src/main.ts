@@ -256,7 +256,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   cmdShopTiles.innerHTML = '';
   const cmdShopUnlockBtn = byId<HTMLButtonElement>('cmd-shop-unlock-btn');
   const cmdGridAbilities = byId<HTMLDivElement>('cmd-grid-abilities');
-  const cmdModeBackBtn = byId<HTMLButtonElement>('cmd-mode-back');
+  const cmdModeBuildBtn = byId<HTMLButtonElement>('cmd-mode-build');
   const cmdModeSendBtn = byId<HTMLButtonElement>('cmd-mode-send');
   const cmdModeAbilitiesBtn = byId<HTMLButtonElement>('cmd-mode-abilities');
 
@@ -371,7 +371,12 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     cmdGridBuild.hidden = mode !== 'build';
     cmdGridSend.hidden = mode !== 'send';
     cmdGridAbilities.hidden = mode !== 'abilities';
-    cmdModeBackBtn.hidden = mode === 'build';
+    // Les trois boutons restent visibles ; c'est leur etat actif qui dit ou
+    // l'on est. Auparavant celui de la construction etait MASQUE quand elle
+    // etait active, donc introuvable au moment ou on en avait besoin.
+    cmdModeBuildBtn.classList.toggle('cmd-mode-btn--active', mode === 'build');
+    cmdModeSendBtn.classList.toggle('cmd-mode-btn--active', mode === 'send');
+    cmdModeAbilitiesBtn.classList.toggle('cmd-mode-btn--active', mode === 'abilities');
     // Changer de mode arme/selectionne plus rien : eviter qu'un fantome de
     // pose ou une selection perimee reste actif derriere la nouvelle grille.
     armedBuildDefId = null;
@@ -395,7 +400,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     },
     listenerOpts,
   );
-  cmdModeBackBtn.addEventListener(
+  cmdModeBuildBtn.addEventListener(
     'click',
     () => {
       if (isObserving()) return;
@@ -403,6 +408,11 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     },
     listenerOpts,
   );
+
+  // Etat initial pose par le MEME chemin que les clics, jamais en dur dans le
+  // markup : sinon le mode de depart et l'apparence des boutons peuvent
+  // diverger — c'etait le cas, aucun bouton n'apparaissait actif au demarrage.
+  setCommandMode(commandMode);
 
   const gameOverEl = byId<HTMLDivElement>('game-over');
   gameOverEl.hidden = true;
