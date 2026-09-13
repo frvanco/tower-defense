@@ -30,14 +30,38 @@ button {
   flex-direction: column;
 }
 
+#app[hidden] {
+  display: none;
+}
+
+/* Hauteur EXPLICITE (58px, mesuree sur l'ancien contenu en flux normal) :
+   #topbar-stats est desormais centree en position:absolute (voir plus bas),
+   donc ne participe plus a la hauteur naturelle de la barre — sans valeur
+   fixe ici, la barre se recalerait sur #speed-controls seul (plus bas) et
+   #topbar-stats deborderait dessous. */
 #topbar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 22px;
+  height: 58px;
   padding: 10px 16px;
   background: #1e1712;
   border-bottom: 2px solid #6b5432;
   flex-shrink: 0;
+}
+
+/* Centree independamment de #speed-controls (position:absolute, meme
+   technique que la console de commandes) : la barre garde ses stats au
+   milieu quelle que soit la largeur du bloc de vitesse a droite, plutot que
+   centree seulement sur l'espace restant apres lui. */
+#topbar-stats {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 22px;
 }
 
 .stat {
@@ -59,31 +83,14 @@ button {
   color: #f1e6c8;
 }
 
-.spacer {
-  flex: 1;
-}
-
-#bot-count-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-right: 18px;
-  font-size: 12px;
-  color: #b39a68;
-}
-
-#bot-count-control select {
-  background: #2a2118;
-  border: 1px solid #6b5432;
-  color: #e9e2d3;
-  border-radius: 6px;
-  padding: 5px 8px;
-  cursor: pointer;
-}
-
+/* margin-left:auto plutot qu'un .spacer flex:1 dedie : #topbar-stats n'est
+   plus un enfant en flux normal (position:absolute, voir plus haut), donc
+   #speed-controls est desormais le seul enfant en flux de #topbar — pousse
+   a droite directement. */
 #speed-controls {
   display: flex;
   gap: 6px;
+  margin-left: auto;
 }
 
 .speed-btn {
@@ -101,6 +108,192 @@ button {
   font-weight: 600;
 }
 
+/* ---------- barre d'arenes ---------- */
+
+#arena-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: #1a140f;
+  border-bottom: 1px solid #3a2f1c;
+  flex-shrink: 0;
+}
+
+.arena-arrow {
+  background: #2a2118;
+  border: 1px solid #6b5432;
+  color: #e9e2d3;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  line-height: 1;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.arena-arrow:hover {
+  background: #3a2f1c;
+}
+
+#arena-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.arena-pill {
+  --pill-color: #9aa0ab;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #221a13;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  padding: 4px 10px 4px 6px;
+  color: #e9e2d3;
+  cursor: pointer;
+}
+
+.arena-pill:hover:not(:disabled) {
+  background: #2f2519;
+}
+
+.arena-pill:disabled {
+  cursor: not-allowed;
+}
+
+/* La sienne : liseré permanent, meme quand une autre arene est observee. */
+.arena-pill.own {
+  border-color: var(--pill-color);
+}
+
+/* Celle qu'on regarde actuellement : mise en evidence forte, prend le pas
+   sur le liseré "own" ci-dessus si c'est la meme pastille. */
+.arena-pill.viewed {
+  border-color: #f2d24b;
+  box-shadow: 0 0 0 1px #f2d24b;
+  background: #362a17;
+}
+
+.arena-pill-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--pill-color);
+  flex-shrink: 0;
+}
+
+.arena-pill-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.arena-pill-lives {
+  font-size: 12px;
+  color: #b39a68;
+  min-width: 1.4em;
+  text-align: right;
+}
+
+.arena-pill.dead {
+  opacity: 0.5;
+}
+
+.arena-pill.dead .arena-pill-label {
+  text-decoration: line-through;
+}
+
+.arena-pill.dead .arena-pill-lives::after {
+  content: '✕';
+}
+
+/* ---------- liseré d'observation autour de la vue ---------- */
+
+#canvas-wrap.observing {
+  /* inset : ne decale rien (contrairement a border), la case reste identique */
+  box-shadow: inset 0 0 0 5px var(--observed-color, #f2d24b);
+}
+
+/* Ancre en haut (pas en bas) pour se lire comme suspendu juste sous
+   #arena-bar, adjacent au controle qui mene a l'observation. `position:
+   absolute` en permanence (jamais dans le flux) : le groupe n'est visible
+   qu'en observation, et s'il occupait une place dans le flux normal, son
+   apparition/disparition redimensionnerait #canvas-wrap -> resizeScene3D ->
+   reconfiguration de la camera Three.js a chaque bascule de vue.
+   Le bouton reste seul contenu en FLUX NORMAL ici (l'encart, lui, est
+   position:absolute — voir #observed-panel) : #observation-bar epouse donc
+   exactement sa largeur (shrink-to-fit, aucune largeur figee a deviner sur
+   le texte "Accueil"), et le centrer via left:50%/translateX(-50%) centre
+   le bouton pile au milieu — comme avant l'ajout de l'encart (retour
+   direct). L'encart se docke ensuite sur le bord droit de CE cadre
+   (left:100%), donc toujours juste a cote du bouton quelle que soit sa
+   largeur a lui. */
+#observation-bar {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  z-index: 10;
+  transform: translateX(-50%);
+}
+
+/* Pas de `display` personnalise ci-dessus (block par defaut) : contrairement
+   a un ancien essai ici (display:flex, retire depuis), rien n'entre en
+   conflit de specificite avec la regle navigateur [hidden]{display:none} —
+   cette regle explicite reste posee par prudence/documentation (le meme
+   piege a deja ete rencontre pour #cmd-grid-send.cmd-shop-panel ailleurs
+   dans ce projet, des qu'un `display` est surcharge sur un selecteur ID). */
+#observation-bar[hidden] {
+  display: none;
+}
+
+#back-to-own-arena-btn {
+  background: #221a13;
+  border: 2px solid var(--observed-color, #f2d24b);
+  color: #e9e2d3;
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#back-to-own-arena-btn:hover {
+  background: #2f2519;
+}
+
+/* Renseignement sur l'arene observee — income UNIQUEMENT (pas ses vies,
+   deja dans #arena-bar en permanence pour tous ; pas son or, qui fluctue
+   sans rien apprendre de durable). Jamais les valeurs du joueur humain,
+   qui restent dans la topbar/console (voir updateTopbar, jamais touche
+   par viewedPlayer). Nom dans la couleur du joueur observe (--observed-
+   color, deja pose sur #canvas-wrap) : c'est lui qui rattache le chiffre
+   a quelqu'un. `position:absolute` (retire du flux, voir #observation-bar
+   ci-dessus) + `left:100%` : se docke sur le bord droit du bouton, qui
+   reste seul a definir la largeur (et donc le centrage) du cadre commun —
+   ecart de 10px deja valide, repris ici en margin plutot qu'en gap flex. */
+#observed-panel {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin-left: 10px;
+  background: #221a13;
+  border: 2px solid var(--observed-color, #f2d24b);
+  color: #e9e2d3;
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#observed-name {
+  color: var(--observed-color, #f2d24b);
+  font-weight: 700;
+}
+
 #main {
   display: flex;
   flex: 1;
@@ -110,7 +303,7 @@ button {
 #canvas-wrap {
   position: relative;
   flex: 1;
-  min-width: 0;
+  min-height: 0;
 }
 
 #game-canvas {
@@ -120,12 +313,38 @@ button {
   cursor: crosshair;
 }
 
-#toasts {
-  position: absolute;
-  top: 14px;
-  right: 14px;
+/* Juste au-dessus de la console (voir #command-bar : hauteur fixe, meme
+   valeur reprise ici + 14px d'ecart — a resynchroniser si sa hauteur
+   rechange), centre dessus. Ancre par le BAS (bottom, pas top) : les toasts
+   s'empilent dans l'ordre normal du flex column (le plus recent est ajoute
+   en dernier, donc en bas de la colonne), et comme le conteneur grandit
+   vers le haut a partir d'un bord bas fixe, c'est le message le plus
+   recent qui reste au plus pres de la console — les plus anciens sont
+   repousses vers le haut au fur et a mesure. */
+/* Toasts du launcher : meme apparence que ceux du jeu (.toast), mais ancres
+   au viewport puisqu'il n'y a pas de canvas pour servir de reference. */
+#launcher-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%);
+  z-index: 60;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+#toasts {
+  position: absolute;
+  left: 50%;
+  bottom: 196px;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 8px;
   pointer-events: none;
   max-width: 280px;
@@ -161,6 +380,7 @@ button {
 #game-over {
   position: absolute;
   inset: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -202,178 +422,726 @@ button {
   font-weight: 700;
 }
 
-#sidebar {
-  width: 320px;
-  flex-shrink: 0;
-  overflow-y: auto;
-  padding: 14px;
-  background: #1a140f;
-  border-left: 2px solid #6b5432;
+#exit-to-menu-btn {
+  display: block;
+  margin: 10px auto 0;
+  background: transparent;
+  color: #b39a68;
+  border: 1px solid #6b5432;
+  border-radius: 6px;
+  padding: 8px 20px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#exit-to-menu-btn:hover {
+  background: #2a2118;
+}
+
+/* Confirmation de deblocage de palier — meme vocabulaire visuel que
+   #game-over (fond assombri plein ecran, boite bordee doree) : "coherent
+   avec le style du panneau de fin de partie" (brief). z-index entre la
+   console (5) et #game-over (20, doit rester au-dessus de tout, y compris
+   de cette modale si la partie se termine pendant qu'elle est ouverte). */
+#shop-unlock-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 7, 4, 0.75);
+}
+
+#shop-unlock-confirm[hidden] {
+  display: none;
+}
+
+#shop-unlock-confirm-box {
+  background: #201810;
+  border: 2px solid #c9a227;
+  border-radius: 10px;
+  padding: 28px 36px;
+  text-align: center;
+  min-width: 280px;
+  box-shadow: 0 0 40px rgba(201, 162, 39, 0.15);
+}
+
+#shop-unlock-confirm-box h2 {
+  margin: 0 0 8px;
+  color: #f2d24b;
+  letter-spacing: 0.03em;
+}
+
+#shop-unlock-confirm-box p {
+  margin: 0 0 16px;
+  color: #b39a68;
+}
+
+#shop-unlock-confirm-gold {
+  margin: 0 0 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 4px;
 }
 
-#sidebar h3 {
-  margin: 0 0 10px;
+#shop-unlock-confirm-gold > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
   font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: #c9a227;
-  border-bottom: 1px solid #6b5432;
-  padding-bottom: 6px;
 }
 
-#sidebar h4 {
-  margin: 12px 0 6px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+#shop-unlock-confirm-gold dt {
   color: #8a7550;
 }
 
-#sidebar h4:first-child {
-  margin-top: 0;
-}
-
-.build-btn {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  background: #241c14;
-  border: 1px solid #4a3c26;
-  border-left: 4px solid var(--branch-color, #444);
-  border-radius: 4px;
-  padding: 9px 10px;
-  margin-bottom: 6px;
-  cursor: pointer;
-  text-align: left;
+#shop-unlock-confirm-gold dd {
+  margin: 0;
   color: #e9e2d3;
+  font-weight: 600;
 }
 
-.build-btn:hover:not(:disabled) {
-  background: #2c2318;
-  border-color: #6b5432;
+#shop-unlock-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
 }
 
-.build-btn.armed {
-  outline: 2px solid #f2d24b;
-  outline-offset: -2px;
+#shop-unlock-confirm-btn {
+  background: #c9a227;
+  color: #221a0d;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: 700;
 }
 
-.build-btn:disabled {
+#shop-unlock-cancel-btn {
+  background: transparent;
+  color: #b39a68;
+  border: 1px solid #6b5432;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#shop-unlock-cancel-btn:hover {
+  background: #2a2118;
+}
+
+/* ---------- console de commandes (superposee en bas du canvas) ---------- */
+
+/* `position: absolute` par rapport a #canvas-wrap (son parent — voir
+   index.html), flush contre le bord bas : une console posee sur la scene,
+   pas une barre de page. PUR REPERE de centrage desormais : les 3 boites
+   (#cmd-info/#cmd-grid/#cmd-modes) sont chacune positionnees en absolu par
+   rapport a lui, docees sur les bords de #cmd-grid (voir leurs commentaires)
+   — sa propre largeur ne sert plus qu'a fixer ce qu'est "50%" pour elles,
+   et son propre centrage (left:50% + translateX(-50%)) fixe ce repere sur
+   le centre de #canvas-wrap quelle que soit sa valeur (316px choisi = celle
+   de #cmd-grid, pour que le calcul reste lisible). Hauteur FIXE, calee pour
+   accueillir deux rangees de tuiles quel que soit le mode actif (voir
+   .cmd-tiles) : elle ne doit JAMAIS bouger quand le contenu change (mode,
+   survol, selection), sans quoi #canvas-wrap changerait de taille au
+   montage suivant -> resizeScene3D -> la camera Three.js se
+   reconfigurerait en pleine partie. Comme #canvas-wrap ne redimensionne
+   plus JAMAIS pour cette barre (elle est hors flux), resize() ne s'execute
+   qu'au montage/redimensionnement de fenetre, jamais a cause d'elle. */
+#command-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: 316px;
+  /* 148px (barre plein-largeur d'origine) + navigation de palier ET bouton
+   * de deblocage sur la MEME ligne (26px + 8px d'ecart) = 182px. FIXE quel
+   * que soit le mode/palier consulte/presence du bouton (voir
+   * .cmd-shop-panel) : signale — ca couvre un peu plus le bas du canvas
+   * qu'avant l'ajout de la console (zone de jeu visible ~518px au lieu de
+   * 544px), mais nettement moins que le premier jet du bouton pleine
+   * largeur (226px) — camera non touchee, comme demande. */
+  height: 182px;
+}
+
+/* Observation : aucune action possible (voir main.ts, isObserving()). */
+#command-bar.observing button {
+  pointer-events: none;
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.build-btn .name {
-  font-size: 13px;
+/* Docee contre le bord GAUCHE de #cmd-grid, bord a bord (0 ecart — les deux
+   bordures de 1px se superposent visuellement en une seule ligne de
+   separation, comme l'ancienne barre continue) plutot que flush au bord de
+   #command-bar : les deux etaient equivalents tant que la largeur de
+   #command-bar etait calculee pour ca (ancienne technique), mais c'etait
+   fragile — un calcul accessoire qui n'avait plus de sens une fois
+   #cmd-modes retaille (retour direct : la boite de droite s'est retrouvee
+   "detachee" de la grille, puis un ecart de 8px encore visible une fois
+   recollee — retour direct, "elles peuvent etre tout a fait collees ?").
+   Ancree directement sur #cmd-grid, elle suit desormais son bord quel que
+   soit ce qui change a cote. */
+/* Largeur 220px + 92px : la seconde moitie compense exactement
+   #cmd-resources ajoutee a droite (meme 92px, voir plus bas) — brief,
+   "elargis la zone info de gauche exactement de la largeur ajoutee a
+   droite". Note : la grille (#cmd-grid) est deja centree independamment de
+   cette largeur (position:absolute + calc(50% ...), voir son commentaire) —
+   elle resterait centree meme sans cet elargissement. Fait quand meme tel
+   que demande, pour la symetrie visuelle des deux bords de la console. */
+#cmd-info {
+  position: absolute;
+  left: calc(50% - 158px - 312px);
+  top: 0;
+  bottom: 0;
+  width: 312px;
+  padding: 12px;
+  background: rgba(26, 20, 15, 0.94);
+  border: 1px solid #6b5432;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  overflow: hidden;
 }
 
-.build-btn .cost {
+.cmd-info-empty {
   font-size: 12px;
-  color: #c9a227;
+  color: #5f5238;
+  font-style: italic;
 }
 
-.shop-row {
+.cmd-info-content[hidden] {
+  display: none;
+}
+
+/* Largeur exacte pour SIX tuiles de 40px par rangee (brief : jamais plus) —
+   6 x 40px + 5 x 10px de column-gap (voir .cmd-tiles) + le padding
+   horizontal + la bordure propre a cette boite (1px de chaque cote, voir
+   plus bas) = 316px. Fixe, pas flex:1 : la console entiere est
+   dimensionnee par son contenu (voir #command-bar), plus de "largeur
+   restante de l'ecran" a remplir. */
+/* position:absolute, centree sur #command-bar (donc sur #canvas-wrap, voir
+   son commentaire) independamment des largeurs de #cmd-info/#cmd-modes qui
+   l'encadrent — celles-ci se docent desormais sur SES bords a elle (voir
+   leurs commentaires), donc la question ne se pose plus dans l'autre sens. */
+#cmd-grid {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 316px;
+  padding: 10px 12px;
+  background: rgba(26, 20, 15, 0.94);
+  border: 1px solid #6b5432;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  overflow: hidden;
+}
+
+.cmd-tiles[hidden] {
+  display: none;
+}
+
+/* Hauteur du contenu = exactement 2 rangees (40px tuile + 3px + ~14px cout
+   par rangee, 6px de row-gap entre les deux — voir .cmd-tile-wrap) : le mode
+   build (1 rangee) et le mode abilities (aucune tuile) restent dans le meme
+   espace sans jamais faire varier la hauteur de #command-bar. Volontairement
+   PAS de defilement (voir le brief) : si un mode depassait un jour deux
+   rangees, le contenu deborderait plutot que de scroller — a signaler, pas a
+   masquer silencieusement. */
+.cmd-tiles {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid #2a2118;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px 10px;
+  height: 100%;
 }
 
-.creep-swatch,
-.arena-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
-}
-
-.shop-info {
+/* Conteneur du mode send : navigation de palier (#cmd-shop-nav, qui
+   accueille aussi desormais le bouton de deblocage — voir plus bas) +
+   tuiles (#cmd-shop-tiles, un sous-conteneur .cmd-tiles PAR palier — voir
+   commandBar.ts, un seul visible a la fois). flex-direction:column sur
+   toute la hauteur de #cmd-grid (100%, fixe — voir #command-bar) : nav a
+   une hauteur FIXE, les tuiles (flex:1) absorbent le reste. */
+#cmd-grid-send.cmd-shop-panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  line-height: 1.3;
+  gap: 8px;
+  height: 100%;
 }
 
-.shop-name {
-  font-size: 12.5px;
-  color: #e9e2d3;
+/* La regle ci-dessus (selecteur ID+classe, plus specifique que la regle
+   par defaut du navigateur [hidden]{display:none}) l'emportait sur
+   l'attribut hidden : le panneau restait donc TOUJOURS rendu (display:flex)
+   meme hors du mode send, quel que soit le mode reellement actif — bug,
+   pas juste un chevauchement visuel improbable. Corrige en redonnant
+   explicitement la main a [hidden], avec une specificite au moins egale. */
+#cmd-grid-send.cmd-shop-panel[hidden] {
+  display: none;
 }
 
-.shop-meta {
-  font-size: 11px;
-  color: #8a7550;
+/* Navigation entre paliers ET bouton de deblocage, sur la MEME ligne (a la
+   demande : le gros bouton pleine largeur sous la grille prenait trop de
+   hauteur). Flechette gauche/droite, nom du palier consulte entre les deux,
+   bouton a droite quand il y a quelque chose a debloquer. Le palier
+   CONSULTE est un etat d'UI (main.ts), jamais stocke dans GameState — voir
+   le brief. */
+#cmd-shop-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 26px;
 }
 
-.shop-status {
-  font-size: 11px;
-  color: #8a7550;
-  min-width: 60px;
-  text-align: right;
-}
-
-.shop-send-btn {
+.cmd-nav-arrow {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
   background: #2a2118;
   border: 1px solid #6b5432;
-  color: #e9e2d3;
   border-radius: 5px;
-  padding: 5px 10px;
-  font-size: 12px;
+  color: #e9e2d3;
+  font-size: 13px;
+  line-height: 1;
   cursor: pointer;
 }
 
-.shop-send-btn:hover:not(:disabled) {
+.cmd-nav-arrow:hover:not(:disabled) {
   background: #3a2f1c;
 }
 
-.shop-send-btn:disabled {
+.cmd-nav-arrow:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.arena-row {
+#cmd-shop-tier-name {
+  min-width: 58px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #f1e6c8;
+  white-space: nowrap;
+}
+
+#cmd-shop-tiles {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Deplace dans #cmd-shop-nav (a cote des flechettes) plutot que pleine
+   largeur sous la grille : "ce n'est pas grave si le bouton est plus petit"
+   (retour direct) — jamais grise/desactive, l'or insuffisant passe par le
+   toast existant comme les tuiles (canAffordOrToast). */
+.cmd-unlock-btn {
+  flex-shrink: 1;
+  min-width: 0;
+  height: 22px;
+  margin-left: 4px;
+  padding: 0 8px;
+  background: #2a2118;
+  border: 1px solid #c9a227;
+  border-radius: 5px;
+  color: #f2d24b;
+  font-weight: 700;
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.cmd-unlock-btn:hover {
+  background: #3a2f1c;
+}
+
+/* Le bouton lui-meme est dore par defaut (color ci-dessus) — sans cette
+   regle, le prix heriterait ce dore MEME quand il n'est pas financable
+   (l'inverse de la nouvelle logique, voir .price-affordable/.cmd-tile-cost
+   plus bas). Meme gris eteint par defaut que .cmd-tile-cost, pour la meme
+   raison. */
+.cmd-unlock-cost {
+  color: #8a7550;
+}
+
+.cmd-unlock-btn[hidden] {
+  display: none;
+}
+
+.cmd-tile-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 40px;
+}
+
+.cmd-tile {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #6b5432;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #241c14;
+}
+
+.cmd-tile:hover {
+  border-color: #c9a227;
+}
+
+/* Arme (mode build) : outline distinct de la bordure normale, ne change pas
+   la taille de la tuile (outline, pas border). */
+.cmd-tile.armed {
+  outline: 2px solid #f2d24b;
+  outline-offset: 1px;
+}
+
+.cmd-tile-icon {
+  position: absolute;
+  inset: 0;
+  background-color: var(--tile-color, #4a3c26);
+  background-size: cover;
+  background-position: center;
+}
+
+.cmd-tile-icon-text {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 0;
-  font-size: 12.5px;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+  letter-spacing: 0.02em;
 }
 
-.arena-row.dead {
-  opacity: 0.4;
-  text-decoration: line-through;
+/* Compteur de stock — coin superieur droit de la tuile. */
+.cmd-tile-stock {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  z-index: 2;
 }
 
-.arena-label {
-  width: 26px;
+.cmd-tile-stock:empty,
+.cmd-tile-stock[hidden] {
+  display: none;
 }
 
-.arena-lives {
-  flex: 1;
+/* Voile de rechargement : se vide du bas vers le haut au fil du temps
+   restant (hauteur pilotee en JS via --veil-pct). */
+.cmd-tile-veil {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--veil-pct, 0%);
+  background: rgba(10, 8, 5, 0.72);
+  transition: height 0.2s linear;
+  z-index: 1;
 }
 
-.arena-status {
+.cmd-tile-veil[hidden] {
+  display: none;
+}
+
+.cmd-tile-countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  z-index: 2;
+}
+
+.cmd-tile-countdown:empty,
+.cmd-tile-countdown[hidden] {
+  display: none;
+}
+
+/* Gris eteint PAR DEFAUT (retour direct : le rouge alertait en permanence
+   pour un etat parfaitement normal — ne pas encore avoir l'or n'est pas une
+   erreur). L'etat "non financable" est donc la couleur de base, discrete,
+   qui ne signale rien — voir .price-affordable ci-dessous pour l'inverse
+   (surligne ce qui EST a portee, plutot que de marquer ce qui ne l'est
+   pas). */
+.cmd-tile-cost {
+  font-size: 10.5px;
   color: #8a7550;
-  font-size: 11px;
 }
 
-#panel-selected {
+/* Prix financable : dore, MEME teinte que le compteur d'or de
+   #cmd-resources (#f2d24b) — le lien visuel est immediat, "ce chiffre est a
+   ta portee". Seul le PRIX change de couleur — jamais la tuile
+   (grisee/desactivee : deja tranche, brief, inchange). Le clic reste
+   possible en tout temps et affiche "Or insuffisant" via le toast existant
+   (canAffordOrToast) si les fonds manquent. S'applique aussi bien a
+   .cmd-tile-cost (tuiles) qu'a .cmd-unlock-cost (bouton de deblocage de
+   palier, voir plus bas) : meme regle, un seul nom de classe partage. */
+.price-affordable {
+  color: #f2d24b;
+}
+
+#cmd-abilities-empty {
+  margin: 0;
+  font-size: 12.5px;
+  color: #8a7550;
+  font-style: italic;
+}
+
+/* Docee contre le bord DROIT de #cmd-grid, bord a bord (meme technique et
+   meme ecart nul que #cmd-info a gauche, voir son commentaire) plutot que
+   flush au bord droit de #command-bar : sinon la boite reste plaquee a
+   l'ancien bord large (220px, herite de l'epoque ou elle devait faire
+   contrepoids a #cmd-info pour centrer la grille par largeurs egales) meme
+   apres avoir retreci a son contenu reel (64px) — d'ou l'ecart visible
+   signale (retour direct). Largeur reduite a son contenu reel : les
+   boutons sont empiles de haut en bas plutot qu'en rangee, ils restent
+   compacts (juste leur largeur propre, 40px) au lieu de s'etaler sur toute
+   la largeur de la colonne — l'espace libre autour d'eux accueillera le
+   portrait du peon plus tard. */
+#cmd-modes {
+  position: absolute;
+  left: calc(50% + 158px);
+  top: 0;
+  bottom: 0;
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(26, 20, 15, 0.94);
+  border: 1px solid #6b5432;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+}
+
+.cmd-mode-btn {
+  width: 40px;
+  height: 40px;
   background: #241c14;
   border: 1px solid #6b5432;
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: 6px;
+  color: #e9e2d3;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.cmd-mode-btn:hover:not(:disabled) {
+  background: #2c2318;
+  border-color: #c9a227;
+}
+
+.cmd-mode-btn[hidden] {
+  display: none;
+}
+
+.cmd-mode-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Emplacement d'image (portrait du peon, pas encore livre) — pas de texte,
+   pour que le remplacement par un vrai portrait soit un simple changement de
+   fond/source plus tard. */
+.cmd-portrait {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  background: #3a2f1c;
+}
+
+/* Docee contre le bord DROIT de #cmd-modes, bord a bord (meme technique que
+   les autres boites de la console — voir #cmd-modes juste au-dessus :
+   158+64 = 222). Derniere colonne de la console (brief). Or/income/decompte,
+   plutot que dans la topbar (brief : le joueur regarde la console, pas la
+   topbar, pour decider d'un achat) — jamais duplique aux deux endroits, voir
+   updateResources (hud.ts) qui est desormais l'UNIQUE endroit ou ces 3
+   valeurs sont lues et ecrites a l'ecran. */
+#cmd-resources {
+  position: absolute;
+  left: calc(50% + 222px);
+  top: 0;
+  bottom: 0;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 4px;
+  background: rgba(26, 20, 15, 0.94);
+  border: 1px solid #6b5432;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+}
+
+/* flex-shrink:0 : sans ca, des que le contenu des 3 lignes depasse de
+   quelques pixels la hauteur disponible dans #cmd-resources, flexbox
+   comprime chaque ligne pour faire tenir le tout — et comme les elements de
+   texte n'ont pas d'overflow visible, cette compression ROGNE silencieusement
+   le haut/bas des glyphes (retour direct : agrandissement des libelles/du
+   decompte, voir plus bas — le budget vertical est redevenu juste). Chaque
+   ligne garde desormais exactement la hauteur qu'elle demande ; si le total
+   ne tenait plus, ca deborderait franchement (visible, donc reperable) au
+   lieu de rogner en silence. */
+.cmd-resource {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  max-width: 100%;
+}
+
+/* Libelle court (brief : "Or"/"Revenu"/"Prochain") a cote de l'icone, tous
+   deux secondaires visuellement — plus petits et plus discrets que la
+   valeur juste en dessous, qui reste l'element principal. Sans texte
+   invente : ces trois libelles-la, aucun autre. Hauteur reservee (22px) a
+   ~1.2x le font-size : line-height:1 ne suffit pas a lui seul a contenir le
+   glyphe reellement rendu (mesure directement, scrollHeight 21px pour un
+   font-size de 18px) — sans cette marge, meme un element sans redimension-
+   nement dynamique se fait rogner par le flex-shrink ci-dessus des que le
+   budget vertical global est tendu. */
+.cmd-resource-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  font-size: 18px;
+  line-height: 1;
+  color: #8a7550;
+  white-space: nowrap;
+}
+
+.cmd-resource-icon {
+  font-size: 10px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Numerales tabulaires sur les 3 valeurs (brief) : sans ca, l'or qui passe
+   de 1 240 a 999 fait sauter toute la colonne a chaque changement de nombre
+   de chiffres — un tremblement permanent juste a cote de la grille. */
+.cmd-resource-value {
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Or : la seule valeur qui accroche l'oeil (brief) — la plus grosse, la
+   seule coloree. Hauteur reservee au plus grand palier (--xl, 22px) DES LE
+   DEPART (brief) : le palier de taille (voir resourceSizeTier, hud.ts) ne
+   doit jamais faire varier la hauteur de la ligne, sans quoi la colonne —
+   et la console — sauterait au franchissement d'un seuil. */
+.cmd-resource-gold .cmd-resource-value {
+  height: 25px;
+  font-weight: 700;
+  color: #f2d24b;
+}
+
+.cmd-resource-gold .cmd-resource-value--xl {
+  font-size: 19px;
+}
+
+.cmd-resource-gold .cmd-resource-value--lg {
+  font-size: 15.5px;
+}
+
+.cmd-resource-gold .cmd-resource-value--md {
+  font-size: 12px;
+}
+
+/* Income : meme mecanisme (format compact + palier de taille) mais
+   volontairement plus petit que l'or a chaque palier — reste secondaire
+   visuellement, gris, jamais colore (brief). Meme principe de hauteur
+   reservee, sur SA propre plage (plus petite que celle de l'or). */
+.cmd-resource-income .cmd-resource-value {
+  height: 18px;
+  font-weight: 600;
+  color: #b39a68;
+}
+
+.cmd-resource-income .cmd-resource-value--xl {
+  font-size: 14px;
+}
+
+.cmd-resource-income .cmd-resource-value--lg {
+  font-size: 11.5px;
+}
+
+.cmd-resource-income .cmd-resource-value--md {
+  font-size: 9.5px;
+}
+
+/* Decompte : JAMAIS compacte, JAMAIS redimensionne (brief — "la lisibilite
+   precise du temps restant a une valeur de jeu"). Taille fixe, gris comme
+   l'income — aucune classe de palier n'est appliquee ici (voir
+   updateResources, hud.ts : refs.countdown recoit fmtClock directement,
+   jamais applySizeTier). */
+.cmd-resource-timer .cmd-resource-value {
+  height: 20px;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: #b39a68;
+}
+
+#cmd-tooltip-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #f1e6c8;
+  font-size: 13px;
+}
+
+#cmd-tooltip-lines {
+  font-size: 12px;
+  color: #b39a68;
+  line-height: 1.5;
+}
+
+#cmd-tooltip-desc {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: #8a7550;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+#cmd-tooltip-desc:empty {
+  display: none;
 }
 
 #selected-name {
   font-weight: 600;
-  margin-bottom: 4px;
   color: #f1e6c8;
+  font-size: 13px;
+  /* La marge basse est portee par .selected-header, qui contient aussi
+     l'icone — la laisser ici decalerait le texte par rapport a elle. */
 }
 
 #selected-info {
@@ -382,18 +1150,77 @@ button {
   margin-bottom: 10px;
 }
 
+/* En-tete du panneau : l'icone de la tour POSEE, a gauche de son nom. Elle ne
+   dit pas la meme chose que celle du bouton d'amelioration plus bas — ici
+   « ce que tu as », la-bas « ce que tu achetes ». */
+.selected-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+/* Taille COMMUNE aux deux icones du panneau (titre et bouton d'amelioration).
+   Une seule valeur, parce que l'egalite est une exigence de lisibilite et non
+   une coincidence : a 22px, celle du bouton etait trop petite pour qu'on
+   reconnaisse la tour (retour direct). Les deux doivent bouger ensemble. */
+#cmd-info-selected {
+  --tower-icon-size: 34px;
+}
+
+.selected-icon {
+  width: var(--tower-icon-size);
+  height: var(--tower-icon-size);
+  flex: none;
+  border-radius: 4px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(179, 154, 104, 0.25);
+}
+
+/* Sans image (tour sans icone declaree), le cadre vide ferait un trou dans la
+   ligne : on le retire de la mise en page plutot que de l'afficher vide. */
+.selected-icon[hidden] {
+  display: none;
+}
+
+/* Icone du palier SUIVANT, dans le bouton d'amelioration — meme taille que
+   celle du titre (voir --tower-icon-size). */
+.upgrade-btn-icon {
+  width: var(--tower-icon-size);
+  height: var(--tower-icon-size);
+  flex: none;
+  border-radius: 4px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(179, 154, 104, 0.3);
+}
+
+.upgrade-btn-icon[hidden] {
+  display: none;
+}
+
+/* Passe en flex (au lieu de block) pour aligner l'icone du palier suivant avec
+   son libelle. `justify-content: center` conserve le centrage d'origine quand
+   il n'y a pas d'icone (palier maximum). */
+#upgrade-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 #upgrade-btn,
 #sell-btn {
-  display: block;
   width: 100%;
   background: #2a2118;
   border: 1px solid #6b5432;
   color: #e9e2d3;
   border-radius: 5px;
-  padding: 8px;
+  padding: 6px;
   margin-top: 6px;
   cursor: pointer;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 #upgrade-btn:hover:not(:disabled),
@@ -405,4 +1232,517 @@ button {
 #sell-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Le `display: block` ci-dessus (selecteur ID, plus specifique que le
+   [hidden]{display:none} par defaut du navigateur) l'emporterait sinon sur
+   l'attribut hidden -- meme categorie de bug deja rencontree sur
+   #cmd-grid-send/#observation-bar. Aucun des deux boutons n'est plus masque
+   par le code actuel (voir hud.ts#updateSelectedPanel), mais autant fermer
+   cette porte plutot que la laisser ouverte pour un futur appel a `hidden`. */
+#upgrade-btn[hidden],
+#sell-btn[hidden] {
+  display: none;
+}
+
+#launcher[hidden] {
+  display: none;
+}
+
+#launcher {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(179, 154, 104, 0.16), transparent 55%),
+    radial-gradient(circle at 12% 88%, rgba(107, 84, 50, 0.22), transparent 50%),
+    radial-gradient(circle at 88% 12%, rgba(40, 55, 70, 0.18), transparent 50%),
+    linear-gradient(180deg, #0b0805 0%, #14100c 55%, #0b0805 100%);
+  transition: background 0.4s ease;
+}
+
+/* Ecran d'accueil (menu, bouton Jouer) : illustration en fond, a peine
+   assombrie pour rester vive — juste un leger degrade en bas pour que le
+   lien "Se deconnecter" reste lisible quel que soit l'endroit de l'image. */
+#launcher[data-screen='menu'],
+#launcher[data-screen='menu-claim'] {
+  background:
+    linear-gradient(180deg, rgba(11, 8, 5, 0.05) 0%, rgba(11, 8, 5, 0.15) 55%, rgba(11, 8, 5, 0.35) 100%),
+    url('/images/bg-accueil.jpg') center / cover no-repeat;
+}
+
+/* Ecrans pseudo et connexion (email/mot de passe) : meme traitement. */
+#launcher[data-screen='pseudo'],
+#launcher[data-screen='pseudo-login'] {
+  background:
+    linear-gradient(180deg, rgba(11, 8, 5, 0.05) 0%, rgba(11, 8, 5, 0.15) 55%, rgba(11, 8, 5, 0.35) 100%),
+    /* Position ancree en bas : le logo/texte de l'illustration est colle au
+       bord inferieur — avec `cover` sur une fenetre plus large que l'image,
+       il ne faut jamais le rogner. C'est le haut du decor qui perd un peu
+       de champ a la place. */
+    url('/images/bg-connexion.jpg') center bottom / cover no-repeat;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.launcher-screen {
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  background: linear-gradient(180deg, #221a13 0%, #17120d 100%);
+  border: 1px solid #8a6f3f;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(179, 154, 104, 0.15),
+    0 20px 60px rgba(0, 0, 0, 0.5);
+  clip-path: polygon(6% 0%, 94% 0%, 100% 5%, 100% 95%, 94% 100%, 6% 100%, 0% 95%, 0% 5%);
+  padding: 34px 30px 30px;
+}
+
+.launcher-screen h1 {
+  margin: 0;
+  text-align: center;
+  font-family: Georgia, 'Palatino Linotype', 'Book Antiqua', serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(180deg, #f6ecd2 10%, #b39a68 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.launcher-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 4px;
+}
+
+.launcher-divider::before,
+.launcher-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #6b5432, transparent);
+}
+
+.launcher-divider span {
+  width: 6px;
+  height: 6px;
+  background: #b39a68;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+
+.launcher-loading {
+  text-align: center;
+  color: #b39a68;
+}
+
+.launcher-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.launcher-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #14100c;
+  border: 1px solid #6b5432;
+  border-radius: 4px;
+  padding: 0 12px;
+}
+
+.launcher-input:focus-within {
+  border-color: #cdb27a;
+  box-shadow: 0 0 0 1px rgba(205, 178, 122, 0.35);
+}
+
+.launcher-input-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #8a7550;
+}
+
+.launcher-input input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 11px 0;
+  color: #e9e2d3;
+  font: inherit;
+}
+
+.launcher-input input::placeholder {
+  color: #7a6a4c;
+}
+
+.launcher-form button,
+.launcher-play {
+  margin-top: 8px;
+  border: none;
+  clip-path: polygon(3% 0%, 97% 0%, 100% 50%, 97% 100%, 3% 100%, 0% 50%);
+  background: linear-gradient(180deg, #d9c08a, #92742f);
+  color: #1a1208;
+  padding: 13px 20px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+}
+
+.launcher-form button:hover,
+.launcher-play:hover {
+  filter: brightness(1.08);
+}
+
+.launcher-screen a {
+  text-align: center;
+  font-size: 12.5px;
+  color: #b39a68;
+}
+
+.launcher-player {
+  text-align: center;
+  color: #f1e6c8;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.launcher-error {
+  color: #d0503c;
+  font-size: 12.5px;
+  margin: 0;
+  text-align: center;
+}
+
+.launcher-logout {
+  margin-top: 4px;
+}
+
+/* ---------- panneau de choix de difficulte ---------- */
+
+.difficulty-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.difficulty-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #14100c;
+  border: 1px solid #6b5432;
+  border-radius: 4px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.difficulty-option:has(input:checked) {
+  border-color: #cdb27a;
+  background: #201a12;
+}
+
+.difficulty-option input {
+  margin-top: 3px;
+  accent-color: #c9a227;
+  flex-shrink: 0;
+}
+
+.difficulty-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.difficulty-option-title {
+  font-weight: 600;
+  color: #f1e6c8;
+}
+
+.difficulty-option-desc {
+  font-size: 12px;
+  color: #b39a68;
+  line-height: 1.35;
+}
+
+/* ---------------------------------------------------------------------------
+   Salon prive. Reprend les tokens de .launcher-screen (panneau brun degrade,
+   bordure doree #8a6f3f) plutot que d'ouvrir une seconde charte : le salon est
+   un ecran du launcher, pas une surface a part.
+   --------------------------------------------------------------------------- */
+
+#launcher[data-screen='salon'] {
+  background:
+    linear-gradient(180deg, rgba(11, 8, 5, 0.05) 0%, rgba(11, 8, 5, 0.15) 55%, rgba(11, 8, 5, 0.35) 100%),
+    url('/images/bg-accueil.jpg') center / cover no-repeat;
+}
+
+/* Plus large que les ecrans de formulaire : six lignes avec pseudo, badge et
+   actions ne tiennent pas dans les 340px du panneau standard. */
+.lobby-screen {
+  width: 460px;
+}
+
+.lobby-title {
+  font-size: 22px;
+}
+
+.lobby-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lobby-count {
+  font-variant-numeric: tabular-nums;
+  color: #b39a68;
+  font-weight: 600;
+}
+
+.lobby-code-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lobby-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 20px;
+  letter-spacing: 0.22em;
+  /* Compense l'interlettrage, qui ajoute une avance APRES le dernier
+     caractere et decentrerait visuellement le code. */
+  text-indent: 0.22em;
+  color: #f0dfae;
+}
+
+.lobby-copy,
+.lobby-action,
+.lobby-leave {
+  background: #2a2018;
+  color: #d8c79a;
+  border: 1px solid #6b5432;
+  border-radius: 3px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.lobby-copy:hover,
+.lobby-action:hover,
+.lobby-leave:hover {
+  background: #3a2c20;
+  color: #f0dfae;
+}
+
+.lobby-action-danger {
+  border-color: #7a3a30;
+  color: #e0a79a;
+}
+
+.lobby-action-danger:hover {
+  background: #47201a;
+  color: #f5c9bd;
+}
+
+.lobby-slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lobby-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid #3a2c20;
+  border-radius: 3px;
+  min-height: 38px;
+}
+
+.lobby-slot-empty {
+  border-style: dashed;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* La pastille porte la couleur FIXE de la place (PLAYER_COLORS) : elle ne
+   change jamais, meme quand l'occupant part. */
+.lobby-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--slot-color, #5a5f6b);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  flex: none;
+}
+
+.lobby-seat {
+  color: #8a7a5c;
+  font-size: 12px;
+  font-weight: 600;
+  width: 22px;
+  flex: none;
+}
+
+.lobby-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e6dcc4;
+  font-size: 14px;
+}
+
+.lobby-empty {
+  color: #6f6450;
+  font-style: italic;
+}
+
+.lobby-bot {
+  color: #9fb0c4;
+}
+
+.lobby-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #f0dfae;
+  background: #4a3a1e;
+  border: 1px solid #8a6f3f;
+  border-radius: 2px;
+  padding: 2px 6px;
+  flex: none;
+}
+
+.lobby-badge-self {
+  color: #cfe0f0;
+  background: #23313f;
+  border-color: #3f5f7a;
+}
+
+.lobby-slot-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.lobby-difficulty {
+  background: #2a2018;
+  color: #d8c79a;
+  border: 1px solid #6b5432;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.lobby-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.lobby-start {
+  flex: 1;
+  margin: 0;
+}
+
+.lobby-start:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.lobby-waiting {
+  flex: 1;
+  margin: 0;
+  text-align: right;
+  color: #8a7a5c;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.lobby-code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 20px;
+}
+
+.lobby-countdown-screen {
+  align-items: center;
+}
+
+.lobby-countdown {
+  font-size: 64px;
+  font-weight: 700;
+  color: #f0dfae;
+  margin: 12px 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lobby-provisional {
+  color: #8a7a5c;
+  font-size: 12px;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Les deux entrees du salon sur l'accueil, sous le bouton principal. */
+.launcher-lobby-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.launcher-secondary {
+  flex: 1;
+  background: #2a2018;
+  color: #d8c79a;
+  border: 1px solid #6b5432;
+  border-radius: 3px;
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.launcher-secondary:hover {
+  background: #3a2c20;
+  color: #f0dfae;
 }

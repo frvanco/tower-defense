@@ -1,6 +1,7 @@
-import { lanes, rules, towers, creeps, shops, buildableTowers, type CreepDef } from '@tower-defense/data';
+import { lanes, rules, towers, creeps, shops, buildableTowers, nearestSlot, type CreepDef, type TowerDef } from '@tower-defense/data';
 import { rollDamage } from './rng.js';
 import { finalDamage } from './damage.js';
+import { applyIceSlow, applyPoison, totalSlowPct, poisonTickDamage, CHAIN_RANGE } from './status.js';
 import {
   TICK_RATE,
   secToTicks,
@@ -16,6 +17,19 @@ import {
 const allSellableCreeps: string[] = [...new Set(shops.flatMap((s) => s.sells))].filter((id) =>
   creeps.has(id),
 );
+
+/** defId de creep -> index du palier de boutique auquel il appartient (ordre
+ * de `shops`, garanti par map_data.json : htow=0, hkee=1, hcas=2) — c'est
+ * contre CET index que `arena.unlockedShopTier` est compare dans sendCreep.
+ * Un creep vendu par plusieurs boutiques (aucun cas actuel) prendrait le
+ * palier le plus BAS qui le vend, la lecture la plus permissive et la plus
+ * simple a justifier. */
+const creepShopTier = new Map<string, number>();
+shops.forEach((shop, tier) => {
+  for (const id of shop.sells) {
+    if (!creepShopTier.has(id)) creepShopTier.set(id, tier);
+  }
+});
 
 function makeStock(): Record<string, ReturnType<typeof stockEntry>> {
   const out: Record<string, ReturnType<typeof stockEntry>> = {};
@@ -46,10 +60,14 @@ export function createGame(seed: number, playerCount = rules.maxPlayers): GameSt
       towers: [],
       creeps: [],
       stock: makeStock(),
+      occupied: {},
       leaked: 0,
       killed: 0,
       goldSpentOnTowers: 0,
       goldSpentOnCreeps: 0,
+      goldFromBounty: 0,
+      goldFromIncome: 0,
+      unlockedShopTier: 0,
     });
   }
   return {
@@ -70,35 +88,55 @@ function dist2(ax: number, ay: number, bx: number, by: number): number {
   return dx * dx + dy * dy;
 }
 
-function inBuildZone(player: number, x: number, y: number): boolean {
-  const z = lanes[player]?.buildZone;
-  if (!z) return false;
-  return x >= z.left && x <= z.right && y >= z.bottom && y <= z.top;
-}
-
-/** Un creep occupe ~64u ; on interdit de poser une tour pile sur une autre. */
-const TOWER_FOOTPRINT = 64;
-
 function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
   const arena = s.arenas[cmd.player];
-  if (!arena || !arena.alive) return;
+  if (!arena) return;
+
+  // Commandes de debug : traitees AVANT la garde "arene vivante" ci-dessous,
+  // contrairement a toute commande de gameplay normale — un outil de test
+  // doit rester utilisable meme apres une mort accidentelle en cours de test
+  // (voir types.ts#Command pour le detail de chacune).
+  if (cmd.type === 'debugSetGold') {
+    arena.gold = Math.max(0, Math.round(cmd.amount));
+    return;
+  }
+  if (cmd.type === 'debugSetLives') {
+    arena.lives = Math.max(0, Math.round(cmd.amount));
+    arena.alive = arena.lives > 0;
+    return;
+  }
+  if (cmd.type === 'debugMaxStock') {
+    for (const id of allSellableCreeps) {
+      const st = arena.stock[id];
+      if (!st) continue;
+      st.count = 1_000_000_000;
+      st.availableAt = 0;
+      st.nextReplenish = 0;
+    }
+    return;
+  }
+
+  if (!arena.alive) return;
 
   if (cmd.type === 'buildTower') {
     const def = towers.get(cmd.defId);
-    if (!def) return events.push({ type: 'rejected', player: cmd.player, reason: 'unknown tower' });
+    if (!def) return void events.push({ type: 'rejected', player: cmd.player, reason: 'unknown tower' });
     if (!buildableTowers.includes(cmd.defId))
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not directly buildable' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not directly buildable' });
     if (arena.gold < def.goldCost)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
-    if (!inBuildZone(cmd.player, cmd.x, cmd.y))
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'outside build zone' });
-    for (const t of arena.towers) {
-      if (dist2(t.x, t.y, cmd.x, cmd.y) < TOWER_FOOTPRINT * TOWER_FOOTPRINT)
-        return events.push({ type: 'rejected', player: cmd.player, reason: 'occupied' });
-    }
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
+    // Le clic est snap sur l'emplacement le plus proche (a SLOT_SIZE pres) :
+    // la tour prend la position exacte de l'emplacement, jamais celle du
+    // clic — c'est ce qui garde la sim deterministe (le meme clic approximatif
+    // d'un client rejoue toujours sur la meme case).
+    const slot = nearestSlot(cmd.player, cmd.x, cmd.y);
+    if (!slot) return void events.push({ type: 'rejected', player: cmd.player, reason: 'no slot here' });
+    if (arena.occupied[slot.id])
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'occupied' });
     arena.gold -= def.goldCost;
     arena.goldSpentOnTowers += def.goldCost;
-    arena.towers.push({ eid: s.nextEid++, defId: def.id, x: cmd.x, y: cmd.y, cooldown: 0 });
+    arena.occupied[slot.id] = true;
+    arena.towers.push({ eid: s.nextEid++, defId: def.id, x: slot.x, y: slot.y, cooldown: 0, slotId: slot.id });
     return;
   }
 
@@ -109,9 +147,9 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
     const to = towers.get(cmd.defId);
     if (!from || !to) return;
     if (!from.upgradesTo.includes(cmd.defId))
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'invalid upgrade' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'invalid upgrade' });
     if (arena.gold < to.goldCost)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
     arena.gold -= to.goldCost;
     arena.goldSpentOnTowers += to.goldCost;
     t.defId = to.id;
@@ -124,20 +162,28 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
     if (i < 0) return;
     const t = arena.towers[i]!;
     arena.gold += towers.get(t.defId)?.refund ?? 0;
+    delete arena.occupied[t.slotId];
     arena.towers.splice(i, 1);
     return;
   }
 
   if (cmd.type === 'sendCreep') {
     const def = creeps.get(cmd.defId);
-    if (!def) return events.push({ type: 'rejected', player: cmd.player, reason: 'unknown creep' });
+    if (!def) return void events.push({ type: 'rejected', player: cmd.player, reason: 'unknown creep' });
+    // Barriere de palier de boutique AVANT le stock : un creep d'une
+    // boutique non debloquee n'est pas juste "en rupture", il n'est pas
+    // accessible du tout — sans ce controle, l'interface serait la seule
+    // barriere (voir le brief de ce lot).
+    const requiredTier = creepShopTier.get(cmd.defId) ?? 0;
+    if (requiredTier > arena.unlockedShopTier)
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'shop not unlocked' });
     const st = arena.stock[cmd.defId];
     if (!st || s.tick < st.availableAt)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not unlocked' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not unlocked' });
     if (st.count < 1)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'out of stock' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'out of stock' });
     if (arena.gold < def.goldCost)
-      return events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
 
     arena.gold -= def.goldCost;
     arena.goldSpentOnCreeps += def.goldCost;
@@ -151,6 +197,21 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
       spawnCreep(s, other, def, cmd.player);
     }
     events.push({ type: 'creepSent', player: cmd.player, defId: def.id });
+    return;
+  }
+
+  if (cmd.type === 'unlockShop') {
+    // Toujours le PROCHAIN palier, jamais une cible explicite dans la
+    // commande elle-meme — une seule notion de "sequentiel" a valider, ici,
+    // plutot que de verifier une cible arbitraire cote appelant.
+    const nextTier = arena.unlockedShopTier + 1;
+    const shop = shops[nextTier];
+    if (!shop) return void events.push({ type: 'rejected', player: cmd.player, reason: 'no next shop tier' });
+    if (arena.gold < shop.goldCost)
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'not enough gold' });
+    arena.gold -= shop.goldCost;
+    arena.unlockedShopTier = nextTier;
+    events.push({ type: 'shopUnlocked', player: cmd.player, tier: nextTier });
   }
 }
 
@@ -193,7 +254,8 @@ function moveCreeps(s: GameState, arena: Arena, events: SimEvent[]): void {
       arena.creeps.splice(i, 1);
       continue;
     }
-    const step = def.moveSpeed / TICK_RATE;
+    const slow = totalSlowPct(c, s.tick);
+    const step = (def.moveSpeed * (1 - slow)) / TICK_RATE;
     const dx = target[0] - c.x;
     const dy = target[1] - c.y;
     const d = Math.sqrt(dx * dx + dy * dy);
@@ -223,6 +285,7 @@ function moveCreeps(s: GameState, arena: Arena, events: SimEvent[]): void {
 function killPlayer(arena: Arena, events: SimEvent[]): void {
   arena.alive = false;
   arena.gold = 0;
+  arena.occupied = {};
   arena.towers.length = 0;
   arena.creeps.length = 0;
   events.push({ type: 'defeat', player: arena.player });
@@ -237,7 +300,7 @@ function progress(c: Creep, arena: Arena): number {
   return c.wp * 100000 - d;
 }
 
-function fireTowers(s: GameState, arena: Arena): void {
+function fireTowers(s: GameState, arena: Arena, events: SimEvent[]): void {
   // Creeps sent in the same tick advance in perfect synchronism (identical
   // progress() every tick, since they share moveSpeed/spawn point/path) : without
   // this, every tower in range independently re-derives the same "most advanced"
@@ -276,9 +339,43 @@ function fireTowers(s: GameState, arena: Arena): void {
     targetedThisTick.add(best.eid);
     const roll = rollDamage(s.rng, def.damageBase, def.dice, def.sides);
     s.rng = roll.state;
-    applyDamage(s, arena, def, best.eid, best.x, best.y, roll.value);
+    const bestEid = best.eid;
+    const bestX = best.x;
+    const bestY = best.y;
+    applyDamage(s, arena, def, bestEid, bestX, bestY, roll.value, events);
+    // Les abilites (ralentissement, poison) s'appliquent apres les degats —
+    // une cible achevee par le coup lui-meme n'a plus rien a ralentir ou
+    // empoisonner (splice l'a deja retiree de arena.creeps).
+    if (def.slow) applyIceAoeSlow(arena, def, def.slow, bestX, bestY, s.tick);
+    if (def.poison) {
+      const survivor = arena.creeps.find((c) => c.eid === bestEid);
+      if (survivor) applyPoison(survivor, def.poison.slowPct, def.poison.dps, secToTicks(def.poison.durationSec), s.tick);
+    }
     t.cooldown = Math.max(1, secToTicks(def.cooldown));
   }
+}
+
+/** Ralentissement de zone (branche Ice) : les `maxTargets` creeps les plus
+ * proches du point d'impact, dans un rayon aoeFull — pas tous les creeps du
+ * rayon, pour que le nombre de cibles touchees reste une progression
+ * deliberee par palier (cf. balance.json) plutot qu'un effet de bord de la
+ * densite locale de creeps. */
+function applyIceAoeSlow(
+  arena: Arena,
+  def: TowerDef,
+  slow: NonNullable<TowerDef['slow']>,
+  cx: number,
+  cy: number,
+  currentTick: number,
+): void {
+  const radius2 = def.aoeFull * def.aoeFull;
+  const inRange = arena.creeps
+    .map((c) => ({ c, d2: dist2(cx, cy, c.x, c.y) }))
+    .filter((x) => x.d2 <= radius2)
+    .sort((a, b) => a.d2 - b.d2 || a.c.eid - b.c.eid)
+    .slice(0, slow.maxTargets);
+  const durationTicks = secToTicks(slow.durationSec);
+  for (const { c } of inRange) applyIceSlow(c, slow.pct, durationTicks, currentTick);
 }
 
 function isBetterTiebreak(c: Creep, best: Creep, targetedThisTick: Set<number>): boolean {
@@ -292,12 +389,18 @@ function isBetterTiebreak(c: Creep, best: Creep, targetedThisTick: Set<number>):
 function applyDamage(
   s: GameState,
   arena: Arena,
-  def: ReturnType<typeof towers.get> & object,
+  def: TowerDef,
   targetEid: number,
   cx: number,
   cy: number,
   raw: number,
+  events: SimEvent[],
 ): void {
+  if (def.chain) {
+    applyChainDamage(s, arena, def.chain, def, targetEid, raw, events);
+    return;
+  }
+
   const hits: Array<{ c: Creep; factor: number }> = [];
   if (def.aoeFull > 0) {
     // Trois paliers de degats de zone : 100% / 50% / 25% selon le rayon.
@@ -320,12 +423,84 @@ function applyDamage(
     h.c.hp -= finalDamage(raw * h.factor, def.attackType, cd.armorType, cd.armor);
   }
 
+  handleDeaths(s, arena);
+}
+
+/**
+ * Chaine d'eclair (branche Lightning) : rebondit sur les creeps AERIENS les
+ * plus proches (cf. cibles de la branche, air uniquement), jamais deux fois
+ * sur la meme cible, degats decroissants par palier (dégâts au rebond n =
+ * base * falloff^n — formule de Warcraft III). Le prochain saut se cherche
+ * depuis la position de la derniere cible touchee (pas depuis l'impact
+ * d'origine), a portee CHAIN_RANGE — plus courte que la portee de la tour.
+ * Selection deterministe (le plus proche, eid en depart) : jamais de RNG.
+ */
+function applyChainDamage(
+  s: GameState,
+  arena: Arena,
+  chain: NonNullable<TowerDef['chain']>,
+  def: TowerDef,
+  startEid: number,
+  raw: number,
+  events: SimEvent[],
+): void {
+  const hitEids = new Set<number>();
+  const range2 = CHAIN_RANGE * CHAIN_RANGE;
+  let currentEid: number | undefined = startEid;
+  // Positions au moment de l'impact, dans l'ordre reel des rebonds — capturees
+  // avant handleDeaths() (qui peut retirer une cible achevee par son propre
+  // rebond) pour que le rendu puisse tracer l'arc meme si une cible meurt.
+  const points: Array<[number, number]> = [];
+
+  for (let n = 0; n <= chain.bounces; n++) {
+    const target = arena.creeps.find((c) => c.eid === currentEid);
+    if (!target) break;
+    hitEids.add(target.eid);
+    points.push([target.x, target.y]);
+    const cd = creeps.get(target.defId)!;
+    target.hp -= finalDamage(raw * Math.pow(chain.falloff, n), def.attackType, cd.armorType, cd.armor);
+
+    if (n === chain.bounces) break;
+    let next: Creep | null = null;
+    let bestD2 = Infinity;
+    for (const c of arena.creeps) {
+      if (hitEids.has(c.eid)) continue;
+      const ccd = creeps.get(c.defId)!;
+      if (!ccd.isAir) continue; // la branche Lightning ne cible que les unites aeriennes
+      const d2 = dist2(target.x, target.y, c.x, c.y);
+      if (d2 > range2) continue;
+      if (d2 < bestD2 || (d2 === bestD2 && c.eid < next!.eid)) {
+        next = c;
+        bestD2 = d2;
+      }
+    }
+    if (!next) break;
+    currentEid = next.eid;
+  }
+
+  if (points.length >= 2) events.push({ type: 'lightningChain', player: arena.player, points });
+  handleDeaths(s, arena);
+}
+
+/** Retire les creeps a 0 PV ou moins, compte les kills, gere le spawn a la
+ * mort (Porte-essaim) — factorise pour rester identique quelle que soit
+ * la source des degats (attaque normale, chaine, poison sur la duree). */
+function handleDeaths(s: GameState, arena: Arena): void {
   for (let i = arena.creeps.length - 1; i >= 0; i--) {
     const c = arena.creeps[i]!;
     if (c.hp > 0) continue;
     const cd = creeps.get(c.defId)!;
     arena.creeps.splice(i, 1);
     arena.killed += 1;
+    // Prime versee au proprietaire de l'arene ou le creep meurt (c'est lui
+    // qui defend), jamais a l'envoyeur. Rien pour un joueur deja elimine.
+    // Rien non plus pour un creep engendre par la mort d'un autre (pas de
+    // cout en or propre) — sinon un Porte-essaim paierait deux fois.
+    if (arena.alive && !c.freeSpawn) {
+      const bounty = Math.max(1, Math.ceil(cd.goldCost * rules.bountyPct));
+      arena.gold += bounty;
+      arena.goldFromBounty += bounty;
+    }
     if (cd.spawnsOnDeath) {
       const spawn = creeps.get(cd.spawnsOnDeath.id);
       if (spawn) {
@@ -338,11 +513,25 @@ function applyDamage(
             hp: spawn.hitPoints,
             wp: c.wp,
             sender: c.sender,
+            freeSpawn: true,
           });
         }
       }
     }
   }
+}
+
+/** Degats de poison, une fois par tick, pour tous les creeps affectes —
+ * independant de la portee de toute tour (le creep continue de perdre des
+ * PV apres etre sorti de portee). Ignore l'armure (pas de finalDamage) :
+ * c'est le role du poison de rester efficace contre les creeps a armure
+ * elevee. Peut achever un creep, contrairement au Slow Poison d'origine. */
+function applyPoisonTicks(s: GameState, arena: Arena): void {
+  for (const c of arena.creeps) {
+    const dmg = poisonTickDamage(c, s.tick);
+    if (dmg > 0) c.hp -= dmg;
+  }
+  handleDeaths(s, arena);
 }
 
 function checkEnd(s: GameState, events: SimEvent[]): void {
@@ -368,7 +557,11 @@ export function tick(s: GameState, commands: Command[] = []): SimEvent[] {
   if (s.tick >= s.nextRoundAt) {
     s.round += 1;
     s.nextRoundAt = s.tick + secToTicks(rules.roundIntervalSec);
-    for (const a of s.arenas) if (a.alive) a.gold += a.income;
+    for (const a of s.arenas) {
+      if (!a.alive) continue;
+      a.gold += a.income;
+      a.goldFromIncome += a.income;
+    }
     events.push({ type: 'roundStart', round: s.round });
   }
 
@@ -378,7 +571,8 @@ export function tick(s: GameState, commands: Command[] = []): SimEvent[] {
 
   for (const arena of s.arenas) {
     if (!arena.alive) continue;
-    fireTowers(s, arena);
+    fireTowers(s, arena, events);
+    applyPoisonTicks(s, arena);
     moveCreeps(s, arena, events);
   }
 

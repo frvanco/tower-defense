@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MAT, teamMaterial } from '../materials.js';
 import { MAX_RADIUS, measureSweptRadius } from '../footprint.js';
-import { deriveTowerVisual, getBranchChain, type TowerVisual } from './types.js';
+import { deriveTowerVisual, getBranchChain, SOCLE_FLARE, type TowerVisual } from './types.js';
 import { mesh } from './mesh.js';
 
 /** Racine de la branche Cannon dans `buildableTowers` (@tower-defense/data). */
@@ -35,7 +35,7 @@ export function makeCannonTower(tier: number, teamColor: number = DEFAULT_TEAM_C
   if (!def) {
     throw new Error(`palier ${tier} inexistant sur la branche Cannon (${chain.length} paliers connus)`);
   }
-  const visual = deriveTowerVisual(def, tier);
+  const visual = deriveTowerVisual(def, tier, chain.length);
   return buildCannonTower(visual, teamColor);
 }
 
@@ -50,42 +50,58 @@ function buildCannonTower(visual: TowerVisual, teamColor: number): THREE.Group {
   body.name = 'body';
   g.add(body);
 
+  // Toutes les hauteurs verticales ci-dessous sont exprimees en FRACTION de
+  // `height`, jamais en valeurs absolues : sans ca, une tour plus haute
+  // s'allongerait uniquement par le fut et deviendrait filiforme. Les
+  // fractions reprennent exactement les proportions d'origine (mesurees sur
+  // l'ancienne hauteur de reference de 2.0), la silhouette est donc inchangee,
+  // seule sa taille varie. Les RAYONS, eux, restent pilotes par `width` — les
+  // toucher ferait deborder l'emprise au sol (voir MAX_RADIUS).
+  const H = height / 2.0;
+
   // --- Socle
-  body.add(mesh(new THREE.CylinderGeometry(width, width * 1.12, 0.26, 8), MAT.stone2, 0, 0.13, 0));
-  body.add(mesh(new THREE.CylinderGeometry(width * 0.86, width * 0.94, 0.2, 8), MAT.stone, 0, 0.36, 0));
+  const socleH = 0.26 * H;
+  const socle2H = 0.2 * H;
+  const socle2Y = 0.36 * H;
+  body.add(mesh(new THREE.CylinderGeometry(width, width * SOCLE_FLARE, socleH, 8), MAT.stone2, 0, socleH / 2, 0));
+  body.add(mesh(new THREE.CylinderGeometry(width * 0.86, width * 0.94, socle2H, 8), MAT.stone, 0, socle2Y, 0));
 
   // --- Fut. Il s'epaissit avec le palier au lieu de s'affiner : un canon lourd
   // doit paraitre lourd.
   const taper = 0.55 + tier * 0.035;
+  const shaftBaseY = 0.46 * H;
   const shaftH = height * 0.52;
   body.add(
-    mesh(new THREE.CylinderGeometry(width * taper, width * 0.8, shaftH, 8), MAT.stone, 0, 0.46 + shaftH / 2, 0),
+    mesh(new THREE.CylinderGeometry(width * taper, width * 0.8, shaftH, 8), MAT.stone, 0, shaftBaseY + shaftH / 2, 0),
   );
 
   // Bandes de renfort a partir du palier 3 (index 2).
   if (tier >= 2) {
+    const bandThickness = 0.04 * H;
     for (let i = 0; i < tier - 1; i++) {
-      const y = 0.62 + (shaftH - 0.2) * (i / Math.max(1, tier - 1));
-      const band = mesh(new THREE.TorusGeometry(width * (taper + 0.09), 0.04, 6, 8), MAT.metal, 0, y, 0);
+      const y = 0.62 * H + (shaftH - 0.2 * H) * (i / Math.max(1, tier - 1));
+      const band = mesh(new THREE.TorusGeometry(width * (taper + 0.09), bandThickness, 6, 8), MAT.metal, 0, y, 0);
       band.rotation.x = Math.PI / 2;
       body.add(band);
     }
   }
 
   // --- Plateforme
-  const platY = 0.46 + shaftH;
+  const platY = shaftBaseY + shaftH;
+  const platH = 0.14 * H;
   const platR = width * (0.74 + armor * 0.2);
-  body.add(mesh(new THREE.CylinderGeometry(platR, platR * 0.88, 0.14, 8), MAT.stone2, 0, platY + 0.07, 0));
+  body.add(mesh(new THREE.CylinderGeometry(platR, platR * 0.88, platH, 8), MAT.stone2, 0, platY + platH / 2, 0));
 
   const merlons = 4 + tier;
+  const merlonSize = 0.12 * H;
   for (let i = 0; i < merlons; i++) {
     const a = (i / merlons) * Math.PI * 2;
     body.add(
       mesh(
-        new THREE.BoxGeometry(0.12, 0.14, 0.12),
+        new THREE.BoxGeometry(merlonSize, 0.14 * H, merlonSize),
         MAT.stone,
         Math.cos(a) * platR * 0.86,
-        platY + 0.2,
+        platY + 0.2 * H,
         Math.sin(a) * platR * 0.86,
       ),
     );
@@ -93,8 +109,9 @@ function buildCannonTower(visual: TowerVisual, teamColor: number): THREE.Group {
 
   // --- Tourelle
   const turret = new THREE.Group();
-  turret.position.y = platY + 0.16;
-  turret.scale.setScalar(TURRET_SCALE);
+  turret.position.y = platY + 0.16 * H;
+  // Echelle definitive appliquee plus bas, une fois les canons ajoutes : elle
+  // depend de leur encombrement reel (voir la fin de cette fonction).
   turret.name = 'turret';
   body.add(turret);
 
@@ -175,19 +192,37 @@ function buildCannonTower(visual: TowerVisual, teamColor: number): THREE.Group {
     }
   }
 
+  // --- Echelle de la tourelle. Elle suit la taille du corps (figee, elle
+  // paraitrait minuscule sur une tour de palier 5), MAIS jamais au point de
+  // faire deborder l'emprise : les canons, la couronne de barillet et le
+  // blindage des paliers 4-5 sont ce qui va le plus loin de l'axe. Plutot que
+  // de raccourcir les canons a l'aveugle avec un facteur devine, on MESURE
+  // leur encombrement reel a l'echelle 1 et on en deduit le facteur maximal
+  // admissible. Autocorrectif : rebalancer les degats (donc le calibre) ou
+  // changer SLOT_SIZE ne peut pas reintroduire un debordement.
+  const turretLocalRadius = measureSweptRadius(turret);
+  const turretScaleCap = turretLocalRadius > 0 ? (MAX_RADIUS * 0.98) / turretLocalRadius : Infinity;
+  turret.scale.setScalar(Math.min(TURRET_SCALE * H, turretScaleCap));
+
   // --- Fanion d'equipe : sa hauteur suit le prix. Reperer un joueur riche
   // d'un coup d'oeil est une information de jeu, pas de la decoration.
-  const poleH = 0.3 + armor * 0.55;
+  const poleH = (0.3 + armor * 0.55) * H;
   // Le mat reste a l'interieur du diametre du socle.
   const fx = platR * 0.52;
   const fz = -platR * 0.52;
-  body.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, poleH, 5), MAT.metal, fx, platY + poleH / 2, fz));
-  const flag = mesh(new THREE.BoxGeometry(0.2, 0.13, 0.015), teamMaterial(teamColor), fx + 0.11, platY + poleH - 0.085, fz);
+  body.add(mesh(new THREE.CylinderGeometry(0.018 * H, 0.018 * H, poleH, 5), MAT.metal, fx, platY + poleH / 2, fz));
+  const flag = mesh(
+    new THREE.BoxGeometry(0.2 * H, 0.13 * H, 0.015 * H),
+    teamMaterial(teamColor),
+    fx + 0.11 * H,
+    platY + poleH - 0.085 * H,
+    fz,
+  );
   flag.name = 'flag';
   body.add(flag);
 
   // --- Echafaudages : montres uniquement pendant la construction.
-  const scaffold = makeScaffold(width, platY + 0.3);
+  const scaffold = makeScaffold(width, platY + 0.3 * H);
   scaffold.visible = false;
   scaffold.name = 'scaffold';
   g.add(scaffold);
@@ -228,7 +263,7 @@ function buildCannonTower(visual: TowerVisual, teamColor: number): THREE.Group {
   foot.name = 'footprint';
   g.add(foot);
 
-  g.userData = { tier, def, turret, body, build: null, recoil: 0 };
+  g.userData = { tier, def, turret, body, build: null, recoil: 0, progressRadii: [width * 1.15, width * 1.32] };
 
   // Mesure du RAYON BALAYE (voir footprint.ts), pas de la boite au repos.
   const radius = measureSweptRadius(body);

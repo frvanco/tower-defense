@@ -75,6 +75,10 @@ function updateDust(tower: THREE.Object3D, dt: number): void {
     if (p.life <= 0) {
       container.remove(p.mesh);
       p.mesh.geometry.dispose();
+      // MAT.dust.clone() (spawnDust) cree un materiau NEUF par particule —
+      // jamais partage, donc toujours sur a disposer ici (contrairement a
+      // MAT.dust lui-meme, le singleton d'origine dont il derive).
+      (p.mesh.material as THREE.Material).dispose();
       list.splice(i, 1);
       continue;
     }
@@ -142,8 +146,15 @@ export function updateBuild(tower: THREE.Object3D, dt: number): void {
     }
 
     if (prog) {
+      // Rayons repris de ceux avec lesquels l'anneau a ete CREE (userData), et
+      // non deux constantes : ils dependent de la largeur de la tour, qui varie
+      // selon la branche et le palier. Avec les valeurs fixes precedentes
+      // (0.72 / 0.86) l'anneau retrecissait d'un coup au demarrage de la
+      // construction puis revenait a sa taille a la fin. Repli sur ces memes
+      // valeurs si une tour ne les publie pas.
+      const [inner, outer] = (tower.userData.progressRadii as [number, number] | undefined) ?? [0.72, 0.86];
       prog.geometry.dispose();
-      prog.geometry = new THREE.RingGeometry(0.72, 0.86, 48, 1, -Math.PI / 2, Math.max(0.001, b.t * Math.PI * 2));
+      prog.geometry = new THREE.RingGeometry(inner, outer, 48, 1, -Math.PI / 2, Math.max(0.001, b.t * Math.PI * 2));
     }
 
     if (Math.random() < dt * 8) spawnDust(tower, 1);

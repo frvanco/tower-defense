@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@tower-defense/data": "workspace:*",
+    "@tower-defense/lobby": "workspace:*",
     "@tower-defense/sim": "workspace:*",
     "@tower-defense/renderer": "workspace:*",
     "three": "^0.160.0"

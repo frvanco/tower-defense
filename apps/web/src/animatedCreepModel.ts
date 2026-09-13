@@ -1,0 +1,542 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+/**
+ * Noeuds animes du rig — les 13 nommes dans les clips Walk/Death des
+ * modeles livres jusqu'ici (Trainard, Conscrit), plus `Rig` lui-meme (qui
+ * porte le mouvement d'ensemble ET le seul mesh, `Pelvis`, qui ne tombe
+ * sous aucun des 13 autres — accroche sous `Hips`, un pivot intermediaire
+ * non anime, absorbe naturellement par le calcul "matrice relative au
+ * noeud" plus bas). Un modele qui n'a pas tel ou tel noeud (le Conscrit n'a
+ * pas de `Backpack`) le voit simplement ignore, voir buildModel — cette
+ * liste n'a donc pas besoin d'etre un sous-ensemble exact par modele.
+ */
+export const ANIMATED_NODE_NAMES = [
+  'Rig',
+  'Torso',
+  'Head',
+  'Backpack',
+  'LeftUpperArm',
+  'RightUpperArm',
+  'LeftLowerArm',
+  'RightLowerArm',
+  'LeftUpperLeg',
+  'RightUpperLeg',
+  'LeftLowerLeg',
+  'RightLowerLeg',
+  'LeftFoot',
+  'RightFoot',
+] as const;
+
+export interface AnimatedCreepModel {
+  /** Meme ordre que ANIMATED_NODE_NAMES pour un rig humanoide. Pour un rig
+   * specialise, noms reels des noeuds animes trouves dans Walk/Death. */
+  nodeNames: string[];
+  /** Une geometrie fusionnee, indexee, par noeud (attributs position/normal/
+   * color) — a transformer par la matrice du noeud courant a chaque frame. */
+  geometries: THREE.BufferGeometry[];
+  /** Materiau unique partage par tous les noeuds/instances (vertexColors,
+   * non eclaire — les lumieres de scene, notamment l'ambient/rim bleutes de
+   * createScene3D, assombrissaient et teintaient la majeure partie d'un
+   * personnage petit/facette sous MeshLambertMaterial ; voir buildModel.
+   * Hors brouillard de scene aussi — un petit personnage detaille s'y
+   * delave bien plus qu'un pan de terrain). */
+  material: THREE.Material;
+  /** Pose de repos (rest pose du fichier), une matrice par noeud, relative a
+   * la racine du modele — pas encore d'animation echantillonnee. */
+  restMatrices: THREE.Matrix4[];
+  /** Facteur d'echelle uniforme mesure au chargement (voir buildModel). A
+   * appliquer a la position/placement de chaque instance, PAS aux
+   * geometries : les matrices ci-dessus restent en unites naturelles du
+   * fichier, l'echelle se compose proprement par-dessus au rendu. */
+  scale: number;
+  /** Decalage vertical (unites de scene, donc deja multiplie par `scale`) a
+   * ajouter a la position au sol pour que le modele se pose a `baseY` — les
+   * pieds a Y=0 pour un modele terrestre, la garde au sol authoree pour un
+   * volant. C'est une CORRECTION a appliquer au rendu (voir writePose dans
+   * animatedCreepInstances.ts), jamais l'altitude finale : pour placer
+   * quelque chose par rapport au modele (barre de vie, bulles), lire `baseY`. */
+  groundOffsetY: number;
+  /** Altitude reelle (unites de scene) du bas du modele une fois pose : 0
+   * pour un modele terrestre, la garde au sol authoree dans le fichier pour
+   * un volant. Le sommet du modele est donc a `baseY + targetHeight`. */
+  baseY: number;
+  /** Poses echantillonnees du clip "Walk" (boucle) : walkFrames[pas][noeud].
+   * 32 pas repartis sur [0, duree) — pas de doublon du premier/dernier pas,
+   * la boucle doit se refermer sans a-coup. */
+  walkFrames: THREE.Matrix4[][];
+  /** Duree reelle du clip Walk (secondes), lue sur le fichier — utilisee
+   * pour calibrer la distance d'un cycle complet (voir entities3d.ts). */
+  walkClipDuration: number;
+  /** Poses echantillonnees du clip "Death" (jouee une fois) :
+   * deathFrames[pas][noeud]. 24 pas INCLUANT les deux extremites (pose de
+   * depart et pose finale figee). */
+  deathFrames: THREE.Matrix4[][];
+  /** Duree reelle du clip Death (secondes), lue sur le fichier. */
+  deathClipDuration: number;
+  /** Angle (radians) a ajouter au cap de deplacement pour que le modele
+   * marche face a sa direction — voir detectHeadingOffset. */
+  headingOffset: number;
+}
+
+const cachedModels = new Map<string, AnimatedCreepModel>();
+const loadPromises = new Map<string, Promise<AnimatedCreepModel>>();
+
+/**
+ * Charge et pretraite un modele (chemin GLB -> hauteur cible en unites de
+ * scene) une seule fois par URL — mis en cache par url, sans effet si deja
+ * charge ou en cours pour cette meme url. Repli existant cote appelant tant
+ * que la Promise n'est pas resolue (voir entities3d.ts).
+ *
+ * `hoverReferenceHeight` : gabarit auquel la garde au sol d'un modele VOLANT
+ * est calibree (voir buildModel). Sert a garder l'altitude de vol constante
+ * quand on ne redimensionne que le modele — passer le gabarit commun du jeu
+ * plutot que la hauteur de CE creep. Par defaut la hauteur cible, ce qui
+ * remet les deux valeurs en phase (altitude proportionnelle a la taille).
+ */
+export function loadAnimatedCreepModel(
+  url: string,
+  targetHeight: number,
+  hoverReferenceHeight: number = targetHeight,
+): Promise<AnimatedCreepModel> {
+  const existing = loadPromises.get(url);
+  if (existing) return existing;
+  const promise = new Promise<AnimatedCreepModel>((resolve, reject) => {
+    new GLTFLoader().load(
+      url,
+      (gltf) => {
+        const model = buildModel(gltf.scene, gltf.animations, targetHeight, hoverReferenceHeight);
+        cachedModels.set(url, model);
+        resolve(model);
+      },
+      undefined,
+      reject,
+    );
+  });
+  loadPromises.set(url, promise);
+  return promise;
+}
+
+export function getAnimatedCreepModel(url: string): AnimatedCreepModel | null {
+  return cachedModels.get(url) ?? null;
+}
+
+/**
+ * Cherche un noeud anime par son nom canonique (voir ANIMATED_NODE_NAMES),
+ * avec repli sur une convention alternative rencontree sur certains exports
+ * — suffixe _L/_R plutot que prefixe Left/Right (ex. `UpperArm_L` au lieu de
+ * `LeftUpperArm`) — avant d'abandonner ce noeud pour ce modele (voir l'appel
+ * dans buildModel, qui tolere deja un noeud absent). Tente la variante
+ * uniquement si le nom canonique n'existe pas, donc sans incidence sur un
+ * modele deja au format attendu (Conscrit, Sapeur).
+ */
+function resolveAnimatedNode(root: THREE.Object3D, canonicalName: string): THREE.Object3D | null {
+  const direct = root.getObjectByName(canonicalName);
+  if (direct) return direct;
+  const altName = canonicalName.startsWith('Left')
+    ? canonicalName.slice('Left'.length) + '_L'
+    : canonicalName.startsWith('Right')
+      ? canonicalName.slice('Right'.length) + '_R'
+      : null;
+  return (altName ? root.getObjectByName(altName) : undefined) ?? null;
+}
+
+/**
+ * Points de repere plausibles pour "l'avant" d'un modele, du plus au moins
+ * specifique — un nez de fantassin, un visage de cavalier (sous un casque
+ * ouvert), un museau de monture a cheval, un bec de monture aviaire, une
+ * visiere de casque ferme (aucun visage nu a lire dessous). Le premier
+ * trouve dans le fichier gagne (voir detectHeadingOffset) : les montures
+ * (Cuirassier, Marechal, Fauconnier, Chevaucheur d'aigle) n'ont pas de noeud
+ * `Nose` (pas de visage humain nu a cet endroit), mais ont toujours L'UN de
+ * ces reperes. `Visor_Main` ajoute apres coup (retour direct : le Gardien
+ * Alpha marchait a reculons, repli sur Math.PI faute de repere reconnu —
+ * mesure sur le fichier, Visor_Main/Helmet_FaceMask/Helmet_ChinPlate
+ * pointent tous vers Z local positif, offset 0, l'oppose du repli qui
+ * causait le probleme).
+ */
+const FRONT_LANDMARK_CANDIDATES = [
+  'Nose',
+  'Rider_Face',
+  'Horse_Muzzle',
+  'Bird_Beak_Tip',
+  'Visor_Main',
+  // Reperes equivalents des trois premiers rigs non humanoides du T3.
+  'D0_Sensor_Visor',
+  'Q0_Visor_Main',
+  'Hull_Visor',
+];
+
+/**
+ * Determine dans quel sens ce modele fait face au repos, en mesurant la
+ * position d'un repere frontal (voir FRONT_LANDMARK_CANDIDATES) relative a
+ * la racine : un tel repere pointe toujours vers l'avant, donc son signe en
+ * Z revele la convention de cet export sans ambiguite — plutot que de
+ * supposer une constante unique partagee par tous les modeles (ce qui etait
+ * le cas avant : un `+PI` fixe dans animatedCreepInstances.ts, calibre sur
+ * un ancien export du Trainard qui pointait en Z negatif comme le
+ * Conscrit/Sapeur. Un export plus recent du Trainard pointe en Z POSITIF —
+ * le decalage fixe le faisait alors marcher a reculons). Repli sur
+ * `Math.PI` (convention historique) si aucun repere connu n'existe.
+ */
+function detectHeadingOffset(root: THREE.Object3D): number {
+  let landmark: THREE.Object3D | null = null;
+  for (const name of FRONT_LANDMARK_CANDIDATES) {
+    landmark = root.getObjectByName(name) ?? null;
+    if (landmark) break;
+  }
+  if (!landmark) return Math.PI;
+  // Le CENTRE DE LA GEOMETRIE du mesh (Box3.setFromObject, qui lit les
+  // sommets reels et applique matrixWorld), pas la translation du noeud
+  // lui-meme : certains exports (Conscrit/Sapeur) placent chaque piece via
+  // une translation de noeud (noeud Nose translate en Z negatif, mesh
+  // partage a l'origine), d'autres (le Trainard) laissent le noeud a
+  // l'origine et bakent la position directement dans les sommets du mesh —
+  // ne lire que la translation du noeud donnait alors (0,0,0) pour ce
+  // dernier cas, un repli silencieux sur Math.PI toujours faux (retour
+  // direct : le Trainard marchait encore a l'envers apres le premier essai).
+  const box = new THREE.Box3().setFromObject(landmark);
+  if (box.isEmpty()) return Math.PI;
+  const center = box.getCenter(new THREE.Vector3());
+  const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  center.applyMatrix4(rootInverse);
+  return center.z > 0 ? 0 : Math.PI;
+}
+
+/**
+ * Collecte les meshes descendants de `node` qui n'appartiennent pas a un
+ * autre noeud anime plus profond dans la hierarchie (on arrete la descente
+ * des qu'on croise un nom present dans `animatedNames`, sauf a la racine de
+ * l'appel). Partitionne ainsi tous les meshes du modele en exactement un
+ * groupe par noeud anime, sans liste de meshes ecrite en dur. `animatedNames`
+ * doit contenir les noms REELS des noeuds retenus (voir buildModel) — pas les
+ * noms canoniques : avec la variante _L/_R ci-dessus, un noeud peut etre
+ * retenu sous un nom different de sa cle canonique.
+ */
+function collectOwnedMeshes(node: THREE.Object3D, animatedNames: ReadonlySet<string>): THREE.Mesh[] {
+  const out: THREE.Mesh[] = [];
+  function visit(n: THREE.Object3D, isRoot: boolean): void {
+    if (!isRoot && animatedNames.has(n.name)) return; // appartient a un autre groupe
+    if ((n as THREE.Mesh).isMesh) out.push(n as THREE.Mesh);
+    for (const child of n.children) visit(child, false);
+  }
+  visit(node, true);
+  return out;
+}
+
+/**
+ * Extrait les noms de noeuds effectivement vises par les pistes Walk/Death.
+ * GLTFLoader produit des noms de pistes du type `Drone_0.quaternion` ou
+ * `Upper_FL_2.position`; PropertyBinding sait aussi decoder les variantes
+ * plus complexes acceptees par Three.js.
+ */
+function getClipTargetNodeNames(animations: THREE.AnimationClip[]): Set<string> {
+  const out = new Set<string>();
+  for (const clip of animations) {
+    if (clip.name !== 'Walk' && clip.name !== 'Death') continue;
+    for (const track of clip.tracks) {
+      try {
+        const parsed = THREE.PropertyBinding.parseTrackName(track.name);
+        if (parsed.nodeName) {
+          out.add(parsed.nodeName);
+          continue;
+        }
+      } catch {
+        // La forme simple ci-dessous reste exploitable.
+      }
+      // Repli defensif pour les pistes simples generees par nos GLB.
+      const separator = track.name.lastIndexOf('.');
+      if (separator > 0) out.add(track.name.slice(0, separator));
+    }
+  }
+  return out;
+}
+
+interface BucketSelection {
+  nodes: THREE.Object3D[];
+  names: string[];
+}
+
+/**
+ * Repli pour les rigs non humanoides (essaim, quadrupedes, marcheur, etc.).
+ * Chaque noeud anime qui possede de la geometrie devient un bucket. Les
+ * transformations de ses parents animes restent bien incluses dans sa
+ * matrixWorld echantillonnee, meme si ces parents ne possedent aucun mesh.
+ *
+ * Un bucket statique sur `root` recupere aussi les rares meshes qui ne sont
+ * sous aucune piste, sans dupliquer ceux deja attribues a un noeud anime.
+ */
+function resolveGenericAnimationBuckets(
+  root: THREE.Object3D,
+  animations: THREE.AnimationClip[],
+): BucketSelection {
+  const targetNames = getClipTargetNodeNames(animations);
+  const targetNodes: THREE.Object3D[] = [];
+  root.traverse((node) => {
+    if (targetNames.has(node.name)) targetNodes.push(node);
+  });
+
+  // Sans clip exploitable, conserver au minimum un modele statique complet.
+  if (targetNodes.length === 0) {
+    return { nodes: [root], names: [root.name || 'SceneRoot'] };
+  }
+
+  const nodes = targetNodes.filter(
+    (node) => collectOwnedMeshes(node, targetNames).length > 0,
+  );
+
+  // Geometrie hors des sous-arbres animes : elle reste attachee au root.
+  if (collectOwnedMeshes(root, targetNames).length > 0 && !nodes.includes(root)) {
+    nodes.unshift(root);
+  }
+
+  if (nodes.length === 0) {
+    return { nodes: [root], names: [root.name || 'SceneRoot'] };
+  }
+  return { nodes, names: nodes.map((node) => node.name || 'SceneRoot') };
+}
+
+const WALK_SAMPLE_STEPS = 32;
+const DEATH_SAMPLE_STEPS = 24;
+
+// A l'echelle d'un creep (quelques dizaines de px a l'ecran), les teintes
+// pastel de ces modeles (chemise, peau claire, blanc des yeux) se distinguent
+// mal les unes des autres et donnent une impression generale de blancheur
+// (retour direct, x2 — le premier essai n'y suffisait pas). Boost applique
+// une fois ici, au moment ou la couleur du materiau est figee en couleur de
+// sommet — pas de cout de rendu par frame.
+//
+// PAS un etirement de contraste centre sur 0.5 (premier essai) : sur une
+// palette deja tres claire (L moyen ~0.6-0.9 pour la peau/le lin/le blanc
+// des yeux), un tel etirement pousse les valeurs hautes encore PLUS haut
+// (vers 1.0), exactement l'inverse de l'effet recherche. A la place :
+// plafond dur sur la clarte (jamais plus qu'un blanc casse) + leger
+// assombrissement uniforme, qui laisse les teintes deja sombres/saturees
+// (tuniques, accents bleus) presque intactes.
+const CREEP_SATURATION_BOOST = 1.6;
+const CREEP_LIGHTNESS_FACTOR = 0.9;
+const CREEP_LIGHTNESS_CAP = 0.68;
+const tmpHsl = { h: 0, s: 0, l: 0 };
+
+function boostCreepColor(color: THREE.Color): void {
+  color.getHSL(tmpHsl);
+  const s = Math.min(1, tmpHsl.s * CREEP_SATURATION_BOOST);
+  const l = Math.min(CREEP_LIGHTNESS_CAP, tmpHsl.l * CREEP_LIGHTNESS_FACTOR);
+  color.setHSL(tmpHsl.h, s, l);
+}
+
+interface PoseSnapshot {
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+  scale: THREE.Vector3;
+}
+
+/** Sauvegarde la transformation locale de chaque noeud de la hierarchie —
+ * sert a repartir d'une pose de repos propre entre deux clips echantillonnes
+ * (Death ne touche pas les pieds : sans ce reset, ils garderaient la pose
+ * laissee par le dernier pas de Walk echantillonne juste avant). */
+function snapshotLocalPose(root: THREE.Object3D): Map<THREE.Object3D, PoseSnapshot> {
+  const snapshot = new Map<THREE.Object3D, PoseSnapshot>();
+  root.traverse((n) => {
+    snapshot.set(n, { position: n.position.clone(), quaternion: n.quaternion.clone(), scale: n.scale.clone() });
+  });
+  return snapshot;
+}
+
+function restoreLocalPose(snapshot: Map<THREE.Object3D, PoseSnapshot>): void {
+  for (const [n, p] of snapshot) {
+    n.position.copy(p.position);
+    n.quaternion.copy(p.quaternion);
+    n.scale.copy(p.scale);
+  }
+}
+
+/**
+ * Echantillonne un clip a `steps` pas repartis sur sa duree, et releve a
+ * chaque pas la matrice de chaque noeud de `bucketNodes` relative a `root`.
+ * `includeEnd` : true pour couvrir [0, duree] inclus (clip joue une fois,
+ * Death), false pour [0, duree) exclusif (clip en boucle, Walk — sinon le
+ * premier et le dernier pas dupliquent la meme pose et la boucle "bute").
+ * Un mixer temporaire suffit : on lit juste la pose a des temps fixes, sans
+ * jamais laisser tourner la lecture automatique.
+ */
+function sampleClip(
+  clip: THREE.AnimationClip,
+  root: THREE.Object3D,
+  bucketNodes: THREE.Object3D[],
+  steps: number,
+  includeEnd: boolean,
+): THREE.Matrix4[][] {
+  const mixer = new THREE.AnimationMixer(root);
+  const action = mixer.clipAction(clip);
+  action.play();
+
+  const result: THREE.Matrix4[][] = bucketNodes.map(() => []);
+  const denom = includeEnd ? Math.max(1, steps - 1) : steps;
+  for (let i = 0; i < steps; i++) {
+    action.time = (i / denom) * clip.duration;
+    mixer.update(0);
+    root.updateMatrixWorld(true);
+    const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    for (let b = 0; b < bucketNodes.length; b++) {
+      result[b]!.push(new THREE.Matrix4().multiplyMatrices(rootInverse, bucketNodes[b]!.matrixWorld));
+    }
+  }
+
+  mixer.stopAllAction();
+  mixer.uncacheRoot(root);
+  return result;
+}
+
+function buildModel(
+  root: THREE.Group,
+  animations: THREE.AnimationClip[],
+  targetHeight: number,
+  hoverReferenceHeight: number,
+): AnimatedCreepModel {
+  root.updateMatrixWorld(true);
+
+  // Echelle/assise — mesure sur la hierarchie NATURELLE (echelle 1), jamais
+  // appliquee au root ni aux geometries : composee plus tard, a la pose de
+  // chaque instance (voir AnimatedCreepModel.scale/groundOffsetY ci-dessus).
+  const box = new THREE.Box3().setFromObject(root);
+  const rawHeight = box.max.y - box.min.y;
+  const scale = rawHeight > 0 ? targetHeight / rawHeight : 1;
+  // Un modele pose au sol n'a qu'une petite marge technique sous ses pieds
+  // et doit etre recale sur Y=0. Un modele volant peut en revanche avoir une
+  // garde au sol volontaire importante (l'essaim est place a +1,05 m) : la
+  // supprimer ici ferait finir son clip Death sous le terrain.
+  const hasAuthoredHoverClearance = rawHeight > 0 && box.min.y > rawHeight * 0.25;
+  // L'altitude d'un volant est calibree sur le gabarit COMMUN du jeu, pas sur
+  // la hauteur cible de ce creep-la : redimensionner un volant ne doit changer
+  // que sa taille (retour direct — l'essaim de drones reduit de 80% se
+  // retrouvait a raser le sol, son altitude ayant ete divisee d'autant).
+  const hoverScale = rawHeight > 0 ? hoverReferenceHeight / rawHeight : 1;
+  const baseY = hasAuthoredHoverClearance ? box.min.y * hoverScale : 0;
+  const groundOffsetY = baseY - box.min.y * scale;
+  const headingOffset = detectHeadingOffset(root);
+
+  const bucketNodes: THREE.Object3D[] = [];
+  const nodeNames: string[] = [];
+  for (const name of ANIMATED_NODE_NAMES) {
+    const node = resolveAnimatedNode(root, name);
+    if (!node) continue; // ce modele n'a pas ce noeud (ex. pas de Backpack) : ignore plutot que planter
+    bucketNodes.push(node);
+    nodeNames.push(name);
+  }
+
+  // Aucun os humanoide : ne pas produire silencieusement zero geometrie.
+  // Les rigs specialises gardent leurs propres articulations et leurs clips;
+  // on cree alors les buckets depuis les cibles reelles de Walk/Death.
+  if (bucketNodes.length === 0) {
+    const generic = resolveGenericAnimationBuckets(root, animations);
+    bucketNodes.push(...generic.nodes);
+    nodeNames.push(...generic.names);
+  }
+  // Noms REELS des noeuds retenus (pas les cles canoniques ci-dessus) : voir
+  // le commentaire de collectOwnedMeshes.
+  const animatedNamesSet = new Set<string>(bucketNodes.map((n) => n.name));
+
+  const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const geometries: THREE.BufferGeometry[] = [];
+  const restMatrices: THREE.Matrix4[] = [];
+  const tmpColor = new THREE.Color();
+
+  for (const bucketNode of bucketNodes) {
+    const nodeInverse = new THREE.Matrix4().copy(bucketNode.matrixWorld).invert();
+    const meshes = collectOwnedMeshes(bucketNode, animatedNamesSet);
+    const parts: THREE.BufferGeometry[] = [];
+
+    for (const mesh of meshes) {
+      const src = mesh.geometry;
+      const pos = src.getAttribute('position');
+      const nrm = src.getAttribute('normal');
+      if (!pos || !nrm) continue; // geometrie inattendue (sans position/normal) : ignoree plutot que planter
+
+      // Reconstruit une geometrie propre avec exactement position/normal/color
+      // (mergeGeometries exige des attributs identiques sur toutes les
+      // entrees) — ignore UV/tangent/etc si jamais presents.
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', pos.clone());
+      geo.setAttribute('normal', nrm.clone());
+      if (src.index) geo.setIndex(src.index.clone());
+
+      const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      tmpColor.copy((material as THREE.MeshStandardMaterial).color ?? new THREE.Color(0xffffff));
+      boostCreepColor(tmpColor);
+      const colors = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) {
+        colors[i * 3] = tmpColor.r;
+        colors[i * 3 + 1] = tmpColor.g;
+        colors[i * 3 + 2] = tmpColor.b;
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      // Transformation locale du mesh relative au noeud anime proprietaire —
+      // constante (rest pose), figee une fois pour toutes ici : c'est ce qui
+      // permet de fusionner sans perdre le placement relatif de chaque piece.
+      const meshToNode = new THREE.Matrix4().multiplyMatrices(nodeInverse, mesh.matrixWorld);
+      geo.applyMatrix4(meshToNode);
+
+      parts.push(geo);
+    }
+
+    const merged = parts.length > 0 ? mergeGeometries(parts, false) : new THREE.BufferGeometry();
+    for (const p of parts) p.dispose();
+    geometries.push(merged ?? new THREE.BufferGeometry());
+    restMatrices.push(new THREE.Matrix4().multiplyMatrices(rootInverse, bucketNode.matrixWorld));
+  }
+
+  // MeshBasicMaterial (non eclaire), pas MeshLambertMaterial : sur un
+  // personnage petit et facette, la reponse diffuse de Lambert a l'angle des
+  // lumieres de scene (cf. createScene3D — un key chaud, mais un ambient et
+  // un rim tous deux bleutes, 0x5a6478/0x6f9fd8) plonge une bonne partie du
+  // corps dans une ombre gris-bleu qui ecrase les couleurs du GLB (verifie
+  // par comparaison directe sous le meme eclairage : Lambert assombrit/teinte
+  // plus de la moitie d'une sphere de meme couleur, Basic la restitue
+  // fidelement en integralite). L'ombre PORTEE au sol (castShadow) ne depend
+  // pas du type de materiau — elle est intacte avec Basic.
+  // toneMapped: false — le renderer applique ACESFilmic + une exposure 1.14
+  // (voir createScene3D). Sur une couleur plate non eclairee, ACES desature
+  // les teintes vives vers le pastel et l'exposure les surexpose : c'est
+  // exactement le "delave" observe par rapport a un viewer glTF. En sortant
+  // ces materiaux du tone mapping, la couleur de sommet (deja figee depuis le
+  // baseColorFactor lineaire du GLB) n'est plus que convertie lineaire->sRGB
+  // a l'affichage, fidele au fichier. Les autres meshes de la scene restent
+  // tone-mappes.
+  const material = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false });
+
+  // Echantillonnage des animations — APRES la fusion ci-dessus (qui a besoin
+  // de la pose de repos), sur la meme hierarchie temporaire. Repart d'une
+  // pose de repos propre entre les deux clips (voir snapshotLocalPose) pour
+  // que Death ne herite pas d'une pose laissee par le dernier pas de Walk.
+  const walkClip = animations.find((a) => a.name === 'Walk');
+  const deathClip = animations.find((a) => a.name === 'Death');
+  const bindPose = snapshotLocalPose(root);
+
+  const walkFrames = walkClip
+    ? sampleClip(walkClip, root, bucketNodes, WALK_SAMPLE_STEPS, false)
+    : restMatrices.map((m) => [m.clone()]);
+  restoreLocalPose(bindPose);
+
+  const deathFrames = deathClip
+    ? sampleClip(deathClip, root, bucketNodes, DEATH_SAMPLE_STEPS, true)
+    : restMatrices.map((m) => [m.clone()]);
+  restoreLocalPose(bindPose);
+
+  return {
+    nodeNames,
+    geometries,
+    material,
+    restMatrices,
+    scale,
+    groundOffsetY,
+    baseY,
+    walkFrames,
+    walkClipDuration: walkClip?.duration ?? 1,
+    deathFrames,
+    deathClipDuration: deathClip?.duration ?? 1,
+    headingOffset,
+  };
+}

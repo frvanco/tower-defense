@@ -24,7 +24,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.8999999761581421,
       "atk1Range": 1000,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "ground",
       "atk1AoeFull": 60,
       "atk1AoeMedium": 120,
@@ -40,7 +40,7 @@
       "pointValue": 21,
       "atk1DamageBase": 59,
       "atk1Sides": 1,
-      "atk1Cooldown": 1.0,
+      "atk1Cooldown": 1,
       "atk1Targets": "ground",
       "atk1AoeFull": 45,
       "atk1AoeMedium": 90,
@@ -59,7 +59,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.949999988079071,
       "atk1Range": 900,
-      "acquisitionRange": 1500.0,
+      "acquisitionRange": 1500,
       "atk1Targets": "ground",
       "upgradesTo": "n003,h002",
       "requires": "",
@@ -69,12 +69,13 @@
       "id": "h005",
       "baseId": "hgtw",
       "name": "Lightning Tower",
+      "goldCost": 100,
       "pointValue": 56,
       "atk1DamageBase": 149,
       "atk1Sides": 1,
       "atk1Cooldown": 0.5,
       "atk1Range": 800,
-      "acquisitionRange": 800.0,
+      "acquisitionRange": 800,
       "atk1Targets": "air",
       "atk1AoeFull": 45,
       "atk1AoeMedium": 90,
@@ -93,7 +94,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.4000000059604645,
       "atk1Range": 900,
-      "acquisitionRange": 900.0,
+      "acquisitionRange": 900,
       "atk1Targets": "air",
       "atk1AoeFull": 50,
       "atk1AoeMedium": 100,
@@ -112,7 +113,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.30000001192092896,
       "atk1Range": 1000,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "air",
       "atk1AoeFull": 60,
       "atk1AoeMedium": 120,
@@ -129,9 +130,9 @@
       "pointValue": 630,
       "atk1DamageBase": 9999,
       "atk1Sides": 1,
-      "atk1Cooldown": 6.0,
+      "atk1Cooldown": 6,
       "atk1Range": 1600,
-      "acquisitionRange": 1600.0,
+      "acquisitionRange": 1600,
       "atk1AttackType": "siege",
       "atk1Targets": "ground",
       "atk1AoeFull": 100,
@@ -149,9 +150,9 @@
       "pointValue": 1470,
       "atk1DamageBase": 9999,
       "atk1Sides": 1,
-      "atk1Cooldown": 2.0,
+      "atk1Cooldown": 2,
       "atk1Range": 2000,
-      "acquisitionRange": 1600.0,
+      "acquisitionRange": 1600,
       "atk1AttackType": "siege",
       "atk1Targets": "ground",
       "atk1AoeFull": 100,
@@ -188,7 +189,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.10000000149011612,
       "atk1Range": 1000,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "air",
       "atk1AoeFull": 60,
       "atk1AoeMedium": 120,
@@ -224,7 +225,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.10000000149011612,
       "atk1Range": 1000,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "air,ground",
       "upgradesTo": "o006,n00E",
       "requires": "",
@@ -239,7 +240,7 @@
       "atk1DamageBase": 14,
       "atk1Sides": 1,
       "atk1Cooldown": 0.4000000059604645,
-      "acquisitionRange": 800.0,
+      "acquisitionRange": 800,
       "atk1Targets": "air,ground",
       "upgradesTo": "n00C,o002",
       "requires": "",
@@ -268,8 +269,8 @@
       "pointValue": 56,
       "atk1DamageBase": 19,
       "atk1Sides": 1,
-      "atk1Cooldown": 1.0,
-      "acquisitionRange": 800.0,
+      "atk1Cooldown": 1,
+      "acquisitionRange": 800,
       "atk1Targets": "air,ground",
       "atk1AoeFull": 50,
       "atk1AoeMedium": 100,
@@ -324,7 +325,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.05000000074505806,
       "atk1Range": 1500,
-      "acquisitionRange": 1000.0,
+      "acquisitionRange": 1000,
       "atk1Targets": "air,ground",
       "atk1AoeFull": 10,
       "atk1AoeMedium": 20,
@@ -360,7 +361,7 @@
       "atk1DamageBase": 39,
       "atk1Sides": 1,
       "atk1Cooldown": 0.009999999776482582,
-      "acquisitionRange": 800.0,
+      "acquisitionRange": 800,
       "atk1AttackType": "normal",
       "atk1Targets": "air,enemies,ground",
       "upgradesTo": "n00J,o009",
@@ -376,7 +377,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.009999999776482582,
       "atk1Range": 1200,
-      "acquisitionRange": 800.0,
+      "acquisitionRange": 800,
       "atk1AttackType": "normal",
       "atk1Targets": "air,enemies,ground",
       "upgradesTo": "o00A,n00K",
@@ -392,7 +393,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.009999999776482582,
       "atk1Range": 2000,
-      "acquisitionRange": 1200.0,
+      "acquisitionRange": 1200,
       "atk1AttackType": "normal",
       "atk1Targets": "air,enemies,ground",
       "upgradesTo": "o00B,n00L",
@@ -408,7 +409,7 @@
       "atk1Sides": 1,
       "atk1Cooldown": 0.009999999776482582,
       "atk1Range": 2000,
-      "acquisitionRange": 1200.0,
+      "acquisitionRange": 1200,
       "atk1AttackType": "normal",
       "atk1Targets": "air,enemies,ground",
       "upgradesTo": "n00M",
@@ -419,7 +420,7 @@
     {
       "id": "h001",
       "baseId": "hhdl",
-      "name": "Running horse",
+      "name": "Conscrit",
       "goldCost": 10,
       "pointValue": 2,
       "hitPoints": 130,
@@ -432,7 +433,7 @@
     {
       "id": "h009",
       "baseId": "hhdl",
-      "name": "Wolfman",
+      "name": "Sapeur",
       "goldCost": 20,
       "pointValue": 4,
       "hitPoints": 600,
@@ -445,7 +446,7 @@
     {
       "id": "h00A",
       "baseId": "hhdl",
-      "name": "Sentry",
+      "name": "Lancier",
       "goldCost": 30,
       "pointValue": 6,
       "hitPoints": 900,
@@ -459,7 +460,7 @@
     {
       "id": "h00B",
       "baseId": "hhdl",
-      "name": "Shaman",
+      "name": "Hallebardier",
       "goldCost": 50,
       "pointValue": 10,
       "hitPoints": 1100,
@@ -473,7 +474,7 @@
     {
       "id": "h00C",
       "baseId": "hhdl",
-      "name": "Skeleton",
+      "name": "Bretteur",
       "goldCost": 80,
       "pointValue": 16,
       "hitPoints": 900,
@@ -487,7 +488,7 @@
     {
       "id": "h00D",
       "baseId": "hhdl",
-      "name": "Tauren",
+      "name": "Grognard",
       "goldCost": 120,
       "pointValue": 24,
       "hitPoints": 2000,
@@ -501,7 +502,7 @@
     {
       "id": "h00E",
       "baseId": "hhdl",
-      "name": "little whispy",
+      "name": "Éclaireur",
       "goldCost": 50,
       "pointValue": 10,
       "hitPoints": 500,
@@ -515,7 +516,7 @@
     {
       "id": "h00F",
       "baseId": "hhdl",
-      "name": "Magma Elemental",
+      "name": "Cuirassier",
       "goldCost": 250,
       "pointValue": 50,
       "hitPoints": 10000,
@@ -529,7 +530,7 @@
     {
       "id": "h00G",
       "baseId": "hhdl",
-      "name": "Treant",
+      "name": "Maréchal",
       "goldCost": 300,
       "pointValue": 60,
       "hitPoints": 4000,
@@ -543,7 +544,7 @@
     {
       "id": "h00H",
       "baseId": "hhdl",
-      "name": "High Elf",
+      "name": "Greffé",
       "goldCost": 360,
       "pointValue": 72,
       "hitPoints": 3200,
@@ -556,7 +557,7 @@
     {
       "id": "h00I",
       "baseId": "hhdl",
-      "name": "Spider",
+      "name": "Bras-canon",
       "goldCost": 500,
       "hitPoints": 6000,
       "armorType": "normal",
@@ -568,7 +569,7 @@
     {
       "id": "h00J",
       "baseId": "hhdl",
-      "name": "Captain",
+      "name": "Sergent augmenté",
       "goldCost": 620,
       "pointValue": 124,
       "hitPoints": 5200,
@@ -581,7 +582,7 @@
     {
       "id": "h00K",
       "baseId": "hhdl",
-      "name": "Warden",
+      "name": "Exosquelette lourd",
       "goldCost": 1000,
       "pointValue": 200,
       "hitPoints": 25000,
@@ -594,7 +595,7 @@
     {
       "id": "h00L",
       "baseId": "hhdl",
-      "name": "Centaur",
+      "name": "Traqueur",
       "goldCost": 2000,
       "pointValue": 400,
       "hitPoints": 18000,
@@ -608,7 +609,7 @@
     {
       "id": "h00M",
       "baseId": "hhdl",
-      "name": "Demolisher",
+      "name": "Broyeur",
       "goldCost": 4000,
       "pointValue": 680,
       "hitPoints": 28000,
@@ -622,7 +623,7 @@
     {
       "id": "h00N",
       "baseId": "hhdl",
-      "name": "Sasquatch",
+      "name": "Titan greffé",
       "goldCost": 7500,
       "pointValue": 1500,
       "hitPoints": 40000,
@@ -636,7 +637,7 @@
     {
       "id": "h00O",
       "baseId": "hhdl",
-      "name": "Thing",
+      "name": "Prototype Oméga",
       "goldCost": 10000,
       "pointValue": 2000,
       "hitPoints": 50000,
@@ -650,7 +651,7 @@
     {
       "id": "h00P",
       "baseId": "hhdl",
-      "name": "War Golem",
+      "name": "Meute quadrupède",
       "goldCost": 15000,
       "pointValue": 3000,
       "hitPoints": 30000,
@@ -664,7 +665,7 @@
     {
       "id": "h00Q",
       "baseId": "hhdl",
-      "name": "Salamander",
+      "name": "Marcheur de siège",
       "goldCost": 18000,
       "pointValue": 3600,
       "hitPoints": 50000,
@@ -678,7 +679,7 @@
     {
       "id": "h00R",
       "baseId": "hhdl",
-      "name": "Space Orc",
+      "name": "Écraseur chenillé",
       "goldCost": 24000,
       "pointValue": 4800,
       "hitPoints": 60000,
@@ -692,7 +693,7 @@
     {
       "id": "h00S",
       "baseId": "hhdl",
-      "name": "Burning legion",
+      "name": "Colonne d'extermination",
       "goldCost": 100000,
       "pointValue": 0,
       "hitPoints": 200000,
@@ -706,7 +707,7 @@
     {
       "id": "h00U",
       "baseId": "hhdl",
-      "name": "Tauren Chieftain",
+      "name": "Gardien Alpha",
       "goldCost": 30000,
       "pointValue": 6000,
       "hitPoints": 45000,
@@ -720,7 +721,7 @@
     {
       "id": "h00V",
       "baseId": "hhdl",
-      "name": "Keeper of the Grove",
+      "name": "Arbitre",
       "goldCost": 40000,
       "pointValue": 8000,
       "hitPoints": 50000,
@@ -734,7 +735,7 @@
     {
       "id": "h00W",
       "baseId": "hhdl",
-      "name": "Demon Hunter",
+      "name": "Exécuteur",
       "goldCost": 65000,
       "pointValue": 13000,
       "hitPoints": 60000,
@@ -748,7 +749,7 @@
     {
       "id": "h00X",
       "baseId": "hhdl",
-      "name": "Blade Master",
+      "name": "Forteresse mobile",
       "goldCost": 40000,
       "pointValue": 8000,
       "hitPoints": 100000,
@@ -762,7 +763,7 @@
     {
       "id": "h00Y",
       "baseId": "hhdl",
-      "name": "Demon Hunter",
+      "name": "Drone d'essaim",
       "hitPoints": 8000,
       "armorType": "divine",
       "moveSpeed": 360,
@@ -771,7 +772,7 @@
     {
       "id": "h00Z",
       "baseId": "hhdl",
-      "name": "Mountain King",
+      "name": "Intelligence Mère",
       "goldCost": 100000,
       "pointValue": 20000,
       "hitPoints": 75000,
@@ -785,7 +786,7 @@
     {
       "id": "n000",
       "baseId": "nvil",
-      "name": "Runner",
+      "name": "Traînard",
       "goldCost": 5,
       "pointValue": 1,
       "moveSpeed": 200,
@@ -803,12 +804,13 @@
       "moveSpeed": 300,
       "stockStartDelaySec": 160,
       "stockReplenishIntervalSec": 4,
-      "stockMaximum": 16
+      "stockMaximum": 16,
+      "name": "Fauconnier"
     },
     {
       "id": "u001",
       "baseId": "ugar",
-      "name": "Hippogryph",
+      "name": "Chevaucheur d'aigle",
       "goldCost": 200,
       "pointValue": 40,
       "hitPoints": 3800,
@@ -821,7 +823,7 @@
     {
       "id": "u002",
       "baseId": "ugar",
-      "name": "Wyvern",
+      "name": "Voltigeur",
       "goldCost": 400,
       "pointValue": 80,
       "hitPoints": 6500,
@@ -834,7 +836,7 @@
     {
       "id": "u003",
       "baseId": "ugar",
-      "name": "Vulture",
+      "name": "Planeur d'assaut",
       "goldCost": 800,
       "pointValue": 160,
       "hitPoints": 9000,
@@ -847,7 +849,7 @@
     {
       "id": "u004",
       "baseId": "ugar",
-      "name": "Owl",
+      "name": "Séraphin d'acier",
       "goldCost": 1200,
       "pointValue": 240,
       "hitPoints": 16000,
@@ -860,7 +862,7 @@
     {
       "id": "u005",
       "baseId": "ugar",
-      "name": "Chimaera",
+      "name": "Colosse ailé",
       "goldCost": 4500,
       "pointValue": 900,
       "hitPoints": 20000,
@@ -872,7 +874,7 @@
     {
       "id": "u006",
       "baseId": "ugar",
-      "name": "Frost Wyrm",
+      "name": "Essaim de drones",
       "goldCost": 12000,
       "pointValue": 2400,
       "hitPoints": 30000,
@@ -884,7 +886,7 @@
     {
       "id": "u007",
       "baseId": "ugar",
-      "name": "Bronze Dragon",
+      "name": "Cuirassé aérien",
       "goldCost": 10000,
       "pointValue": 2000,
       "hitPoints": 60000,
@@ -896,7 +898,7 @@
     {
       "id": "u008",
       "baseId": "ugar",
-      "name": "Green Dragon",
+      "name": "Porte-nefs",
       "goldCost": 50000,
       "pointValue": 10000,
       "hitPoints": 40000,
@@ -908,7 +910,7 @@
     {
       "id": "u00A",
       "baseId": "ugar",
-      "name": "Gryphon Rider",
+      "name": "Dreadnought orbital",
       "goldCost": 80000,
       "pointValue": 16000,
       "hitPoints": 50000,
@@ -920,7 +922,7 @@
     {
       "id": "u00B",
       "baseId": "ugar",
-      "name": "Goblin Zeppelin",
+      "name": "Porte-essaim",
       "goldCost": 80000,
       "pointValue": 0,
       "hitPoints": 80000,
@@ -933,7 +935,7 @@
   "shops": [
     {
       "id": "htow",
-      "name": "Hall",
+      "name": "Caserne",
       "goldCost": 40,
       "requires": "",
       "sells": [
@@ -977,7 +979,7 @@
     },
     {
       "id": "hkee",
-      "name": "Keep",
+      "name": "Forge",
       "goldCost": 2000,
       "requires": "h006",
       "sells": [
@@ -1021,7 +1023,7 @@
     },
     {
       "id": "hcas",
-      "name": "Castle",
+      "name": "Fonderie",
       "goldCost": 20000,
       "requires": "hkee,h002,h007,o005,o000",
       "sells": [
@@ -1069,209 +1071,273 @@
       "player": 0,
       "color": "red",
       "spawn": [
-        -4736.0,
-        4800.0
+        -4604,
+        3672
       ],
       "waypoint1": [
-        -4720.0,
-        2032.0
+        -4360,
+        3672
       ],
       "waypoint2": [
-        -3568.0,
-        2064.0
+        -4360,
+        2048
       ],
       "end": [
-        -3568.0,
-        4848.0
+        -3692,
+        3672
       ],
       "buildZone": {
-        "left": -5408,
-        "bottom": 480,
-        "right": -2976,
-        "top": 5152
-      }
+        "left": -4640,
+        "bottom": 1768,
+        "right": -3656,
+        "top": 3952
+      },
+      "waypoint3": [
+        -3936,
+        2048
+      ],
+      "waypoint4": [
+        -3936,
+        3672
+      ]
     },
     {
       "player": 1,
       "color": "blue",
       "spawn": [
-        -1936.0,
-        4784.0
+        -1788,
+        3672
       ],
       "waypoint1": [
-        -1888.0,
-        2032.0
+        -1544,
+        3672
       ],
       "waypoint2": [
-        -752.0,
-        2064.0
+        -1544,
+        2048
       ],
       "end": [
-        -752.0,
-        4832.0
+        -876,
+        3672
       ],
       "buildZone": {
-        "left": -2624,
-        "bottom": 480,
-        "right": -128,
-        "top": 5152
-      }
+        "left": -1824,
+        "bottom": 1768,
+        "right": -840,
+        "top": 3952
+      },
+      "waypoint3": [
+        -1120,
+        2048
+      ],
+      "waypoint4": [
+        -1120,
+        3672
+      ]
     },
     {
       "player": 2,
       "color": "teal",
       "spawn": [
-        784.0,
-        4816.0
+        908,
+        3680
       ],
       "waypoint1": [
-        800.0,
-        2032.0
+        1152,
+        3680
       ],
       "waypoint2": [
-        1936.0,
-        2080.0
+        1152,
+        2056
       ],
       "end": [
-        1936.0,
-        4784.0
+        1820,
+        3680
       ],
       "buildZone": {
-        "left": 96,
-        "bottom": 480,
-        "right": 2592,
-        "top": 5152
-      }
+        "left": 872,
+        "bottom": 1776,
+        "right": 1856,
+        "top": 3960
+      },
+      "waypoint3": [
+        1576,
+        2056
+      ],
+      "waypoint4": [
+        1576,
+        3680
+      ]
     },
     {
       "player": 3,
       "color": "purple",
       "spawn": [
-        3584.0,
-        4768.0
+        3716,
+        3672
       ],
       "waypoint1": [
-        3616.0,
-        2032.0
+        3960,
+        3672
       ],
       "waypoint2": [
-        4752.0,
-        2064.0
+        3960,
+        2048
       ],
       "end": [
-        4736.0,
-        4784.0
+        4628,
+        3672
       ],
       "buildZone": {
-        "left": 2912,
-        "bottom": 480,
-        "right": 5376,
-        "top": 5152
-      }
+        "left": 3680,
+        "bottom": 1768,
+        "right": 4664,
+        "top": 3952
+      },
+      "waypoint3": [
+        4384,
+        2048
+      ],
+      "waypoint4": [
+        4384,
+        3672
+      ]
     },
     {
       "player": 4,
       "color": "yellow",
       "spawn": [
-        -4736.0,
-        -112.0
+        -4612,
+        -1192
       ],
       "waypoint1": [
-        -4752.0,
-        -2832.0
+        -4368,
+        -1192
       ],
       "waypoint2": [
-        -3568.0,
-        -2800.0
+        -4368,
+        -2816
       ],
       "end": [
-        -3568.0,
-        -64.0
+        -3700,
+        -1192
       ],
       "buildZone": {
-        "left": -5376,
-        "bottom": -4480,
-        "right": -2944,
-        "top": 224
-      }
+        "left": -4648,
+        "bottom": -3096,
+        "right": -3664,
+        "top": -912
+      },
+      "waypoint3": [
+        -3944,
+        -2816
+      ],
+      "waypoint4": [
+        -3944,
+        -1192
+      ]
     },
     {
       "player": 5,
       "color": "orange",
       "spawn": [
-        -1920.0,
-        -112.0
+        -1792,
+        -1192
       ],
       "waypoint1": [
-        -1920.0,
-        -2832.0
+        -1548,
+        -1192
       ],
       "waypoint2": [
-        -752.0,
-        -2800.0
+        -1548,
+        -2816
       ],
       "end": [
-        -752.0,
-        -112.0
+        -880,
+        -1192
       ],
       "buildZone": {
-        "left": -2592,
-        "bottom": -4480,
-        "right": -96,
-        "top": 224
-      }
+        "left": -1828,
+        "bottom": -3096,
+        "right": -844,
+        "top": -912
+      },
+      "waypoint3": [
+        -1124,
+        -2816
+      ],
+      "waypoint4": [
+        -1124,
+        -1192
+      ]
     },
     {
       "player": 6,
       "color": "green",
       "spawn": [
-        768.0,
-        -96.0
+        892,
+        -1192
       ],
       "waypoint1": [
-        768.0,
-        -2832.0
+        1136,
+        -1192
       ],
       "waypoint2": [
-        1936.0,
-        -2800.0
+        1136,
+        -2816
       ],
       "end": [
-        1920.0,
-        -80.0
+        1804,
+        -1192
       ],
       "buildZone": {
-        "left": 96,
-        "bottom": -4480,
-        "right": 2592,
-        "top": 224
-      }
+        "left": 856,
+        "bottom": -3096,
+        "right": 1840,
+        "top": -912
+      },
+      "waypoint3": [
+        1560,
+        -2816
+      ],
+      "waypoint4": [
+        1560,
+        -1192
+      ]
     },
     {
       "player": 7,
       "color": "pink",
       "spawn": [
-        3584.0,
-        -80.0
+        3712,
+        -1192
       ],
       "waypoint1": [
-        3584.0,
-        -2832.0
+        3956,
+        -1192
       ],
       "waypoint2": [
-        4752.0,
-        -2800.0
+        3956,
+        -2816
       ],
       "end": [
-        4752.0,
-        -64.0
+        4624,
+        -1192
       ],
       "buildZone": {
-        "left": 2944,
-        "bottom": -4480,
-        "right": 5376,
-        "top": 256
-      }
+        "left": 3676,
+        "bottom": -3096,
+        "right": 4660,
+        "top": -912
+      },
+      "waypoint3": [
+        4380,
+        -2816
+      ],
+      "waypoint4": [
+        4380,
+        -1192
+      ]
     }
   ],
   "rules": {

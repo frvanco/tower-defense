@@ -1,194 +1,118 @@
-import { towers, creeps, shops, buildableTowers, lanes, type Lane } from '@tower-defense/data';
+import { towers } from '@tower-defense/data';
 import { TICK_RATE, type GameState, type Arena } from '@tower-defense/sim';
-import { branchColor, branchInfo } from './branches.js';
-import { ARMOR_COLORS, laneColor } from './colors.js';
+import { branchInfo, branchName } from './branches.js';
 
-function h<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className?: string,
-  text?: string,
-): HTMLElementTagNameMap[K] {
-  const el = document.createElement(tag);
-  if (className) el.className = className;
-  if (text !== undefined) el.textContent = text;
-  return el;
-}
-
-function fmtClock(totalSeconds: number): string {
+export function fmtClock(totalSeconds: number): string {
   const s = Math.max(0, Math.ceil(totalSeconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 // ---------- topbar ----------
 
+/** Or/income/decompte ne sont PLUS ici (voir ResourcesRefs/updateResources
+ * plus bas) — deplaces dans la console pour rester a portee d'oeil de la
+ * grille d'achat (brief). Ne jamais les dupliquer aux deux endroits : une
+ * seule source affichee pour chaque valeur. */
 export interface TopbarRefs {
-  gold: HTMLElement;
-  income: HTMLElement;
   lives: HTMLElement;
   round: HTMLElement;
-  countdown: HTMLElement;
+  elapsed: HTMLElement;
 }
 
 export function updateTopbar(refs: TopbarRefs, state: GameState): void {
   const arena = state.arenas[0];
   if (!arena) return;
-  refs.gold.textContent = String(Math.floor(arena.gold));
-  refs.income.textContent = String(arena.income);
   refs.lives.textContent = arena.alive ? String(arena.lives) : 'dead';
   refs.round.textContent = String(state.round);
+  // Temps de jeu (state.tick), jamais une horloge murale : reste correct sous
+  // Pause/2x/4x, et le jour ou la partie sera pilotee par un serveur.
+  refs.elapsed.textContent = fmtClock(state.tick / TICK_RATE);
+}
+
+// ---------- ressources (console — voir le brief "Ressources dans la console") ----------
+
+export interface ResourcesRefs {
+  gold: HTMLElement;
+  income: HTMLElement;
+  countdown: HTMLElement;
+}
+
+/** En dessous de 10 000 : valeur exacte, `toLocaleString('fr-FR')` (espace
+ * fine insecable comme separateur de milliers — deja le format utilise pour
+ * les couts de palier/tuiles ailleurs dans cette meme console). A partir de
+ * 10 000 : format compact a 1 decimale ("105,5k") — au-dela de ce seuil le
+ * joueur compare a des paliers de 10 000/100 000, la precision a l'unite
+ * n'a plus d'usage (brief). TRONQUE (pas arrondi) a la decimale : 105 555
+ * doit afficher "105,5k", pas "105,6k" que donnerait un arrondi standard
+ * (verifie contre l'exemple explicite du brief). */
+export function formatCompactNumber(n: number): string {
+  const value = Math.max(0, Math.floor(n));
+  if (value < 10000) return value.toLocaleString('fr-FR');
+  const tenths = Math.floor(value / 100);
+  return `${Math.floor(tenths / 10)},${tenths % 10}k`;
+}
+
+/** Palier de taille selon le nombre de caracteres AFFICHES (brief : "tres
+ * grand pour trois ou quatre caracteres, grand pour cinq, moyen au-dela") —
+ * jamais une taille fixe, sans quoi elle est soit trop petite en debut de
+ * partie soit debordante en fin. Le CSS reserve deja la hauteur du plus
+ * grand palier (voir .cmd-resource-value dans style.css), donc changer de
+ * palier ne fait jamais varier la hauteur de la ligne. */
+export function resourceSizeTier(text: string): 'xl' | 'lg' | 'md' {
+  if (text.length <= 4) return 'xl';
+  if (text.length === 5) return 'lg';
+  return 'md';
+}
+
+function applySizeTier(el: HTMLElement, text: string): void {
+  el.textContent = text;
+  const tier = resourceSizeTier(text);
+  el.classList.toggle('cmd-resource-value--xl', tier === 'xl');
+  el.classList.toggle('cmd-resource-value--lg', tier === 'lg');
+  el.classList.toggle('cmd-resource-value--md', tier === 'md');
+}
+
+/** Toujours l'arene du joueur HUMAIN (arena[0]) — jamais celle observee, meme
+ * regle que updateTopbar : ces valeurs ne doivent exister qu'a un seul
+ * endroit a l'ecran, et ne jamais se confondre avec l'income affiche dans
+ * l'encart d'observation (voir main.ts, updateObservedPanel, arena distincte
+ * — viewedPlayer — chantier separe). Or ET income passent par le format
+ * compact/taille adaptative ci-dessus (les deux depassent leur plage
+ * confortable en fin de partie, voir le brief) ; le decompte, lui, reste
+ * TOUJOURS exact en m:ss (brief : "la lisibilite precise du temps restant a
+ * une valeur de jeu") — jamais compacte, jamais redimensionne. */
+export function updateResources(refs: ResourcesRefs, state: GameState): void {
+  const arena = state.arenas[0];
+  if (!arena) return;
+  applySizeTier(refs.gold, formatCompactNumber(arena.gold));
+  applySizeTier(refs.income, formatCompactNumber(arena.income));
   refs.countdown.textContent = fmtClock((state.nextRoundAt - state.tick) / TICK_RATE);
 }
 
-// ---------- build panel ----------
-
-export interface BuildButton {
-  defId: string;
-  el: HTMLButtonElement;
-}
-
-export function buildBuildPanel(container: HTMLElement, onPick: (defId: string) => void): BuildButton[] {
-  const out: BuildButton[] = [];
-  for (const id of buildableTowers) {
-    const def = towers.get(id);
-    if (!def) continue;
-    const btn = document.createElement('button');
-    btn.className = 'build-btn';
-    btn.style.setProperty('--branch-color', branchColor(id));
-    btn.appendChild(h('span', 'name', def.name));
-    btn.appendChild(h('span', 'cost', `${def.goldCost}g`));
-    btn.addEventListener('click', () => onPick(id));
-    container.appendChild(btn);
-    out.push({ defId: id, el: btn });
-  }
-  return out;
-}
-
-export function updateBuildPanel(buttons: BuildButton[], arena: Arena, armedId: string | null): void {
-  for (const b of buttons) {
-    const def = towers.get(b.defId);
-    if (!def) continue;
-    b.el.disabled = !arena.alive || arena.gold < def.goldCost;
-    b.el.classList.toggle('armed', b.defId === armedId);
-  }
-}
-
-// ---------- shop / send-creep panel ----------
-
-export interface ShopRow {
-  defId: string;
-  statusEl: HTMLElement;
-  btn: HTMLButtonElement;
-}
-
-export function buildShopPanel(container: HTMLElement, onSend: (defId: string) => void): ShopRow[] {
-  const out: ShopRow[] = [];
-  const seen = new Set<string>();
-  for (const shop of shops) {
-    const ids = shop.sells.filter((id) => creeps.has(id) && !seen.has(id));
-    if (ids.length === 0) continue;
-    container.appendChild(h('h4', undefined, shop.name));
-    for (const id of ids) {
-      seen.add(id);
-      const def = creeps.get(id);
-      if (!def) continue;
-
-      const row = h('div', 'shop-row');
-      const swatch = h('span', 'creep-swatch');
-      swatch.style.background = ARMOR_COLORS[def.armorType];
-      row.appendChild(swatch);
-
-      const info = h('div', 'shop-info');
-      info.appendChild(h('span', 'shop-name', def.name));
-      const meta = h('span', 'shop-meta', `${def.goldCost}g · +${def.pointValue} income`);
-      info.appendChild(meta);
-      row.appendChild(info);
-
-      const statusEl = h('span', 'shop-status', '');
-      row.appendChild(statusEl);
-
-      const btn = document.createElement('button');
-      btn.className = 'shop-send-btn';
-      btn.textContent = 'Send';
-      btn.addEventListener('click', () => onSend(id));
-      row.appendChild(btn);
-
-      container.appendChild(row);
-      out.push({ defId: id, statusEl, btn });
-    }
-  }
-  return out;
-}
-
-export function updateShopPanel(rows: ShopRow[], state: GameState, arena: Arena): void {
-  for (const r of rows) {
-    const def = creeps.get(r.defId);
-    const st = arena.stock[r.defId];
-    if (!def || !st) continue;
-
-    let sendable = arena.alive;
-    let status: string;
-    if (state.tick < st.availableAt) {
-      status = `locked ${fmtClock((st.availableAt - state.tick) / TICK_RATE)}`;
-      sendable = false;
-    } else if (st.count < 1) {
-      status = `restock ${fmtClock((st.nextReplenish - state.tick) / TICK_RATE)}`;
-      sendable = false;
-    } else {
-      status = `x${st.count}`;
-    }
-    if (sendable && arena.gold < def.goldCost) sendable = false;
-
-    r.statusEl.textContent = status;
-    r.btn.disabled = !sendable;
-  }
-}
-
-// ---------- other arenas panel ----------
-
-export interface ArenaRow {
-  player: number;
-  el: HTMLElement;
-  livesEl: HTMLElement;
-  statusEl: HTMLElement;
-}
-
-export function buildArenasPanel(container: HTMLElement, playerCount: number): ArenaRow[] {
-  const out: ArenaRow[] = [];
-  for (let p = 1; p < playerCount; p++) {
-    const lane: Lane | undefined = lanes.find((l) => l.player === p);
-    const row = h('div', 'arena-row');
-    const swatch = h('span', 'arena-swatch');
-    swatch.style.background = laneColor(lane?.color);
-    row.appendChild(swatch);
-    row.appendChild(h('span', 'arena-label', `P${p}`));
-    const livesEl = h('span', 'arena-lives', '-');
-    const statusEl = h('span', 'arena-status', '');
-    row.appendChild(livesEl);
-    row.appendChild(statusEl);
-    container.appendChild(row);
-    out.push({ player: p, el: row, livesEl, statusEl });
-  }
-  return out;
-}
-
-export function updateArenasPanel(rows: ArenaRow[], state: GameState): void {
-  for (const r of rows) {
-    const arena = state.arenas[r.player];
-    if (!arena) continue;
-    r.el.classList.toggle('dead', !arena.alive);
-    r.livesEl.textContent = arena.alive ? `${arena.lives} lives` : 'eliminated';
-    r.statusEl.textContent = arena.alive ? `${arena.income}g/rd` : '';
-  }
-}
-
-// ---------- selected tower panel ----------
+// ---------- panneau tour selectionnee (zone info de la barre de commandes) ----------
 
 export interface SelectedRefs {
   section: HTMLElement;
   name: HTMLElement;
   info: HTMLElement;
+  /** Icone de la tour POSEE, dans l'en-tete. */
+  nameIcon: HTMLElement;
   upgradeBtn: HTMLButtonElement;
+  /** Icone du palier SUIVANT, dans le bouton — masquee au palier maximum. */
+  upgradeBtnIcon: HTMLElement;
+  /** Libelle du bouton, separe de l'icone : ecrire dans le `textContent` du
+   * bouton lui-meme detruirait l'icone a chaque rendu. */
+  upgradeBtnLabel: HTMLElement;
   sellBtn: HTMLButtonElement;
+}
+
+/** `iconUrl` n'existe pas encore dans le type TowerDef : il est fourni par
+ * balance.json et traverse `applyOverrides` tel quel. Meme lecture defensive
+ * que celle des tuiles (voir iconUrlOf dans commandBar.ts) — une tour sans
+ * icone n'est pas une erreur, l'apercu se contente de ne rien afficher. */
+function iconUrlOf(def: object): string | undefined {
+  const v = (def as { iconUrl?: unknown }).iconUrl;
+  return typeof v === 'string' && v.length > 0 ? v : undefined;
 }
 
 export function updateSelectedPanel(refs: SelectedRefs, arena: Arena | undefined, eid: number | null): void {
@@ -203,18 +127,51 @@ export function updateSelectedPanel(refs: SelectedRefs, arena: Arena | undefined
     return;
   }
   refs.section.hidden = false;
-  refs.name.textContent = `${def.name} (tier ${branchInfo(tower.defId).tier + 1})`;
+  // Nom de BRANCHE en plus du palier : « Canon lourd (Balistique, palier 3) »
+  // situe la tour dans son arbre, ce que « tier 3 » seul ne faisait pas — et
+  // le nom de branche ne bouge pas quand une tour est renommee (voir
+  // branchName / la section `branches` de balance.json). Omis quand il
+  // repete le nom de la tour : plusieurs branches portent le nom de leur
+  // racine (Givre, Acide, Reacteur), « Givre (Givre, palier 1) » n'apprend
+  // rien.
+  const branch = branchName(tower.defId);
+  const tier = branchInfo(tower.defId).tier + 1;
+  const qualifier = branch && branch !== def.name ? `${branch}, palier ${tier}` : `palier ${tier}`;
+  refs.name.textContent = `${def.name} (${qualifier})`;
   refs.info.textContent = `dmg ${def.damageBase}+${def.dice}d${def.sides} · range ${def.range} · cooldown ${def.cooldown}s`;
 
+  // Icone de la tour POSEE. Retiree (et non laissee vide) si cette tour n'a
+  // pas d'icone : un cadre creux dans l'en-tete se lirait comme un defaut.
+  const ownIcon = iconUrlOf(def);
+  refs.nameIcon.hidden = !ownIcon;
+  if (ownIcon) refs.nameIcon.style.backgroundImage = `url(${ownIcon})`;
+
+  // Le bouton reste toujours visible tant qu'une tour est selectionnee (que
+  // ce soit pour proposer le palier suivant ou pour signaler qu'il n'y en a
+  // plus) : jamais masque via `hidden` ici (retour direct — `#upgrade-btn`
+  // a un `display` fixe en dur dans style.css, plus specifique que le
+  // `[hidden]` par defaut du navigateur, donc `hidden=true` ne masquait rien
+  // en pratique ; le texte de la DERNIERE amelioration valide restait donc
+  // affiche sans indiquer que la tour est au palier max — meme categorie de
+  // bug que #cmd-grid-send/#observation-bar plus tot dans ce projet).
   const nextId = def.upgradesTo[0];
   const next = nextId ? towers.get(nextId) : undefined;
+  refs.upgradeBtn.hidden = false;
   if (next) {
-    refs.upgradeBtn.hidden = false;
-    refs.upgradeBtn.textContent = `Upgrade -> ${next.name} (${next.goldCost}g)`;
+    // `upgradeBtnLabel`, jamais `upgradeBtn` : ecrire dans le textContent du
+    // bouton effacerait l'icone qu'il contient.
+    refs.upgradeBtnLabel.textContent = `Upgrade -> ${next.name} (${next.goldCost}g)`;
     refs.upgradeBtn.disabled = !arena.alive || arena.gold < next.goldCost;
   } else {
-    refs.upgradeBtn.hidden = true;
+    refs.upgradeBtnLabel.textContent = 'Améliorée au maximum';
+    refs.upgradeBtn.disabled = true;
   }
+
+  // Icone du palier SUIVANT, sur le bouton qui l'achete — pas dans la zone
+  // descriptive au-dessus, ou elle se lirait comme le palier courant.
+  const nextIcon = next ? iconUrlOf(next) : undefined;
+  refs.upgradeBtnIcon.hidden = !nextIcon;
+  if (nextIcon) refs.upgradeBtnIcon.style.backgroundImage = `url(${nextIcon})`;
 
   refs.sellBtn.hidden = false;
   refs.sellBtn.textContent = `Sell (+${def.refund}g)`;

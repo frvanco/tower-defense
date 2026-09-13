@@ -1,21 +1,70 @@
 import * as THREE from 'three';
 import type { Arena, Tower, Creep } from '@tower-defense/sim';
+import { totalSlowPct } from '@tower-defense/sim';
 import { buildableTowers, towers as towerDefs, creeps as creepDefs, type TowerDef, type CreepDef } from '@tower-defense/data';
 import {
   makeCannonTower,
   makePlaceholderTower,
+  makeModelTower,
+  updateTowerAnimation,
+  playTowerFire,
   hasDedicatedGeometry,
+  getBranchChain,
   startBuild,
   updateBuild,
   aimTurret,
   DEFAULT_BUILD_DURATION_SEC,
+  isSharedTowerMaterial,
 } from '@tower-defense/renderer';
 import { branchInfo, branchHue } from './branches.js';
 import { ARMOR_COLORS } from './colors.js';
 import { worldToScene, type Frame3D } from './world3d.js';
+import { PLATFORM_HEIGHT } from './terrain3d.js';
+import { TURRET_REST_ANGLE } from './scene3d.js';
+import {
+  ICE_TINT_COLOR,
+  ICE_TINT_MAX_PCT,
+  ICE_TINT_MAX_MIX,
+  BOB_BASE_HZ,
+  NOMINAL_MOVE_SPEED,
+  BOB_AMPLITUDE_RATIO,
+  FROST_SHARD_SLOW_THRESHOLD,
+} from './iceEffects.js';
+import { PoisonBubbles, POISON_EMISSIVE_COLOR, POISON_PULSE_HZ, POISON_PULSE_MIN } from './poisonEffects.js';
+import { loadAnimatedCreepModel, getAnimatedCreepModel, type AnimatedCreepModel } from './animatedCreepModel.js';
+import { AnimatedCreepController } from './animatedCreepInstances.js';
+import { getTowerModel, preloadTowerModels } from './towerModel.js';
+import { getCreepBodyGeometry, getCreepRingGeometry, getCreepRingMaterial, getFrostShardGeometry, getFrostShardMaterial } from './creepVisualCache.js';
 
 /** Meme vitesse de rotation que la galerie de demo validee (packages/renderer/demo). */
 const TURN_RATE = 2.6;
+
+/**
+ * Libere geometrie + materiau de chaque mesh d'un groupe de tour retire de la
+ * scene (upgrade, vente, ou fin de partie) — jamais les materiaux partages
+ * (MAT.*, teamMaterial(color), voir packages/renderer/src/materials.ts) qui
+ * restent utilises par d'autres tours. Les geometries des tours PROCEDURALES
+ * sont propres a l'instance (chaque `new THREE.XxxGeometry(...)` de cannon.ts
+ * et placeholder.ts est un appel distinct), donc sures a disposer ; celles
+ * des tours issues d'un .glb sont partagees et marquees comme telles.
+ */
+function disposeTowerGroup(group: THREE.Group): void {
+  group.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    // Exception a la regle ci-dessus : les tours issues d'un .glb sont des
+    // CLONES d'un modele en cache, et un clone Three.js partage la geometrie
+    // de sa source. La disposer a la vente d'une tour detruirait toutes les
+    // autres tours du meme type, et le modele en cache avec (voir
+    // prepareTowerModel, qui pose ce drapeau).
+    if (!mesh.userData.sharedGeometry) mesh.geometry?.dispose();
+    const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+    const materials = Array.isArray(material) ? material : material ? [material] : [];
+    for (const m of materials) {
+      if (!isSharedTowerMaterial(m)) m.dispose();
+    }
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Tours
@@ -24,6 +73,10 @@ const TURN_RATE = 2.6;
 interface TrackedTower {
   defId: string;
   group: THREE.Group;
+  /** `cooldown` de cette tour au dernier passage — sert a detecter les tirs
+   * (voir update). Initialise a la valeur courante, jamais a une sentinelle :
+   * une tour qui apparait ne doit pas jouer un recul au premier passage. */
+  lastCooldown: number;
 }
 
 export class TowerEntities {
@@ -38,16 +91,33 @@ export class TowerEntities {
   private makeMesh(defId: string, eid: number): THREE.Group {
     const { branch, tier } = branchInfo(defId);
     const root = buildableTowers[branch]!;
-    const group = hasDedicatedGeometry(root)
-      ? makeCannonTower(tier, this.teamColor)
-      : makePlaceholderTower(root, tier, branchHue(defId), this.teamColor);
+    // Ordre de preference : modele .glb s'il est charge, sinon la geometrie
+    // dediee de la branche, sinon le placeholder. Un modele pas encore charge
+    // (ou illisible) donne donc la tour procedurale — jamais rien a l'ecran.
+    const model = getTowerModel(defId);
+    const def = towerDefs.get(defId);
+    let group: THREE.Group;
+    if (model && def) {
+      group = makeModelTower(model, def, tier, getBranchChain(root).length, this.teamColor);
+    } else if (hasDedicatedGeometry(root)) {
+      group = makeCannonTower(tier, this.teamColor);
+    } else {
+      group = makePlaceholderTower(root, tier, branchHue(defId), this.teamColor);
+    }
     group.userData.eid = eid;
+    // Orientation de depart, avant toute cible : face au spectateur plutot que
+    // de dos (voir TURRET_REST_ANGLE). Pose ici, au seul endroit qui cree les
+    // trois types de tours, pour qu'elles soient coherentes entre elles.
+    const turret = group.userData.turret as THREE.Object3D | undefined;
+    if (turret) turret.rotation.y = TURRET_REST_ANGLE;
     return group;
   }
 
   private place(group: THREE.Group, t: Tower): void {
     const [sx, sz] = worldToScene(this.frame, t.x, t.y);
-    group.position.set(sx, 0, sz);
+    // Les tours se posent sur le plateau surelevé (voir terrain3d.ts) ; le
+    // chemin, lui, reste au niveau bas.
+    group.position.set(sx, PLATFORM_HEIGHT, sz);
   }
 
   /** A appeler apres tick() : cree/upgrade/retire les meshes pour coller a `arena.towers`. */
@@ -61,7 +131,7 @@ export class TowerEntities {
         this.place(group, t);
         this.layer.add(group);
         startBuild(group, DEFAULT_BUILD_DURATION_SEC);
-        this.byEid.set(t.eid, { defId: t.defId, group });
+        this.byEid.set(t.eid, { defId: t.defId, group, lastCooldown: t.cooldown });
         continue;
       }
       if (tracked.defId !== t.defId) {
@@ -70,18 +140,24 @@ export class TowerEntities {
         // Group au nouveau palier et on rejoue le MEME systeme de
         // construction que pour la pose initiale (c'est explicitement le but
         // de build.ts : un seul systeme pour le build ET les upgrades).
+        // L'ANCIEN groupe, lui, ne sert plus a rien : le disposer avant de
+        // le retirer evite de laisser sa geometrie/ses materiaux hors cache
+        // alloues indefiniment cote GPU (voir disposeTowerGroup).
         this.layer.remove(tracked.group);
+        disposeTowerGroup(tracked.group);
         const group = this.makeMesh(t.defId, t.eid);
         this.place(group, t);
         this.layer.add(group);
         startBuild(group, DEFAULT_BUILD_DURATION_SEC);
         tracked.defId = t.defId;
         tracked.group = group;
+        tracked.lastCooldown = t.cooldown;
       }
     }
     for (const [eid, tracked] of this.byEid) {
       if (!seen.has(eid)) {
         this.layer.remove(tracked.group);
+        disposeTowerGroup(tracked.group);
         this.byEid.delete(eid);
       }
     }
@@ -93,7 +169,16 @@ export class TowerEntities {
       const tracked = this.byEid.get(t.eid);
       if (!tracked) continue;
       updateBuild(tracked.group, dt);
+      updateTowerAnimation(tracked.group, dt);
       const building = !!tracked.group.userData.build;
+
+      // Detection du tir SANS toucher a packages/sim : `cooldown` decroit d'un
+      // tick a chaque tick et n'est remis a sa valeur pleine qu'au moment ou
+      // la tour tire (voir fireTowers). Une REMONTEE de cette valeur signale
+      // donc un tir qui vient de partir — signal en lecture seule, suffisant
+      // pour jouer le recul au bon moment.
+      if (t.cooldown > tracked.lastCooldown) playTowerFire(tracked.group);
+      tracked.lastCooldown = t.cooldown;
 
       if (!building) {
         const def = towerDefs.get(t.defId);
@@ -120,7 +205,10 @@ export class TowerEntities {
   /** Vide tout — utilise au redemarrage d'une partie (les eid repartent de 1,
    * il ne faut pas laisser d'anciens meshes trainer sous des eid reutilises). */
   clear(): void {
-    for (const { group } of this.byEid.values()) this.layer.remove(group);
+    for (const { group } of this.byEid.values()) {
+      this.layer.remove(group);
+      disposeTowerGroup(group);
+    }
     this.byEid.clear();
   }
 }
@@ -158,6 +246,78 @@ function pickVisualTarget(tower: Tower, def: TowerDef, arena: Arena): Creep | nu
 // Creeps
 // ---------------------------------------------------------------------------
 
+/**
+ * Skins 3D reels (modele + animations) plutot que la sphere generique, pour
+ * les creeps qui en ont un — cle : id du creep (@tower-defense/data). Chargement
+ * + pretraitement (echelle, fusion par noeud anime, materiau partage) geres
+ * par animatedCreepModel.ts ; rendu/anim instancies par arene geres par
+ * animatedCreepInstances.ts. Declenche une seule fois ici, par modele ;
+ * tant qu'un modele n'est pas pret, spawn() retombe sur la sphere/cone
+ * habituelle pour ce creep (aucun blocage). Hauteur cible par creep — 1.8
+ * (gabarit humain courant) comme reference, avec un multiplicateur par creep
+ * la ou le gabarit livre ne tenait pas a l'echelle du jeu (retours directs
+ * successifs : -20% sur les paliers 1-3, puis les ajustements unitaires
+ * ci-dessous). C'est le SEUL reglage de taille : buildModel() normalise
+ * chaque modele sur cette hauteur quelle que soit son echelle interne (voir
+ * animatedCreepModel.ts), donc redimensionner un .glb n'aurait aucun effet.
+ * `height` sert aussi a placer la barre de vie (voir syncHumanoid), donc
+ * jamais une constante partagee en dur ailleurs.
+ *
+ * Les fichiers vivent dans `public/models/creeps/`, un sous-dossier par type
+ * d'entite — meme convention que `public/icons/creeps/`. Les modeles de tours,
+ * quand il y en aura, vont dans `public/models/towers/` : les tours sont
+ * aujourd'hui entierement procedurales (packages/renderer/src/towers), donc
+ * aucune n'a de .glb pour l'instant.
+ */
+const HUMANOID_HEIGHT_DEFAULT = 1.8;
+const HUMANOID_MODEL_CONFIG: Record<string, { url: string; height: number }> = {
+  n000: { url: '/models/creeps/lv1_trainard.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Trainard
+  h001: { url: '/models/creeps/lv2_conscrit.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Conscrit
+  h009: { url: '/models/creeps/lv3_sapeur.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Sapeur
+  h00A: { url: '/models/creeps/lv4_lancier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Lancier
+  h00B: { url: '/models/creeps/lv5_hallebardier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Hallebardier
+  h00C: { url: '/models/creeps/lv6_bretteur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Bretteur
+  h00D: { url: '/models/creeps/lv7_grognard.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Grognard
+  u000: { url: '/models/creeps/lv8_fauconnier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Fauconnier
+  u001: { url: '/models/creeps/lv9_chevaucheur_aigle.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Chevaucheur d'aigle
+  h00E: { url: '/models/creeps/lv10_eclaireur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Éclaireur
+  h00F: { url: '/models/creeps/lv11_cuirassier.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Cuirassier
+  h00G: { url: '/models/creeps/lv12_marechal.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Maréchal
+  h00H: { url: '/models/creeps/lv13_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Greffé
+  u002: { url: '/models/creeps/lv14_voltigeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Voltigeur
+  h00I: { url: '/models/creeps/lv15_bras_canon.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Bras-canon
+  h00J: { url: '/models/creeps/lv16_sergent_augmente.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Sergent augmenté
+  u003: { url: '/models/creeps/lv17_planeur_assaut.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Planeur d'assaut
+  h00K: { url: '/models/creeps/lv18_exosquelette_lourd.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Exosquelette lourd
+  u004: { url: '/models/creeps/lv19_seraphin.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.8 }, // Séraphin d'acier
+  h00L: { url: '/models/creeps/lv20_traqueur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Traqueur
+  h00M: { url: '/models/creeps/lv21_broyeur.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Broyeur
+  u005: { url: '/models/creeps/lv22_colosse_aile.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Colosse ailé
+  h00N: { url: '/models/creeps/lv23_titan_greffe.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Titan greffé
+  h00O: { url: '/models/creeps/lv24_prototype_omega.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Prototype Oméga
+  u006: { url: '/models/creeps/lv26_essaim_drones.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.2 }, // Essaim de drones
+  h00P: { url: '/models/creeps/lv27_meute_quadrupede.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.3 }, // Meute quadrupède
+  h00Q: { url: '/models/creeps/lv28_marcheur_siege.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Marcheur de siège
+  u007: { url: '/models/creeps/lv25_cuirasse_aerien.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.7 }, // Cuirassé aérien
+  h00R: { url: '/models/creeps/lv29_ecraseur_chenille.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.15 }, // Écraseur chenillé
+  h00U: { url: '/models/creeps/lv30_gardien_alpha.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.3 }, // Gardien Alpha
+  h00V: { url: '/models/creeps/lv31_arbitre.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.3 }, // Arbitre
+  u008: { url: '/models/creeps/lv33_porte_nefs.glb', height: HUMANOID_HEIGHT_DEFAULT * 0.72 }, // Porte-nefs
+  h00W: { url: '/models/creeps/lv34_executeur.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.4 }, // Exécuteur
+  u00A: { url: '/models/creeps/lv35_dreadnought_orbital.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Dreadnought orbital
+  h00X: { url: '/models/creeps/lv32_forteresse_mobile.glb', height: HUMANOID_HEIGHT_DEFAULT * 1.2 }, // Forteresse mobile
+  h00Z: { url: '/models/creeps/lv36_intelligence_mere.glb', height: HUMANOID_HEIGHT_DEFAULT }, // Intelligence Mère
+};
+// HUMANOID_HEIGHT_DEFAULT en 3e argument : l'altitude de vol des creeps
+// volants reste calibree sur le gabarit commun, elle ne suit donc PAS le
+// multiplicateur de taille propre a chaque creep (voir loadAnimatedCreepModel).
+for (const cfg of Object.values(HUMANOID_MODEL_CONFIG))
+  void loadAnimatedCreepModel(cfg.url, cfg.height, HUMANOID_HEIGHT_DEFAULT);
+
+// Modeles de tours (voir towerModel.ts) — meme principe : charges une fois au
+// demarrage, avec repli sur la geometrie procedurale tant qu'ils ne le sont pas.
+preloadTowerModels();
+
 function creepRadius(def: CreepDef): number {
   return Math.max(0.05, Math.min(0.22, 0.05 + Math.log10(Math.max(1, def.hitPoints)) * 0.045));
 }
@@ -178,6 +338,15 @@ function makeHpBar(): THREE.Sprite {
   return sprite;
 }
 
+/** La texture (canvas peint) et le materiau sont crees un par un par creep
+ * (le contenu affiche — la fraction de vie — est propre a cette instance et
+ * ne peut pas etre partage), donc a liberer explicitement a sa mort. */
+function disposeHpBar(sprite: THREE.Sprite): void {
+  const material = sprite.material as THREE.SpriteMaterial;
+  material.map?.dispose();
+  material.dispose();
+}
+
 function paintHpBar(sprite: THREE.Sprite, frac: number): void {
   const material = sprite.material as THREE.SpriteMaterial;
   const texture = material.map as THREE.CanvasTexture;
@@ -191,44 +360,208 @@ function paintHpBar(sprite: THREE.Sprite, frac: number): void {
   texture.needsUpdate = true;
 }
 
-interface TrackedCreep {
-  body: THREE.Mesh;
+/** Trois petits eclats coniques autour du corps, masques par defaut — bascules
+ * visibles quand le ralentissement total approche du plafond (voir sync()). */
+function buildFrostShards(r: number): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'frost';
+  const geo = getFrostShardGeometry(r);
+  const mat = getFrostShardMaterial();
+  for (let i = 0; i < 3; i++) {
+    const shard = new THREE.Mesh(geo, mat);
+    const angle = (i / 3) * Math.PI * 2;
+    shard.position.set(Math.cos(angle) * r * 0.7, r * 0.2, Math.sin(angle) * r * 0.7);
+    shard.rotation.z = angle;
+    g.add(shard);
+  }
+  return g;
+}
+
+interface TrackedCreepBase {
   ring: THREE.Mesh;
   bar: THREE.Sprite;
 }
 
+/** Sphere/cone generique — tous les creeps sans skin dedie (et un creep avec
+ * skin dedie tant que son modele n'est pas encore charge, voir spawn()). */
+interface TrackedCreepSphere extends TrackedCreepBase {
+  kind: 'sphere';
+  body: THREE.Mesh;
+  baseColor: THREE.Color;
+  frost: THREE.Group;
+  /** Phase du bob de marche (radians) — avance a une vitesse proportionnelle
+   * a la vitesse reelle du creep (moveSpeed ET ralentissement gel/poison actif),
+   * donc suit tout changement de l'une ou l'autre. */
+  phase: number;
+}
+
+/** Creep rendu par instance partagee (voir animatedCreepInstances.ts) — pas
+ * de body individuel ici, juste l'anneau/la barre de vie propres a ce creep.
+ * `modelUrl` selectionne le bon AnimatedCreepController parmi ceux geres par
+ * CreepEntities (un par modele charge). */
+interface TrackedCreepHumanoid extends TrackedCreepBase {
+  kind: 'humanoid';
+  modelUrl: string;
+  /** Hauteur cible de CE modele (voir HUMANOID_MODEL_CONFIG) — place la
+   * barre de vie au bon endroit meme quand elle differe du gabarit par
+   * defaut (paliers 1-3, reduits de 20%). */
+  height: number;
+}
+
+type TrackedCreep = TrackedCreepSphere | TrackedCreepHumanoid;
+
 export class CreepEntities {
   private byEid = new Map<number, TrackedCreep>();
+  private poisonBubbles = new PoisonBubbles();
+  private clock = 0;
+  private tmpColor = new THREE.Color();
+  /** Un AnimatedCreepController par modele (url), cree au premier creep de ce
+   * type rencontre une fois son modele charge — pas par id de creep : si un
+   * jour deux creeps differents partagent le meme fichier, ils partagent
+   * aussi son rendu instancie. */
+  private animControllers = new Map<string, AnimatedCreepController>();
 
   constructor(
     private layer: THREE.Group,
     private frame: Frame3D,
     private laneColorByPlayer: Map<number, string>,
-  ) {}
+  ) {
+    this.layer.add(this.poisonBubbles.mesh);
+  }
+
+  /** Cree le rendu/animation instancies de ce modele des qu'il est charge
+   * (asynchrone, voir animatedCreepModel.ts) — au plus une fois par arene et
+   * par modele. `creepId` sert uniquement a retrouver la vitesse nominale du
+   * creep pour calibrer le cycle de marche (voir plus bas). */
+  private ensureAnimController(url: string, creepId: string): AnimatedCreepController | null {
+    const existing = this.animControllers.get(url);
+    if (existing) return existing;
+    const model = getAnimatedCreepModel(url);
+    if (!model) return null;
+    const controller = new AnimatedCreepController(model);
+    this.animControllers.set(url, controller);
+    this.layer.add(controller.sceneGroup);
+
+    // Distance d'un cycle de marche complet = ce que ce creep parcourt, a sa
+    // propre vitesse nominale, pendant la duree reelle du clip Walk —
+    // calibration derivee des donnees plutot qu'une valeur choisie a l'oeil
+    // (voir aussi la verification visuelle du glissement des pieds).
+    const def = creepDefs.get(creepId);
+    if (def) controller.setCycleDistance(def.moveSpeed * this.frame.scale * model.walkClipDuration);
+    return controller;
+  }
+
+  /** Geometrie + materiau de l'anneau viennent tous deux du cache partage
+   * (creepVisualCache.ts) : ni l'un ni l'autre ne sont jamais mutes apres
+   * construction (contrairement au materiau du CORPS, voir syncSphere), donc
+   * surs a partager entre tous les creeps d'un meme rayon/couleur de lane —
+   * et a ne JAMAIS disposer par instance (voir sync()/clear() plus bas). */
+  private makeRing(sender: number, r: number): THREE.Mesh {
+    const ringColor = this.laneColorByPlayer.get(sender) ?? '#888888';
+    const ring = new THREE.Mesh(getCreepRingGeometry(r), getCreepRingMaterial(ringColor));
+    ring.rotation.x = -Math.PI / 2;
+    this.layer.add(ring);
+    return ring;
+  }
 
   private spawn(c: Creep, def: CreepDef): TrackedCreep {
+    const config = HUMANOID_MODEL_CONFIG[def.id];
+    if (config && this.ensureAnimController(config.url, def.id)) {
+      const ring = this.makeRing(c.sender, creepRadius(def));
+      const bar = makeHpBar();
+      this.layer.add(bar);
+      return { kind: 'humanoid', modelUrl: config.url, height: config.height, ring, bar };
+    }
+    // Pas de modele dedie pour ce creep, ou pas encore charge : repli sur la
+    // sphere/cone generique ci-dessous.
+
     const r = creepRadius(def);
-    const color = ARMOR_COLORS[def.armorType];
-    const geo = def.isAir ? new THREE.ConeGeometry(r, r * 2.1, 8) : new THREE.SphereGeometry(r, 10, 8);
-    const body = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color }));
+    const baseColor = new THREE.Color(ARMOR_COLORS[def.armorType]);
+    // Geometrie partagee (cache, par rayon/isAir — jamais mutee) ; materiau
+    // PROPRE a cette instance (sa teinte change chaque frame pour le gel/le
+    // poison, voir syncSphere — impossible a partager sans faire deteindre
+    // un creep sur un autre). C'est ce materiau, et lui seul, qu'il faudra
+    // disposer explicitement a la mort de ce creep (sync()/clear()).
+    const body = new THREE.Mesh(
+      getCreepBodyGeometry(def.isAir, r),
+      new THREE.MeshLambertMaterial({ color: baseColor.clone() }),
+    );
     body.castShadow = true;
     this.layer.add(body);
 
-    const ringColor = this.laneColorByPlayer.get(c.sender) ?? '#888888';
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(r * 0.95, r * 1.25, 16),
-      new THREE.MeshBasicMaterial({ color: ringColor, side: THREE.DoubleSide }),
-    );
-    ring.rotation.x = -Math.PI / 2;
-    this.layer.add(ring);
+    const frost = buildFrostShards(r);
+    frost.visible = false;
+    body.add(frost);
 
+    const ring = this.makeRing(c.sender, r);
     const bar = makeHpBar();
     this.layer.add(bar);
 
-    return { body, ring, bar };
+    return { kind: 'sphere', body, ring, bar, baseColor, frost, phase: Math.random() * Math.PI * 2 };
   }
 
-  sync(arena: Arena): void {
+  private syncHumanoid(tracked: TrackedCreepHumanoid, c: Creep, def: CreepDef, sx: number, sz: number, dt: number, poisonDps: number): void {
+    // kind === 'humanoid' implique que le modele etait deja charge au moment
+    // du spawn (voir spawn()) et reste en cache indefiniment : controller et
+    // model sont donc garantis presents ici, pas de repli a gerer.
+    const controller = this.animControllers.get(tracked.modelUrl)!;
+    const model = getAnimatedCreepModel(tracked.modelUrl)!;
+
+    // La progression du cycle de marche depend de la distance reellement
+    // parcourue depuis le dernier sync (calculee a l'interieur de
+    // updateAlive a partir de sx/sz), jamais du temps ecoule : un creep
+    // ralenti par la glace marche au ralenti, il ne patine pas.
+    controller.updateAlive(c.eid, sx, sz);
+
+    tracked.ring.position.set(sx, 0.02, sz);
+    // `baseY` (bas reel du modele) et non `groundOffsetY` (simple correction
+    // de rendu) : les deux se confondent pour un modele terrestre, mais pas
+    // pour un volant, dont la barre finissait A L'INTERIEUR du modele.
+    tracked.bar.position.set(sx, model.baseY + tracked.height + 0.16, sz);
+    paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
+    if (poisonDps > 0) this.poisonBubbles.requestSpawn(c.eid, sx, model.baseY, sz, poisonDps, dt);
+    else this.poisonBubbles.clearAccumulator(c.eid);
+  }
+
+  private syncSphere(tracked: TrackedCreepSphere, c: Creep, def: CreepDef, sx: number, sz: number, dt: number, icePct: number, poisonDps: number, slow: number): void {
+    // Cadence de marche proportionnelle a la vitesse reelle : moveSpeed du
+    // creep (relatif a NOMINAL_MOVE_SPEED — suit donc creepSpeedMultiplier
+    // de balance.json) ET meme facteur 1-slow que packages/sim/src/sim.ts
+    // moveCreeps pour le ralentissement gel/poison actif.
+    const speedRatio = def.moveSpeed / NOMINAL_MOVE_SPEED;
+    tracked.phase += dt * BOB_BASE_HZ * speedRatio * Math.PI * 2 * (1 - slow);
+    const r = creepRadius(def);
+    const bob = Math.sin(tracked.phase) * r * BOB_AMPLITUDE_RATIO;
+
+    const h = creepHeight(def);
+    tracked.body.position.set(sx, h + bob, sz);
+    tracked.ring.position.set(sx, 0.02, sz);
+    tracked.bar.position.set(sx, h + r + bob + 0.16, sz);
+    paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
+
+    const mat = tracked.body.material as THREE.MeshLambertMaterial;
+    const iceMix = Math.min(1, icePct / ICE_TINT_MAX_PCT) * ICE_TINT_MAX_MIX;
+    mat.color.copy(tracked.baseColor).lerp(ICE_TINT_COLOR, iceMix);
+
+    // Pulsation de poison : canal emissif separe, se compose sans jamais
+    // entrer en conflit avec la teinte de gel ci-dessus.
+    if (poisonDps > 0) {
+      const pulse =
+        POISON_PULSE_MIN + (1 - POISON_PULSE_MIN) * (0.5 + 0.5 * Math.sin(this.clock * POISON_PULSE_HZ * Math.PI * 2));
+      mat.emissive.copy(this.tmpColor.copy(POISON_EMISSIVE_COLOR).multiplyScalar(pulse));
+      this.poisonBubbles.requestSpawn(c.eid, sx, h, sz, poisonDps, dt);
+    } else {
+      mat.emissive.setRGB(0, 0, 0);
+      this.poisonBubbles.clearAccumulator(c.eid);
+    }
+
+    tracked.frost.visible = slow >= FROST_SHARD_SLOW_THRESHOLD;
+  }
+
+  /** A appeler une fois par frame de rendu (pas seulement par tick sim) : sync
+   * position/vie ET fait vivre les effets d'ability (teinte, bob, particules). */
+  sync(arena: Arena, tick: number, dt: number): void {
+    this.clock += dt;
     const seen = new Set<number>();
     for (const c of arena.creeps) {
       seen.add(c.eid);
@@ -239,23 +572,87 @@ export class CreepEntities {
         tracked = this.spawn(c, def);
         this.byEid.set(c.eid, tracked);
       }
+
+      const icePct = c.ice && c.ice.untilTick > tick ? c.ice.pct : 0;
+      const poisonDps = c.poison && c.poison.untilTick > tick ? c.poison.dps : 0;
+      const slow = totalSlowPct(c, tick);
       const [sx, sz] = worldToScene(this.frame, c.x, c.y);
-      const h = creepHeight(def);
-      tracked.body.position.set(sx, h, sz);
-      tracked.ring.position.set(sx, 0.02, sz);
-      tracked.bar.position.set(sx, h + creepRadius(def) + 0.16, sz);
-      paintHpBar(tracked.bar, def.hitPoints > 0 ? c.hp / def.hitPoints : 0);
+
+      if (tracked.kind === 'humanoid') this.syncHumanoid(tracked, c, def, sx, sz, dt, poisonDps);
+      else this.syncSphere(tracked, c, def, sx, sz, dt, icePct, poisonDps, slow);
     }
     for (const [eid, tracked] of this.byEid) {
       if (!seen.has(eid)) {
-        this.layer.remove(tracked.body, tracked.ring, tracked.bar);
+        // La sim a deja retire ce creep (immediat, packages/sim reste seul
+        // maitre du timing) — la barre de vie et l'anneau disparaissent avec
+        // lui des maintenant. Le corps d'un creep avec skin dedie, lui, reste
+        // brievement : l'instance joue Death une fois avant de se liberer
+        // (voir AnimatedCreepController.markDying/advanceDying) ; une
+        // sphere, elle, n'a pas d'animation de mort et disparait
+        // immediatement aussi.
+        // Ressources propres a CETTE instance, a liberer : le materiau du
+        // corps (sphere uniquement — sa teinte gel/poison lui est propre,
+        // voir spawn()) et la texture/le materiau de la barre de vie (sa
+        // peinture aussi). L'anneau, lui, ne se dispose JAMAIS ici : sa
+        // geometrie/son materiau viennent du cache partage
+        // (creepVisualCache.ts) et restent utilises par d'autres creeps du
+        // meme rayon/de la meme lane.
+        if (tracked.kind === 'humanoid') this.animControllers.get(tracked.modelUrl)?.markDying(eid);
+        else {
+          this.layer.remove(tracked.body);
+          (tracked.body.material as THREE.Material).dispose();
+        }
+        this.layer.remove(tracked.ring, tracked.bar);
+        disposeHpBar(tracked.bar);
+        this.poisonBubbles.clearAccumulator(eid);
         this.byEid.delete(eid);
       }
     }
+    for (const controller of this.animControllers.values()) controller.advanceDying(dt);
+    this.poisonBubbles.update(dt);
   }
 
   clear(): void {
-    for (const { body, ring, bar } of this.byEid.values()) this.layer.remove(body, ring, bar);
+    for (const tracked of this.byEid.values()) {
+      if (tracked.kind === 'sphere') {
+        this.layer.remove(tracked.body);
+        (tracked.body.material as THREE.Material).dispose();
+      }
+      this.layer.remove(tracked.ring, tracked.bar);
+      disposeHpBar(tracked.bar);
+    }
+    for (const controller of this.animControllers.values()) controller.clear();
     this.byEid.clear();
+    this.poisonBubbles.clear();
+  }
+
+  /** Denombrements cote rendu, utilises par l'instrumentation perf (perf=1)
+   * uniquement — `alive` = creeps encore dans la sim (sphere + humanoide),
+   * `animating` = instances humanoides en train de jouer Walk OU Death (les
+   * depouilles restent animees un court instant apres leur retrait de la
+   * sim, voir AnimatedCreepController.markDying), donc >= la part humanoide
+   * de `alive`. */
+  get counts(): {
+    alive: number;
+    sphereAlive: number;
+    humanoidAlive: number;
+    animating: number;
+    poisonBubbles: number;
+  } {
+    let sphereAlive = 0;
+    let humanoidAlive = 0;
+    for (const tracked of this.byEid.values()) {
+      if (tracked.kind === 'sphere') sphereAlive++;
+      else humanoidAlive++;
+    }
+    let animating = 0;
+    for (const controller of this.animControllers.values()) animating += controller.activeCount;
+    return {
+      alive: this.byEid.size,
+      sphereAlive,
+      humanoidAlive,
+      animating,
+      poisonBubbles: this.poisonBubbles.activeCount,
+    };
   }
 }

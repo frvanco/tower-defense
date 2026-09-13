@@ -6,10 +6,13 @@
     "test": "vitest run",
     "headless": "tsx apps/headless/src/main.ts",
     "dev": "pnpm --filter @tower-defense/web dev",
+    "dev:server": "pnpm --filter @tower-defense/server start:dev",
+    "dev:all": "concurrently -k \"pnpm:dev\" \"pnpm:dev:server\"",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
+    "concurrently": "^9.0.1",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
     "vitest": "^2.1.3"
