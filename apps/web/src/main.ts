@@ -431,7 +431,11 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   // startNewGame() plus bas.
   if (import.meta.env.DEV && new URLSearchParams(location.search).get('dev') === '1') {
     void import('./dev.js').then(({ installDevTools }) =>
-      installDevTools({ pendingHuman, getUnlockedTier: () => state.arenas[0]?.unlockedShopTier ?? 0 }),
+      installDevTools({
+        pendingHuman,
+        getUnlockedTier: () => state.arenas[0]?.unlockedShopTier ?? 0,
+        getCamera: () => ({ position: s3d.camera.position, target: s3d.controls.target }),
+      }),
     );
   }
 

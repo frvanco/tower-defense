@@ -430,9 +430,21 @@ function buildGate(x: number, z: number, color: number, tangent: Point2, hostile
   return group;
 }
 
-/** Cadrage proche, tout en conservant la silhouette complete du U. */
-const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [0.25, 45, -59];
-const INITIAL_CAMERA_TARGET: readonly [number, number, number] = [0, 0, 1];
+/**
+ * Cadrage de depart. Releve a la souris puis fige tel quel (voir
+ * `__dev.camera()` dans dev.ts, qui imprime ces deux lignes) plutot que
+ * calcule : reconstituer un cadrage depuis une capture d'ecran ne donne qu'une
+ * approximation, et le choix est esthetique, pas geometrique.
+ *
+ * Ce qu'il vaut, pour qui voudrait l'ajuster : distance 39.5 a la cible, angle
+ * polaire 53.1 degres (identique au cadrage precedent), cible avancee a
+ * z = -20.7 au lieu du centre de l'arene. C'est ce rapprochement de la cible
+ * qui remonte le couloir dans le cadre et degage le bas du U de derriere la
+ * barre de commandes, que le cadrage precedent (distance 75, cible au centre)
+ * laissait hors champ.
+ */
+const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [-0.08, 22.72, -52.38];
+const INITIAL_CAMERA_TARGET: readonly [number, number, number] = [-0.21, -1, -20.74];
 
 /** Cap (convention `aimTurret` : atan2(dx, dz), 0 = +Z) d'une tour vers la
  * camera initiale. Derive des constantes ci-dessus plutot qu'ecrit en dur :
