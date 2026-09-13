@@ -1,4 +1,5 @@
 import { towers, buildableTowers, creeps, type TowerDef, type CreepDef, type Shop } from '@tower-defense/data';
+import { towerStatLines } from './towerStats.js';
 import { TICK_RATE, type Arena, type GameState } from '@tower-defense/sim';
 import { branchInfo, branchColor } from './branches.js';
 import { ARMOR_COLORS } from './colors.js';
@@ -145,7 +146,7 @@ function towerTooltip(defId: string): TooltipInfo | null {
     name: def.name,
     tier: branchInfo(defId).tier + 1,
     cost: def.goldCost,
-    lines: [`Dégâts ${def.damageBase}+${def.dice}d${def.sides}`, `Portée ${def.range}`, `Cadence ${def.cooldown}s`],
+    lines: towerStatLines(def),
     description: descriptionOf(def),
   };
 }
