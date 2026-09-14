@@ -1,4 +1,4 @@
-import { towers, creeps, shops, buildSlots, lanes, type Slot, type Lane } from '@tower-defense/data';
+import { towers, creeps, shops, buildSlots, lanes, rules, type Slot, type Lane } from '@tower-defense/data';
 import { nextRandom } from './rng.js';
 import { TICK_RATE, type Command, type GameState } from './types.js';
 import type { TowerDef } from '@tower-defense/data';
@@ -340,7 +340,8 @@ export class Bot {
     // peuvent absorber tout l'or et repousser indefiniment la defense air.
     if (
       airThreat && airCreepCount / arena.creeps.length > AIR_THREAT_SHARE &&
-      antiAirCount === 0 && arena.towers.length < MAX_BOT_TOWERS
+      antiAirCount === 0 && arena.towers.length + arena.builder.queue.length < MAX_BOT_TOWERS &&
+      arena.builder.queue.length < rules.builderQueueMax
     ) {
       const def = towers.get('h005')!;
       if (def.goldCost <= availableGold) {
@@ -417,8 +418,19 @@ export class Bot {
     // figer une branche unique pour toute la partie.
     const blocked = new Set<Category>();
     const hasFreeSlot = () => this.slots!.some((sl) => !arena.occupied[sl.id] && !claimed.has(sl.id));
+    // Le bot n'emet JAMAIS une commande qu'il sait vouee au rejet (c'est ce
+    // que verifie bot.test.ts) : il doit donc respecter le plafond de la file
+    // de construction comme il respecte deja MAX_BOT_TOWERS. Sans ca il
+    // emettrait tout son budget d'un lot, se ferait rejeter tout ce qui
+    // depasse 5, et surtout debiterait son or interne (availableGold, spent)
+    // de constructions qui n'ont jamais eu lieu.
+    //
+    // Ce n'est pas un raccourci : c'est exactement la meme limite que celle
+    // opposee au joueur humain, qui la voit dans son interface.
+    const queueRoom = () => rules.builderQueueMax - arena.builder.queue.length - claimed.size;
     while (
-      arena.towers.length + claimed.size < MAX_BOT_TOWERS &&
+      arena.towers.length + arena.builder.queue.length + claimed.size < MAX_BOT_TOWERS &&
+      queueRoom() > 0 &&
       towerBudget > 0 && blocked.size < 3 && hasFreeSlot()
     ) {
       const totalSpent = this.spent.damage + this.spent.control + this.spent.antiair;

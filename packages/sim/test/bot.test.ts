@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildSlots, creeps, shops, towers } from '@tower-defense/data';
+import { buildSlots, creeps, shops, towers, rules } from '@tower-defense/data';
 import { Bot, createGame, tick, TICK_RATE, type Command, type Difficulty } from '../src/index.js';
+import { drainBuilder } from './helpers.js';
 
 const difficulties: Difficulty[] = ['easy', 'medium', 'hard'];
 const creepId = shops[0]!.sells[0]!;
@@ -53,8 +54,13 @@ function commandCost(command: Command, unlockCost: number): number {
 }
 
 describe.each(difficulties)('bot %s — plafond de tours', (difficulty) => {
+  // Deux plafonds se cumulent desormais : MAX_BOT_TOWERS (200) et la file de
+  // construction du builder (rules.builderQueueMax, 5). Depuis 0 tour le bot
+  // n'emet donc plus 200 constructions d'un lot mais 5 — la meme limite que
+  // celle opposee au joueur humain. Il reprendra les suivantes a sa prochaine
+  // decision, au fur et a mesure que son ouvrier vide la file.
   it.each([
-    { initialCount: 0, expectedBuilds: 200 },
+    { initialCount: 0, expectedBuilds: Math.min(200, rules.builderQueueMax) },
     { initialCount: 199, expectedBuilds: 1 },
     { initialCount: 200, expectedBuilds: 0 },
     { initialCount: 201, expectedBuilds: 0 },
@@ -62,13 +68,16 @@ describe.each(difficulties)('bot %s — plafond de tours', (difficulty) => {
     const { state, arena } = fixture(initialCount);
     const commands = makeBot(difficulty).decide(state);
 
-    // Le lot entier respecte le plafond avant meme son application.
+    // Le lot entier respecte les deux plafonds avant meme son application.
     expect(commands.filter((command) => command.type === 'buildTower')).toHaveLength(expectedBuilds);
     const events = tick(state, commands);
 
     expect(events.filter((event) => event.type === 'rejected')).toEqual([]);
-    expect(arena.towers).toHaveLength(Math.max(initialCount, 200));
-    expect(new Set(arena.towers.map((tower) => tower.slotId)).size).toBe(arena.towers.length);
+    // Une construction acceptee entre dans la file, la tour n'apparait que
+    // quand l'ouvrier a fini : ce qui est "engage" est donc la somme des deux.
+    expect(arena.towers.length + arena.builder.queue.length).toBe(initialCount + expectedBuilds);
+    const engagedSlots = [...arena.towers.map((t) => t.slotId), ...arena.builder.queue.map((o) => o.slotId)];
+    expect(new Set(engagedSlots).size).toBe(engagedSlots.length);
   });
 
   it('continue les ameliorations et les envois a 200 tours', () => {
@@ -101,6 +110,7 @@ describe.each(difficulties)('bot %s — plafond de tours', (difficulty) => {
     const bot = makeBot(difficulty);
     const firstEvents = tick(state, bot.decide(state));
     expect(firstEvents.filter((event) => event.type === 'rejected')).toEqual([]);
+    drainBuilder(state);
     expect(arena.towers).toHaveLength(200);
 
     tick(state, [{ type: 'sellTower', player: 0, eid: arena.towers[0]!.eid }]);
@@ -111,12 +121,14 @@ describe.each(difficulties)('bot %s — plafond de tours', (difficulty) => {
     expect(replacement.filter((command) => command.type === 'buildTower')).toHaveLength(1);
     const events = tick(state, replacement);
     expect(events.filter((event) => event.type === 'rejected')).toEqual([]);
+    drainBuilder(state);
     expect(arena.towers).toHaveLength(200);
 
     state.tick += TICK_RATE * 3;
     const nextCommands = bot.decide(state);
     expect(nextCommands.some((command) => command.type === 'buildTower')).toBe(false);
     tick(state, nextCommands);
+    drainBuilder(state);
     expect(arena.towers).toHaveLength(200);
   });
 });

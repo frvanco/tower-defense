@@ -34,6 +34,9 @@ function makeArena(creeps: Creep[]): Arena {
     creeps,
     stock: {},
     occupied: {},
+    // Le builder n'intervient pas dans ces tests de rendu : un ouvrier inerte
+    // a l'origine suffit a satisfaire le type Arena.
+    builder: { x: 0, y: 0, facing: 0, queue: [], mode: 'idle' as const, buildTicksLeft: 0 },
     leaked: 0,
     killed: 0,
     goldSpentOnTowers: 0,

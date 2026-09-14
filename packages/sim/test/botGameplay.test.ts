@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildSlots, creeps, lanes, towers } from '@tower-defense/data';
 import { Bot, createGame, tick, type Difficulty, type GameState } from '../src/index.js';
+import { drainBuilder } from './helpers.js';
 
 function readyGame(playerCount = 2): GameState {
   const s = createGame(42, playerCount);
@@ -92,6 +93,7 @@ describe('reaction des bots aux creeps aeriens', () => {
     if (initialCount === 199) expect(builds[0]!.defId).toBe('h005');
     const events = tick(s, commands);
     expect(events.filter((event) => event.type === 'rejected')).toEqual([]);
+    drainBuilder(s);
     expect(arena.towers).toHaveLength(200);
   });
 
@@ -109,6 +111,7 @@ describe('reaction des bots aux creeps aeriens', () => {
     expect(commands.some((command) => command.type === 'upgradeTower' && command.eid === groundTower)).toBe(false);
     const events = tick(s, commands);
     expect(events.filter((event) => event.type === 'rejected')).toEqual([]);
+    drainBuilder(s);
     expect(arena.towers.some((tower) => towers.get(tower.defId)!.targets.includes('air'))).toBe(true);
   });
 

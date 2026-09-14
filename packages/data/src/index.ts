@@ -98,6 +98,36 @@ export interface Rules {
    * (voir plus bas) — un seul reglage dans balance.json plutot que 39
    * surcharges individuelles. 1 = vitesses d'origine inchangees. */
   creepSpeedMultiplier: number;
+
+  // --- Builder (packages/sim/src/builder.ts) ---------------------------------
+  // Toutes ces valeurs sont en unites MONDE, la seule unite que connait la
+  // simulation. Le brief les a exprimees en unites de SCENE (celles du rendu,
+  // ou le modele du builder fait 2 unites de haut) : le facteur est
+  // WORLD_TO_SCENE = 2/64, donc 1 unite de scene = 32 unites monde. Les
+  // equivalences sont rappelees sur chaque champ pour pouvoir regler dans l'un
+  // ou l'autre referentiel sans refaire le calcul.
+
+  /** Vitesse de deplacement au sol, unites monde/s. 192 = 6 u/s de scene,
+   * soit approximativement la vitesse d'un creep (189 u/s monde). */
+  builderGroundSpeed: number;
+  /** Vitesse en vol au-dessus du couloir, unites monde/s. 320 = 10 u/s de
+   * scene. */
+  builderFlySpeed: number;
+  /** Duree de construction d'une tour, en secondes. IDENTIQUE pour toutes les
+   * tours quel que soit leur palier ou leur prix : un temps proportionnel au
+   * cout punirait deux fois les tours cheres. */
+  builderBuildSec: number;
+  /** Nombre maximum de constructions planifiees simultanement (celle en cours
+   * comprise). Un ordre au-dela est refuse sans rien debiter. */
+  builderQueueMax: number;
+  /** Rayon logique du personnage, unites monde. 9.6 = 0.3 u de scene, la
+   * valeur annoncee par le modele. Entre dans la distance d'arret, pour que le
+   * builder s'immobilise au BORD de l'emplacement et non dessus. */
+  builderRadius: number;
+  /** Piste de decollage : distance avant le bord du couloir a laquelle le
+   * builder quitte le sol, unites monde. 16 = 0.5 u de scene. A augmenter si
+   * le clip de decollage doit avoir le temps de se jouer en entier. */
+  builderFlyMargin: number;
 }
 
 /**
@@ -252,6 +282,14 @@ export const rules: Rules = {
   maxPlayers: (raw.map as Record<string, unknown>).maxPlayers as number ?? 8,
   bountyPct: 0.05,
   creepSpeedMultiplier: 1,
+  // Valeurs de depart du builder — a regler dans balance.json apres essais,
+  // voir les equivalences en unites de scene sur l'interface Rules.
+  builderGroundSpeed: 192,
+  builderFlySpeed: 320,
+  builderBuildSec: 3,
+  builderQueueMax: 5,
+  builderRadius: 9.6,
+  builderFlyMargin: 16,
   ...((balance.rules ?? {}) as Partial<Rules>),
 };
 
@@ -309,6 +347,7 @@ export const branches: Branch[] = buildableTowers.map((rootId) => ({
 
 export { type Slot, type SlotZoneBounds, SLOT_SIZE, buildSlots, nearestSlot, buildZones } from './slots.js';
 export { type LaneAnchors, laneAnchors } from './laneGeometry.js';
+export { type Rect, builderStart, laneCorridor, inCorridor } from './builder.js';
 export {
   type ZoneFootprint,
   type ZoneId,

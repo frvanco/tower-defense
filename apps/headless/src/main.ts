@@ -97,6 +97,9 @@ interface Result {
    * temps (non reconstruit depuis l'historique, hors de portee sans toucher
    * packages/sim) — approximation assumee, signalee dans le rapport. */
   investedGoldByRoot: Map<string, number>;
+  /** Etat final de l'ouvrier de chaque arene, dans l'ordre des joueurs —
+   * sert au controle de determinisme ci-dessous. */
+  builders: Array<{ x: number; y: number; mode: string; queued: number }>;
 }
 
 function playOne(seed: number): Result {
@@ -154,7 +157,27 @@ function playOne(seed: number): Result {
     standingTiers,
     saturationRound,
     investedGoldByRoot,
+    builders: s.arenas.map((a) => ({
+      x: a.builder.x,
+      y: a.builder.y,
+      mode: a.builder.mode,
+      queued: a.builder.queue.length,
+    })),
   };
+}
+
+/**
+ * Deux executions de la MEME partie doivent poser les ouvriers exactement au
+ * meme endroit. Le hash d'etat (packages/sim/src/hash.ts) le couvre deja de
+ * facon globale, mais une divergence de builder s'y noierait parmi des
+ * milliers de champs : ce controle la nomme explicitement, et affiche les
+ * positions pour qu'elles soient lisibles.
+ */
+function checkBuilderDeterminism(seed: number): { ok: boolean; a: Result; b: Result } {
+  const a = playOne(seed);
+  const b = playOne(seed);
+  const ok = JSON.stringify(a.builders) === JSON.stringify(b.builders);
+  return { ok, a, b };
 }
 
 const started = Date.now();
@@ -229,6 +252,22 @@ for (const [root, gold] of [...investedTotals].sort((a, b) => b[1] - a[1])) {
   const share = investedGrandTotal ? (gold / investedGrandTotal) * 100 : 0;
   console.log(`  ${name.padEnd(22)} ${share.toFixed(1).padStart(5)}%`);
 }
+
+// --- Determinisme des ouvriers -------------------------------------------
+const det = checkBuilderDeterminism(1000);
+console.log(`\ndeterminisme des builders (graine 1000 rejouee deux fois) : ${det.ok ? 'IDENTIQUE' : 'DIVERGENCE'}`);
+console.log(`  partie de ${det.a.ticks} ticks (${(det.a.ticks / TICK_RATE / 60).toFixed(1)} min), ${det.a.builders.length} joueurs`);
+for (let p = 0; p < det.a.builders.length; p++) {
+  const x = det.a.builders[p]!;
+  const y = det.b.builders[p]!;
+  const same = x.x === y.x && x.y === y.y && x.mode === y.mode && x.queued === y.queued;
+  console.log(
+    `  P${p + 1} ${same ? 'ok ' : 'KO '} (${x.x.toFixed(3)}, ${x.y.toFixed(3)}) ${x.mode}` +
+      (x.queued ? ` file:${x.queued}` : '') +
+      (same ? '' : `  !=  (${y.x.toFixed(3)}, ${y.y.toFixed(3)}) ${y.mode} file:${y.queued}`),
+  );
+}
+if (!det.ok) process.exitCode = 1;
 
 const missing = new Map<string, Set<string>>();
 for (const d of defaultsUsed) {

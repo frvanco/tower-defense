@@ -1,5 +1,6 @@
 import { lanes, rules, towers, creeps, shops, buildableTowers, nearestSlot, type CreepDef, type TowerDef } from '@tower-defense/data';
 import { rollDamage } from './rng.js';
+import { createBuilder, updateBuilder } from './builder.js';
 import { finalDamage } from './damage.js';
 import { applyIceSlow, applyPoison, totalSlowPct, poisonTickDamage, CHAIN_RANGE } from './status.js';
 import {
@@ -61,6 +62,7 @@ export function createGame(seed: number, playerCount = rules.maxPlayers): GameSt
       creeps: [],
       stock: makeStock(),
       occupied: {},
+      builder: createBuilder(i),
       leaked: 0,
       killed: 0,
       goldSpentOnTowers: 0,
@@ -133,10 +135,22 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
     if (!slot) return void events.push({ type: 'rejected', player: cmd.player, reason: 'no slot here' });
     if (arena.occupied[slot.id])
       return void events.push({ type: 'rejected', player: cmd.player, reason: 'occupied' });
+    // Plafond de la file : un ordre au-dela ne planifie rien et ne debite
+    // rien. Compte la construction en cours, qui occupe toujours queue[0].
+    if (arena.builder.queue.length >= rules.builderQueueMax)
+      return void events.push({ type: 'rejected', player: cmd.player, reason: 'build queue full' });
+    // La tour n'apparait PAS ici : l'ordre entre dans la file et le builder
+    // doit se rendre sur place (builder.ts). En revanche l'or part tout de
+    // suite — sinon on planifierait des tours qu'on n'a pas les moyens de
+    // payer, en comptant sur l'income pour tomber entre temps.
     arena.gold -= def.goldCost;
     arena.goldSpentOnTowers += def.goldCost;
+    // Reservation immediate de l'emplacement. C'est ce qui empeche deux ordres
+    // de viser la meme case, et ce qui fait que les bots (qui choisissent via
+    // !arena.occupied, voir bot.ts) n'ont besoin d'aucune adaptation : ils
+    // subissent exactement les memes regles que le joueur humain.
     arena.occupied[slot.id] = true;
-    arena.towers.push({ eid: s.nextEid++, defId: def.id, x: slot.x, y: slot.y, cooldown: 0, slotId: slot.id });
+    arena.builder.queue.push({ defId: def.id, slotId: slot.id, x: slot.x, y: slot.y });
     return;
   }
 
@@ -197,6 +211,26 @@ function applyCommand(s: GameState, cmd: Command, events: SimEvent[]): void {
       spawnCreep(s, other, def, cmd.player);
     }
     events.push({ type: 'creepSent', player: cmd.player, defId: def.id });
+    return;
+  }
+
+  if (cmd.type === 'cancelBuildQueue') {
+    const b = arena.builder;
+    // La construction EN COURS va au bout et n'est pas remboursee : seule
+    // queue[0] en mode 'building' est protegee. Un ordre vers lequel le
+    // builder marche encore n'est pas commence — il est annule comme les
+    // autres.
+    const keep = b.mode === 'building' ? 1 : 0;
+    const cancelled = b.queue.splice(keep);
+    for (const order of cancelled) {
+      // Remboursement a 100% du prix paye au clic (goldCost, jamais refund :
+      // rien n'a ete construit), et liberation de l'emplacement reserve.
+      const def = towers.get(order.defId);
+      const cost = def?.goldCost ?? 0;
+      arena.gold += cost;
+      arena.goldSpentOnTowers -= cost;
+      delete arena.occupied[order.slotId];
+    }
     return;
   }
 
@@ -288,6 +322,11 @@ function killPlayer(arena: Arena, events: SimEvent[]): void {
   arena.occupied = {};
   arena.towers.length = 0;
   arena.creeps.length = 0;
+  // Les constructions planifiees meurent avec l'arene : pas de remboursement,
+  // l'or est deja remis a zero juste au-dessus.
+  arena.builder.queue.length = 0;
+  arena.builder.mode = 'idle';
+  arena.builder.buildTicksLeft = 0;
   events.push({ type: 'defeat', player: arena.player });
 }
 
@@ -574,6 +613,7 @@ export function tick(s: GameState, commands: Command[] = []): SimEvent[] {
     fireTowers(s, arena, events);
     applyPoisonTicks(s, arena);
     moveCreeps(s, arena, events);
+    updateBuilder(s, arena);
   }
 
   checkEnd(s, events);

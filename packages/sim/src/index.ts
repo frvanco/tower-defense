@@ -14,4 +14,7 @@ export {
   type SimEvent,
   type IceDebuff,
   type PoisonDebuff,
+  type Builder,
+  type BuildOrder,
+  type BuilderMode,
 } from './types.js';

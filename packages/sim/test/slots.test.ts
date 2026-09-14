@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildSlots, nearestSlot, SLOT_SIZE, PATH_CLEARANCE, lanes, zoneFootprints, buildableTowers } from '@tower-defense/data';
 import { createGame, tick } from '../src/index.js';
+import { drainBuilder } from './helpers.js';
 
 const PLATFORM_MARGIN = 32; // duplique zoneFootprints.ts (non exporte)
 
@@ -249,6 +250,7 @@ describe('emplacements de construction — en jeu', () => {
     const slot = buildSlots(0)[0]!;
 
     tick(s, [{ type: 'buildTower', player: 0, defId: root, x: slot.x + 10, y: slot.y - 5 }]);
+    drainBuilder(s);
 
     expect(s.arenas[0]!.towers.length).toBe(1);
     const t = s.arenas[0]!.towers[0]!;
@@ -273,10 +275,13 @@ describe('emplacements de construction — en jeu', () => {
     const slot = buildSlots(0)[0]!;
 
     tick(s, [{ type: 'buildTower', player: 0, defId: root, x: slot.x, y: slot.y }]);
+    // Rejetee des le tick suivant, sans attendre : l'emplacement est reserve
+    // par la PLANIFICATION, pas par l'apparition de la tour.
     const events = tick(s, [{ type: 'buildTower', player: 0, defId: root, x: slot.x, y: slot.y }]);
-
-    expect(s.arenas[0]!.towers.length).toBe(1);
     expect(events.some((e) => e.type === 'rejected' && e.reason === 'occupied')).toBe(true);
+
+    drainBuilder(s);
+    expect(s.arenas[0]!.towers.length).toBe(1);
   });
 
   it('vendre libere l\'emplacement', () => {
@@ -285,11 +290,13 @@ describe('emplacements de construction — en jeu', () => {
     const slot = buildSlots(0)[0]!;
 
     tick(s, [{ type: 'buildTower', player: 0, defId: root, x: slot.x, y: slot.y }]);
+    drainBuilder(s);
     const eid = s.arenas[0]!.towers[0]!.eid;
     tick(s, [{ type: 'sellTower', player: 0, eid }]);
     expect(s.arenas[0]!.occupied[slot.id]).toBeUndefined();
 
     tick(s, [{ type: 'buildTower', player: 0, defId: root, x: slot.x, y: slot.y }]);
+    drainBuilder(s);
     expect(s.arenas[0]!.towers.length).toBe(1);
   });
 });

@@ -48,6 +48,48 @@ export interface Creep {
   freeSpawn?: true;
 }
 
+/** Une construction planifiee. L'emplacement est deja resolu et RESERVE
+ * (arena.occupied) au moment ou l'ordre entre dans la file : l'or est debite
+ * au clic, pas a l'arrivee du builder. */
+export interface BuildOrder {
+  defId: string;
+  /** Slot.id (packages/data/src/slots.ts) — sert a liberer la reservation si
+   * l'ordre est annule. */
+  slotId: string;
+  /** Position de l'emplacement, deja snappee par nearestSlot. */
+  x: number;
+  y: number;
+}
+
+/** `moving` et `flying` sont le MEME deplacement en ligne droite, a deux
+ * vitesses : `flying` vaut pendant le survol du couloir des creeps (voir
+ * inCorridor dans packages/data). Rien d'autre ne les distingue. */
+export type BuilderMode = 'idle' | 'moving' | 'flying' | 'building';
+
+/**
+ * L'ouvrier d'un joueur : un par arene, bots compris. Il ne combat pas, n'a
+ * pas de points de vie, ne peut pas etre cible ni perturbe — il n'apparait
+ * dans aucune boucle de combat. Son seul role est de rendre la construction
+ * non instantanee.
+ *
+ * Vit dans Arena, donc dans GameState : hashState le couvre par sa
+ * stringification generique (aucun code dedie), et un client qui observe une
+ * autre arene lit cet etat tel quel au lieu de le reconstruire.
+ */
+export interface Builder {
+  x: number;
+  y: number;
+  /** Cap courant en radians (atan2(dy, dx)), conserve quand il s'arrete :
+   * l'orientation du rendu ne doit pas sauter a l'arret. */
+  facing: number;
+  /** FIFO. queue[0] est la cible courante — jamais reordonnee, donc aucune
+   * egalite a departager. */
+  queue: BuildOrder[];
+  mode: BuilderMode;
+  /** Ticks restants de la construction en cours (mode 'building'). */
+  buildTicksLeft: number;
+}
+
 export interface StockEntry {
   /** Tick a partir duquel le creep devient achetable. */
   availableAt: number;
@@ -66,8 +108,13 @@ export interface Arena {
   creeps: Creep[];
   /** Cle = defId du creep. */
   stock: Record<string, StockEntry>;
-  /** Cle = Slot.id (packages/data/src/slots.ts). Presence = occupe. */
+  /** Cle = Slot.id (packages/data/src/slots.ts). Presence = occupe. Un
+   * emplacement est marque des la PLANIFICATION de la construction, pas a
+   * l'apparition de la tour : c'est ce qui empeche deux ordres de viser la
+   * meme case, joueur comme bot (voir buildTower dans sim.ts). */
   occupied: Record<string, true>;
+  /** L'ouvrier de ce joueur (voir Builder ci-dessus). */
+  builder: Builder;
   /** Stats cumulees, utiles pour les runs headless. */
   leaked: number;
   killed: number;
@@ -108,6 +155,10 @@ export type Command =
   /** Debloque le PROCHAIN palier de boutique d'envoi (toujours sequentiel —
    * jamais un palier cible explicite, voir sim.ts#applyCommand). */
   | { type: 'unlockShop'; player: number }
+  /** Vide les constructions PLANIFIEES et les rembourse a 100%, en liberant
+   * leurs emplacements. La construction en cours (mode 'building') va au
+   * bout et n'est pas remboursee. */
+  | { type: 'cancelBuildQueue'; player: number }
   /** Debug uniquement (voir apps/web/src/dev.ts, active par ?dev=1, absent du
    * bundle de prod) — jamais construite ailleurs dans le jeu. Fixe l'or a une
    * valeur absolue. */
