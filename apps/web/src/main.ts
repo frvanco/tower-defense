@@ -433,16 +433,17 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   let speed = 1;
 
   // Porte unique de tout ce qui ne doit pas exister en partie normale : les
-  // outils de console (dev.ts) et les controles de vitesse juste apres.
-  // Chargement dynamique de dev.js derriere
-  // `import.meta.env.DEV` (constante figee a la compilation) pour que Vite
-  // elague entierement ce module hors des builds de prod — ?dev=1 sur un
-  // build de prod ne fait donc rien, la garde n'existe qu'a l'execution d'un
-  // serveur de dev. `state` est capture par reference (via la closure), pas
-  // par valeur : reste correct meme apres un `state = next.state` fait par
-  // startNewGame() plus bas.
+  // outils de console (dev.ts) et les controles de vitesse (devSpeed.ts).
+  // Les deux modules sont charges dynamiquement derriere `import.meta.env.DEV`
+  // (constante figee a la compilation) : Vite les elague donc entierement des
+  // builds de prod, markup et listeners compris — leur contenu n'est pas
+  // seulement inactif en partie normale, il n'est pas livre. ?dev=1 sur un
+  // build de prod ne fait rien, la garde n'existe qu'a l'execution d'un
+  // serveur de dev.
   const devMode = import.meta.env.DEV && new URLSearchParams(location.search).get('dev') === '1';
   if (devMode) {
+    // `state` est capture par reference (via la closure), pas par valeur :
+    // reste correct meme apres un `state = next.state` fait par startNewGame().
     void import('./dev.js').then(({ installDevTools }) =>
       installDevTools({
         pendingHuman,
@@ -450,15 +451,19 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
         getCamera: () => ({ position: s3d.camera.position, target: s3d.controls.target }),
       }),
     );
+    // Pause/1x/2x/4x : outil de test (regarder une vague au ralenti, avaler
+    // les premiers rounds en accelere), jamais une mecanique de jeu. Hors mode
+    // dev, personne n'ecrit jamais dans `speed`, qui garde donc sa valeur
+    // initiale de 1 pour toute la partie.
+    void import('./devSpeed.js').then(({ installSpeedControls }) =>
+      installSpeedControls({
+        setSpeed: (value) => {
+          speed = value;
+        },
+        signal: controller.signal,
+      }),
+    );
   }
-
-  // Pause/1x/2x/4x : outil de test (regarder une vague au ralenti, avaler les
-  // premiers rounds en accelere), jamais une mecanique de jeu — donc derriere
-  // la MEME porte que dev.ts plutot qu'une seconde condition a maintenir a
-  // cote. Masques, `speed` garde sa valeur initiale de 1 pour toute la partie :
-  // les boutons sont le seul code qui y touche. Ils restent cables (inertes
-  // sous display:none, hors tabulation) — rien a desactiver en plus.
-  byId<HTMLDivElement>('speed-controls').hidden = !devMode;
 
   // Barre d'arenes : navigation entre les 6+ arenes (observation seule, voir
   // setViewedPlayer plus bas — le joueur humain est toujours le player 0).
@@ -635,18 +640,6 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
 
   restartBtn.addEventListener('click', startNewGame, listenerOpts);
   exitToMenuBtn.addEventListener('click', () => callbacks.onExitToMenu(), listenerOpts);
-
-  const speedButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.speed-btn'));
-  for (const btn of speedButtons) {
-    btn.addEventListener(
-      'click',
-      () => {
-        speed = Number(btn.dataset.speed ?? '1');
-        for (const b of speedButtons) b.classList.toggle('active', b === btn);
-      },
-      listenerOpts,
-    );
-  }
 
   function eventToNdc(ev: MouseEvent): [number, number] {
     const rect = canvas.getBoundingClientRect();

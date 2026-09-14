@@ -35,10 +35,12 @@ button {
 }
 
 /* Hauteur EXPLICITE (58px, mesuree sur l'ancien contenu en flux normal) :
-   #topbar-stats est desormais centree en position:absolute (voir plus bas),
-   donc ne participe plus a la hauteur naturelle de la barre — sans valeur
-   fixe ici, la barre se recalerait sur #speed-controls seul (plus bas) et
-   #topbar-stats deborderait dessous. */
+   #topbar-stats est centree en position:absolute (voir plus bas), donc ne
+   participe plus a la hauteur naturelle de la barre. En partie normale la
+   barre n'a PLUS AUCUN enfant en flux — #speed-controls n'existe qu'en mode
+   dev (voir plus bas) — donc sans cette valeur elle s'ecraserait sur ses
+   seuls paddings et les stats deborderaient dessous. Cette ligne est ce qui
+   fait que la topbar a la meme allure avec et sans les controles de dev. */
 #topbar {
   position: relative;
   display: flex;
@@ -83,24 +85,20 @@ button {
   color: #f1e6c8;
 }
 
-/* margin-left:auto plutot qu'un .spacer flex:1 dedie : #topbar-stats n'est
-   plus un enfant en flux normal (position:absolute, voir plus haut), donc
-   #speed-controls est desormais le seul enfant en flux de #topbar — pousse
-   a droite directement. */
+/* MODE DEV UNIQUEMENT : aucun markup de ce depot ne porte cet id ni cette
+   classe — le bloc est construit a l'execution par devSpeed.ts, module absent
+   du bundle de prod. Ces regles ne trouvent donc jamais de cible en partie
+   normale. Elles restent ici, avec le reste des styles, plutot qu'injectees
+   depuis le JS : c'est du CSS mort et inerte, pas une porte d'entree.
+
+   margin-left:auto plutot qu'un .spacer flex:1 dedie : #topbar-stats n'est pas
+   un enfant en flux normal (position:absolute, voir plus haut), donc
+   #speed-controls est le seul enfant en flux de #topbar quand il existe —
+   pousse a droite directement. */
 #speed-controls {
   display: flex;
   gap: 6px;
   margin-left: auto;
-}
-
-/* Le `display: flex` ci-dessus (selecteur ID, plus specifique que le
-   [hidden]{display:none} par defaut du navigateur) l'emporterait sinon sur
-   l'attribut hidden, et les controles resteraient rendus en partie normale —
-   meme categorie de bug que #cmd-grid-send / #observation-bar. La hauteur
-   fixe de #topbar (58px, voir plus haut) fait que les masquer ne recale pas
-   la barre, bien qu'ils en soient le seul enfant en flux. */
-#speed-controls[hidden] {
-  display: none;
 }
 
 .speed-btn {
