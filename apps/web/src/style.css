@@ -962,14 +962,13 @@ button {
   line-height: 1;
 }
 
-/* Emplacement d'image (portrait du peon, pas encore livre) — pas de texte,
-   pour que le remplacement par un vrai portrait soit un simple changement de
-   fond/source plus tard. */
-.cmd-portrait {
-  width: 100%;
-  height: 100%;
-  border-radius: 4px;
+/* Mode courant. Necessaire depuis que les trois boutons restent visibles en
+   permanence : sans marque d'etat, rien ne dirait lequel est actif. Meme
+   accent dore que le reste de la console. */
+.cmd-mode-btn--active {
   background: #3a2f1c;
+  border-color: #c9a227;
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.35);
 }
 
 /* Docee contre le bord DROIT de #cmd-modes, bord a bord (meme technique que

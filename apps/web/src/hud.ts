@@ -1,6 +1,7 @@
 import { towers } from '@tower-defense/data';
 import { TICK_RATE, type GameState, type Arena } from '@tower-defense/sim';
 import { branchInfo, branchName } from './branches.js';
+import { towerStatLines } from './towerStats.js';
 
 export function fmtClock(totalSeconds: number): string {
   const s = Math.max(0, Math.ceil(totalSeconds));
@@ -138,7 +139,9 @@ export function updateSelectedPanel(refs: SelectedRefs, arena: Arena | undefined
   const tier = branchInfo(tower.defId).tier + 1;
   const qualifier = branch && branch !== def.name ? `${branch}, palier ${tier}` : `palier ${tier}`;
   refs.name.textContent = `${def.name} (${qualifier})`;
-  refs.info.textContent = `dmg ${def.damageBase}+${def.dice}d${def.sides} · range ${def.range} · cooldown ${def.cooldown}s`;
+  // Memes libelles que l'infobulle, via la meme source : les deux affichaient
+  // ces trois stats cote a cote, l'une en francais et l'autre en anglais.
+  refs.info.textContent = towerStatLines(def).join(' · ');
 
   // Icone de la tour POSEE. Retiree (et non laissee vide) si cette tour n'a
   // pas d'icone : un cadre creux dans l'en-tete se lirait comme un defaut.
