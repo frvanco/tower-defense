@@ -93,6 +93,16 @@ button {
   margin-left: auto;
 }
 
+/* Le `display: flex` ci-dessus (selecteur ID, plus specifique que le
+   [hidden]{display:none} par defaut du navigateur) l'emporterait sinon sur
+   l'attribut hidden, et les controles resteraient rendus en partie normale —
+   meme categorie de bug que #cmd-grid-send / #observation-bar. La hauteur
+   fixe de #topbar (58px, voir plus haut) fait que les masquer ne recale pas
+   la barre, bien qu'ils en soient le seul enfant en flux. */
+#speed-controls[hidden] {
+  display: none;
+}
+
 .speed-btn {
   background: #2a2118;
   border: 1px solid #6b5432;

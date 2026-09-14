@@ -432,14 +432,17 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   let { state, bots } = newGame(seedOverride() ?? (Date.now() | 0), difficulty);
   let speed = 1;
 
-  // Outil de test manuel (voir dev.ts) : chargement dynamique derriere
+  // Porte unique de tout ce qui ne doit pas exister en partie normale : les
+  // outils de console (dev.ts) et les controles de vitesse juste apres.
+  // Chargement dynamique de dev.js derriere
   // `import.meta.env.DEV` (constante figee a la compilation) pour que Vite
   // elague entierement ce module hors des builds de prod — ?dev=1 sur un
   // build de prod ne fait donc rien, la garde n'existe qu'a l'execution d'un
   // serveur de dev. `state` est capture par reference (via la closure), pas
   // par valeur : reste correct meme apres un `state = next.state` fait par
   // startNewGame() plus bas.
-  if (import.meta.env.DEV && new URLSearchParams(location.search).get('dev') === '1') {
+  const devMode = import.meta.env.DEV && new URLSearchParams(location.search).get('dev') === '1';
+  if (devMode) {
     void import('./dev.js').then(({ installDevTools }) =>
       installDevTools({
         pendingHuman,
@@ -448,6 +451,14 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
       }),
     );
   }
+
+  // Pause/1x/2x/4x : outil de test (regarder une vague au ralenti, avaler les
+  // premiers rounds en accelere), jamais une mecanique de jeu — donc derriere
+  // la MEME porte que dev.ts plutot qu'une seconde condition a maintenir a
+  // cote. Masques, `speed` garde sa valeur initiale de 1 pour toute la partie :
+  // les boutons sont le seul code qui y touche. Ils restent cables (inertes
+  // sous display:none, hors tabulation) — rien a desactiver en plus.
+  byId<HTMLDivElement>('speed-controls').hidden = !devMode;
 
   // Barre d'arenes : navigation entre les 6+ arenes (observation seule, voir
   // setViewedPlayer plus bas — le joueur humain est toujours le player 0).
