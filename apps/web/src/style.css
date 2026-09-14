@@ -831,6 +831,61 @@ button {
   letter-spacing: 0.02em;
 }
 
+/* Constructions en file, sur le bouton Construction — meme place et meme
+   lecture que .cmd-tile-stock plus bas. Jaune (jamais rouge, convention du
+   projet) et vert quand la file est pleine : la couleur signale un etat, pas
+   une erreur. */
+.cmd-queue-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: #c9a227;
+  color: #221a0d;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* File pleine : le prochain clic ne planifiera rien (voir le toast). */
+.cmd-queue-badge.cmd-queue-badge--full {
+  background: #4a9e5c;
+  color: #f1ecd8;
+}
+
+/* Meme famille visuelle que .cmd-mode-btn, en plus bas : ce n'est pas un
+   selecteur de mode, c'est une action ponctuelle. */
+.cmd-cancel-btn {
+  width: 40px;
+  height: 24px;
+  padding: 0;
+  background: #241c14;
+  border: 1px solid #6b5432;
+  border-radius: 6px;
+  color: #e9e2d3;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.cmd-cancel-btn:hover:not(:disabled) {
+  border-color: #c9a227;
+  color: #f2d24b;
+}
+
+/* Rien a annuler : eteint, jamais rouge — l'indisponibilite se lit a
+   l'extinction, pas a une couleur d'alerte. */
+.cmd-cancel-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Compteur de stock — coin superieur droit de la tuile. */
 .cmd-tile-stock {
   position: absolute;
@@ -934,7 +989,11 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  /* 6 et non 8 : les trois boutons de mode (40px) plus le bouton d'annulation
+     (24px) et leurs trois ecarts font exactement les 162px utiles de la
+     colonne (182px de #command-bar moins 2x10 de padding). La barre garde
+     donc sa hauteur au pixel pres. */
+  gap: 6px;
   padding: 10px;
   background: rgba(26, 20, 15, 0.94);
   border: 1px solid #6b5432;
@@ -943,6 +1002,8 @@ button {
 }
 
 .cmd-mode-btn {
+  /* Ancre le badge de file, positionne en absolu dans son coin. */
+  position: relative;
   width: 40px;
   height: 40px;
   background: #241c14;

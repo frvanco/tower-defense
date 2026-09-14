@@ -48,7 +48,11 @@ const TURN_RATE = 2.6;
  * et placeholder.ts est un appel distinct), donc sures a disposer ; celles
  * des tours issues d'un .glb sont partagees et marquees comme telles.
  */
-function disposeTowerGroup(group: THREE.Group): void {
+/** Libere ce qui appartient EN PROPRE a un groupe de tour, en respectant les
+ * geometries et materiaux partages. Exporte pour les apercus de construction
+ * (buildPreview.ts), qui creent de vrais groupes de tour et doivent les
+ * liberer selon exactement les memes regles. */
+export function disposeTowerGroup(group: THREE.Group): void {
   group.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if (!mesh.isMesh) return;
@@ -79,6 +83,36 @@ interface TrackedTower {
   lastCooldown: number;
 }
 
+/**
+ * Cree le mesh d'une tour. Extraite de TowerEntities pour que les apercus de
+ * construction (buildPreview.ts) montrent EXACTEMENT la tour qui sera posee,
+ * sans dupliquer l'ordre de preference ci-dessous.
+ *
+ * Ordre de preference : modele .glb s'il est charge, sinon la geometrie dediee
+ * de la branche, sinon le placeholder. Un modele pas encore charge (ou
+ * illisible) donne donc la tour procedurale — jamais rien a l'ecran.
+ */
+export function makeTowerMesh(defId: string, teamColor: number): THREE.Group {
+  const { branch, tier } = branchInfo(defId);
+  const root = buildableTowers[branch]!;
+  const model = getTowerModel(defId);
+  const def = towerDefs.get(defId);
+  let group: THREE.Group;
+  if (model && def) {
+    group = makeModelTower(model, def, tier, getBranchChain(root).length, teamColor);
+  } else if (hasDedicatedGeometry(root)) {
+    group = makeCannonTower(tier, teamColor);
+  } else {
+    group = makePlaceholderTower(root, tier, branchHue(defId), teamColor);
+  }
+  // Orientation de depart, avant toute cible : face au spectateur plutot que
+  // de dos (voir TURRET_REST_ANGLE). Pose ici, au seul endroit qui cree les
+  // trois types de tours, pour qu'elles soient coherentes entre elles.
+  const turret = group.userData.turret as THREE.Object3D | undefined;
+  if (turret) turret.rotation.y = TURRET_REST_ANGLE;
+  return group;
+}
+
 export class TowerEntities {
   private byEid = new Map<number, TrackedTower>();
 
@@ -89,27 +123,8 @@ export class TowerEntities {
   ) {}
 
   private makeMesh(defId: string, eid: number): THREE.Group {
-    const { branch, tier } = branchInfo(defId);
-    const root = buildableTowers[branch]!;
-    // Ordre de preference : modele .glb s'il est charge, sinon la geometrie
-    // dediee de la branche, sinon le placeholder. Un modele pas encore charge
-    // (ou illisible) donne donc la tour procedurale — jamais rien a l'ecran.
-    const model = getTowerModel(defId);
-    const def = towerDefs.get(defId);
-    let group: THREE.Group;
-    if (model && def) {
-      group = makeModelTower(model, def, tier, getBranchChain(root).length, this.teamColor);
-    } else if (hasDedicatedGeometry(root)) {
-      group = makeCannonTower(tier, this.teamColor);
-    } else {
-      group = makePlaceholderTower(root, tier, branchHue(defId), this.teamColor);
-    }
+    const group = makeTowerMesh(defId, this.teamColor);
     group.userData.eid = eid;
-    // Orientation de depart, avant toute cible : face au spectateur plutot que
-    // de dos (voir TURRET_REST_ANGLE). Pose ici, au seul endroit qui cree les
-    // trois types de tours, pour qu'elles soient coherentes entre elles.
-    const turret = group.userData.turret as THREE.Object3D | undefined;
-    if (turret) turret.rotation.y = TURRET_REST_ANGLE;
     return group;
   }
 
@@ -130,7 +145,12 @@ export class TowerEntities {
         const group = this.makeMesh(t.defId, t.eid);
         this.place(group, t);
         this.layer.add(group);
-        startBuild(group, DEFAULT_BUILD_DURATION_SEC);
+        // AUCUNE animation de chantier ici : la tour apparait deja construite.
+        // Le chantier a ete joue pendant les coups de marteau de l'ouvrier,
+        // par l'apercu (buildPreview.ts), dans toutes les arenes. Le rejouer
+        // la construirait deux fois de suite. L'amelioration plus bas, elle,
+        // garde son animation : elle reste instantanee dans la simulation, et
+        // aucun apercu ne la precede.
         this.byEid.set(t.eid, { defId: t.defId, group, lastCooldown: t.cooldown });
         continue;
       }

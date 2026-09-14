@@ -86,6 +86,12 @@
                    qui la rendait invisible precisement quand on s'en servait. -->
               <button id="cmd-mode-build" class="cmd-mode-btn" type="button" aria-label="Construire des tours">
                 <span class="cmd-mode-icon">🔨</span>
+                <!-- Constructions en file (0 a 5) : badge d'angle, meme
+                     convention que le compteur de stock des tuiles
+                     (.cmd-tile-stock). Pose sur le bouton Construction plutot
+                     qu'ajoute a la colonne : aucune place n'y est prise, donc
+                     la barre garde exactement sa hauteur. -->
+                <span id="cmd-build-queue" class="cmd-queue-badge" hidden></span>
               </button>
               <button id="cmd-mode-send" class="cmd-mode-btn" type="button" aria-label="Envoyer des créatures">
                 <span class="cmd-mode-icon">🎺</span>
@@ -93,6 +99,11 @@
               <button id="cmd-mode-abilities" class="cmd-mode-btn" type="button" aria-label="Abilités">
                 <span class="cmd-mode-icon">✦</span>
               </button>
+              <!-- Annule les constructions PLANIFIEES ; celle en cours va au
+                   bout (voir cancelBuildQueue dans packages/sim). Desactive
+                   tant qu'il n'y a rien a annuler. -->
+              <button id="cmd-cancel-queue" class="cmd-cancel-btn" type="button" disabled
+                      aria-label="Annuler les constructions planifiées">Annuler</button>
             </section>
             <aside id="cmd-resources">
               <div class="cmd-resource cmd-resource-gold">

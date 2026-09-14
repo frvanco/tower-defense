@@ -17,6 +17,8 @@ import { pickGroundWorld, pickTowerEid } from './pick3d.js';
 import { TowerEntities, CreepEntities } from './entities3d.js';
 import { LightningArcs } from './lightningEffects.js';
 import { createSlotMarkers } from './slots3d.js';
+import { BuilderEntity } from './builderEntity.js';
+import { BuildPreviews } from './buildPreview.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
 import { laneColor, playerColor, playerLabel, ELIMINATED_COLOR, toHexNumber } from './colors.js';
 import { buildArenaBar, updateArenaBar, stepLivingPlayer, type ArenaBarRefs } from './arenaBar.js';
@@ -188,6 +190,20 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   const slotMarkers = createSlotMarkers(frame);
   s3d.scene.add(slotMarkers.group);
 
+  // UN SEUL ouvrier pour toute la partie, contrairement aux tours et aux
+  // creeps qui ont un jeu d'entites PAR arene : on n'en voit jamais qu'un a
+  // la fois, celui de l'arene regardee. Changer d'arene le repositionne et le
+  // reteint (setViewedPlayer plus bas) au lieu d'en creer un second.
+  const builderEntity = new BuilderEntity();
+  builderEntity.setPlayer(new THREE.Color(toHexNumber(playerColor(0))));
+  s3d.scene.add(builderEntity.group);
+
+  // Apercus des constructions planifiees, dans la meme couche que les tours :
+  // ce sont les memes meshes, a la meme hauteur de plateau. Uniquement pour
+  // SA PROPRE arene — voir la synchronisation plus bas.
+  const buildPreviews = new BuildPreviews(toHexNumber(playerColor(0)));
+  s3d.towerLayer.add(buildPreviews.group);
+
   // Fantome de placement : positionne exactement sur l'emplacement survole
   // (jamais sur la position brute du curseur) pendant qu'une tour est armee.
   // Vert = libre, rouge = deja occupe. Taille = MAX_RADIUS
@@ -229,6 +245,10 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
 
   let selectedTowerEid: number | null = null;
   let hoveredTowerEid: number | null = null;
+  // Declaree ICI et non plus pres de la barre d'arenes : setCommandMode(), qui
+  // la lit via isObserving(), est appelee des l'initialisation de la barre de
+  // commandes — bien avant. Plus bas, elle etait dans sa zone morte.
+  let viewedPlayer = 0;
   let armedBuildDefId: string | null = null;
   let mouseWorld: [number, number] | null = null;
 
@@ -260,6 +280,8 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   const cmdModeBuildBtn = byId<HTMLButtonElement>('cmd-mode-build');
   const cmdModeSendBtn = byId<HTMLButtonElement>('cmd-mode-send');
   const cmdModeAbilitiesBtn = byId<HTMLButtonElement>('cmd-mode-abilities');
+  const buildQueueBadge = byId<HTMLSpanElement>('cmd-build-queue');
+  const cancelQueueBtn = byId<HTMLButtonElement>('cmd-cancel-queue');
 
   type CommandMode = 'build' | 'send' | 'abilities';
   let commandMode: CommandMode = 'build';
@@ -368,6 +390,15 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   /** Bascule le mode courant : montre exactement une des trois grilles,
    * n'affecte jamais la hauteur de la barre (voir #command-bar en CSS). */
   function setCommandMode(mode: CommandMode): void {
+    // Consulter un panneau fait sortir l'equipement correspondant : la station
+    // radio pour l'envoi, les ecrans holographiques pour les abilites. Purement
+    // visuel, et seulement a l'OUVERTURE (mode different du precedent) — sinon
+    // recliquer sur l'onglet deja actif rejouerait le clip. Sans effet si
+    // l'ouvrier est occupe : construire ou se deplacer l'emporte toujours.
+    if (mode !== commandMode && !isObserving()) {
+      if (mode === 'send') builderEntity.signalSendPanel();
+      else if (mode === 'abilities') builderEntity.signalAbilityPanel();
+    }
     commandMode = mode;
     cmdGridBuild.hidden = mode !== 'build';
     cmdGridSend.hidden = mode !== 'send';
@@ -477,7 +508,6 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   const backToOwnArenaBtn = byId<HTMLButtonElement>('back-to-own-arena-btn');
   const observedNameEl = byId<HTMLElement>('observed-name');
   const observedIncomeEl = byId<HTMLElement>('observed-income');
-  let viewedPlayer = 0;
 
   /** true des qu'on regarde une arene qui n'est pas la sienne : aucune action
    * n'est possible dans cet etat (ni construire, ni ameliorer, ni vendre, ni
@@ -495,6 +525,8 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     viewedPlayer = player;
     towerGroups[viewedPlayer]!.visible = true;
     creepGroups[viewedPlayer]!.visible = true;
+    builderEntity.setPlayer(new THREE.Color(toHexNumber(playerColor(viewedPlayer))));
+    buildPreviews.setTeamColor(toHexNumber(playerColor(viewedPlayer)));
 
     // Rien ne doit rester arme/selectionne en changeant de vue — que ce soit
     // en partant observer (fantome de pose fantome sur la mauvaise arene) ou
@@ -641,6 +673,18 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     listenerOpts,
   );
 
+  // Vide les constructions planifiees. Celle en cours n'est pas annulable et
+  // n'est pas remboursee (voir cancelBuildQueue dans packages/sim/src/sim.ts) :
+  // le bouton reste donc actif tant qu'il y a plus d'un ordre en file.
+  cancelQueueBtn.addEventListener(
+    'click',
+    () => {
+      if (isObserving()) return;
+      pendingHuman.push({ type: 'cancelBuildQueue', player: 0 });
+    },
+    listenerOpts,
+  );
+
   restartBtn.addEventListener('click', startNewGame, listenerOpts);
   exitToMenuBtn.addEventListener('click', () => callbacks.onExitToMenu(), listenerOpts);
 
@@ -729,7 +773,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   function handleEvents(events: SimEvent[]): void {
     for (const ev of events) {
       if (ev.type === 'rejected' && ev.player === 0) {
-        toast(ev.reason, 'warn');
+        toast(ev.reason === 'build queue full' ? 'File de construction pleine' : ev.reason, 'warn');
       } else if (ev.type === 'defeat' && ev.player === 0) {
         toast('You have been eliminated', 'danger');
       } else if (ev.type === 'lightningChain' && ev.player === 0) {
@@ -812,6 +856,31 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
       creepEntitiesByPlayer[p]!.sync(arena, state.tick, animDt);
       towerEntitiesByPlayer[p]!.update(arena, animDt, isViewed ? selectedTowerEid : null, isViewed ? hoveredTowerEid : null);
     }
+    // L'ouvrier, lui, n'est synchronise que pour l'arene REGARDEE : il n'y a
+    // qu'un objet, et aucun mesh n'apparait ni ne disparait en changeant de
+    // vue (c'est le meme, repositionne) — le risque que la mutualisation des
+    // autres entites evite n'existe donc pas ici.
+    const viewedArena = state.arenas[viewedPlayer];
+    if (viewedArena) builderEntity.sync(viewedArena, frames[viewedPlayer]!, animDt);
+
+    // Le CHANTIER en cours est montre dans toutes les arenes — sans lui,
+    // l'ouvrier d'un adversaire martelerait le vide. Seuls les ordres
+    // PLANIFIES restent prives : les devoiler donnerait ses intentions.
+    if (viewedArena) buildPreviews.sync(viewedArena, frames[viewedPlayer]!, animDt, viewedPlayer === 0);
+
+    // Indicateur de file : toujours celle du JOUEUR (arena 0), jamais celle de
+    // l'arene observee — c'est sa propre file qu'il peut annuler.
+    if (arena0) {
+      const queued = arena0.builder.queue.length;
+      buildQueueBadge.hidden = queued === 0;
+      buildQueueBadge.textContent = `${queued}/${rules.builderQueueMax}`;
+      buildQueueBadge.classList.toggle('cmd-queue-badge--full', queued >= rules.builderQueueMax);
+      // Desactive s'il n'y a rien d'ANNULABLE : une file reduite a la seule
+      // construction en cours n'offre plus rien a annuler.
+      const cancellable = arena0.builder.mode === 'building' ? queued - 1 : queued;
+      cancelQueueBtn.disabled = cancellable <= 0 || isObserving();
+    }
+
     if (arena0) {
       slotMarkers.update(
         state.arenas[viewedPlayer] ?? arena0,
@@ -883,6 +952,8 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     cancelAnimationFrame(rafId);
     disarmExitGuard();
     controller.abort();
+    builderEntity.dispose();
+    buildPreviews.dispose();
     disposeScene3D(s3d);
   };
 }
