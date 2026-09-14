@@ -2,7 +2,8 @@ import * as THREE from 'three';
 
 /**
  * Palette partagee par toutes les branches, portee telle quelle du prototype
- * (reference/cannon-branch-v5.html). Les couleurs elles-memes ne derivent
+ * d'origine de la branche Cannon (retire du depot, voir l'historique git).
+ * Les couleurs elles-memes ne derivent
  * d'aucune stat — seul leur usage (calibre, hauteur, nombre de canons...)
  * derive des donnees.
  */

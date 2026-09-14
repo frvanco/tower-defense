@@ -17,8 +17,8 @@ const TURRET_SCALE = 1.15;
 const DEFAULT_TEAM_COLOR = 0xc0392b;
 
 /**
- * Porte de `makeCannonTower` dans reference/cannon-branch-v5.html, sans
- * changement de rendu. Seule difference fonctionnelle : `tier` indexe la
+ * Porte de `makeCannonTower` du prototype d'origine de la branche Cannon
+ * (retire du depot, voir l'historique git), sans changement de rendu. Seule difference fonctionnelle : `tier` indexe la
  * chaine d'upgrade REELLE lue depuis `@tower-defense/data` (`getBranchChain`)
  * au lieu du tableau `BRANCH` recopie a la main du prototype — rebalancer
  * `balance.json` reforme donc la tour automatiquement.

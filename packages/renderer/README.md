@@ -1,7 +1,10 @@
 # @tower-defense/renderer
 
-Portage TypeScript de `reference/cannon-branch-v5.html` (prototype validé
-visuellement, geometrie procedurale 3D de la branche Cannon). Le package
+Portage TypeScript d'un prototype validé visuellement (geometrie procedurale
+3D de la branche Cannon). Le prototype et sa page de comparaison generee ne
+vivent plus dans le depot : ils ne couvraient que la branche Cannon et la
+page generee avait diverge du code — voir l'historique git pour les
+retrouver. Le package
 n'expose que la geometrie et les comportements generiques — aucune regle de
 jeu, aucun rendu de scene complet. Il ne depend que de `@tower-defense/data`
 et de `three`.
@@ -18,10 +21,6 @@ src/
   turret.ts         aimTurret
 test/
   footprint.test.ts
-demo/
-  scene.ts          galerie de demo (six paliers, HUD) — pas exporte par le package
-scripts/
-  regenerate-reference.ts
 ```
 
 ## Ce qui a change par rapport au prompt d'origine
@@ -121,8 +120,10 @@ moment ou j'ai commence :
   jour les matrices avant de dessiner), c'est toujours vrai. `turret.ts`
   n'est PAS couvert par `footprint.test.ts` (qui tourne sous Node sans jamais
   appeler `render()`) — sa correction n'a ete verifiee que par lecture du
-  code et par la demo (`demo/scene.ts`, qui l'appelle dans une vraie boucle
-  `requestAnimationFrame`), jamais par un test automatise isole.
+  code et, a l'epoque, par la galerie de demo depuis retiree. Elle l'est
+  aujourd'hui de fait par le vrai client, qui l'appelle dans sa boucle de
+  rendu (`apps/web/src/entities3d.ts`), mais toujours par aucun test
+  automatise isole.
 - **Poussiere de construction re-parentee sous la tour.** Le prototype
   ajoute ses particules directement a la `Scene`, en coordonnees monde
   derivees de `tower.position`. La signature demandee pour `build.ts`
@@ -158,14 +159,3 @@ moment ou j'ai commence :
   module partage puisqu'une seule branche existe pour l'instant et qu'un
   seul appelant ne justifie pas une abstraction — a deplacer des que la
   deuxieme branche en aura besoin.
-
-## Regenerer la comparaison
-
-```bash
-pnpm --filter @tower-defense/renderer regenerate-reference
-```
-
-Ecrit `reference/cannon-branch-v5.generated.html` (n'ecrase PAS l'original,
-qui reste la reference "verite terrain"). `three` reste externe au bundle et
-resolu via le meme import map unpkg que le prototype (meme version, 0.160.0)
-pour que la comparaison ne porte que sur le code de ce package.
