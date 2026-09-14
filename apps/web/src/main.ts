@@ -54,6 +54,7 @@ import {
 import { initToasts, toast } from './toast.js';
 import { DIFFICULTY_LABELS } from './difficulty.js';
 import { PerfMonitor, isPerfEnabled } from './perfMonitor.js';
+import { isDevRequested } from './devMode.js';
 
 const STEP_MS = 1000 / TICK_RATE;
 // A backgrounded/stalled tab can accumulate a huge dt on refocus; cap how many
@@ -439,8 +440,10 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
   // builds de prod, markup et listeners compris — leur contenu n'est pas
   // seulement inactif en partie normale, il n'est pas livre. ?dev=1 sur un
   // build de prod ne fait rien, la garde n'existe qu'a l'execution d'un
-  // serveur de dev.
-  const devMode = import.meta.env.DEV && new URLSearchParams(location.search).get('dev') === '1';
+  // serveur de dev. Le litteral `import.meta.env.DEV` reste ecrit ICI et non
+  // derriere isDevRequested() : c'est de le VOIR dans la condition qui permet
+  // a Vite d'elaguer les import() — voir devMode.ts.
+  const devMode = import.meta.env.DEV && isDevRequested();
   if (devMode) {
     // `state` est capture par reference (via la closure), pas par valeur :
     // reste correct meme apres un `state = next.state` fait par startNewGame().

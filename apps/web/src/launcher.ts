@@ -4,6 +4,7 @@ import { createLobbyClient } from './lobbyClient.js';
 import { openLobbyScreen, type LobbySession } from './lobbyScreen.js';
 import { normalizeLobbyCode, LOBBY_CODE_LENGTH } from '@tower-defense/lobby';
 import { initToasts, toast } from './toast.js';
+import { isDevRequested } from './devMode.js';
 import {
   DIFFICULTY_LABELS,
   DIFFICULTY_DESCRIPTIONS,
@@ -377,8 +378,9 @@ async function boot(): Promise<void> {
   render('chargement');
   // Controles de dev du salon (voir lobbyDev.ts) : import dynamique derriere
   // `import.meta.env.DEV`, constante figee a la compilation, donc le module
-  // est entierement elague du bundle de prod. Meme motif que dev.ts.
-  if (import.meta.env.DEV && new URLSearchParams(location.search).get('dev') === '1') {
+  // est entierement elague du bundle de prod. Meme motif que dev.ts — et
+  // meme raison de garder le litteral ici plutot que dans isDevRequested().
+  if (import.meta.env.DEV && isDevRequested()) {
     const { installLobbyDevTools } = await import('./lobbyDev.js');
     installLobbyDevTools();
   }
