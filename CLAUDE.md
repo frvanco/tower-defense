@@ -41,9 +41,13 @@ ne rattrape une erreur. La checklist minimale avant de rendre :
 ## Lancer le jeu
 
 ```bash
-TODO: commande de dev (client), port
-TODO: commande de dev (serveur), port
+pnpm dev        # client web   -> http://localhost:5173
+pnpm dev:server # serveur      -> http://localhost:3000 (routes sous /api)
+pnpm dev:all    # les deux ensemble
 ```
+
+Le client proxie `/api` vers le port 3000 : lancer les deux, ou `pnpm dev:all`.
+Le serveur a besoin de PostgreSQL (voir `README.md`, section Démarrer).
 
 Instrumentation de performance du client : ajouter `?perf=1` à l'URL, puis
 `window.__perf.getReport()` dans la console.
