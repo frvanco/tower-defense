@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PATH_WIDTH, type Lane } from '@tower-defense/data';
 import { worldToScene, type Frame3D } from './world3d.js';
 import { buildPlatforms, PATH_SURFACE_Y } from './terrain3d.js';
+import { createSanctuary, type Sanctuary, type SanctuaryOptions } from './sanctuary/index.js';
 
 export interface Scene3D {
   scene: THREE.Scene;
@@ -11,16 +12,16 @@ export interface Scene3D {
   controls: OrbitControls;
   towerLayer: THREE.Group;
   creepLayer: THREE.Group;
+  sanctuary: Sanctuary;
 }
 
 type Point2 = [number, number];
 
-const SKY_ZENITH = new THREE.Color(0x14212b);
-const SKY_HORIZON = new THREE.Color(0x40503f);
-const SKY_BELOW = new THREE.Color(0x1a231a);
-const FOG_COLOR = 0x303b31;
-const GROUND_PAD_RATIO = 2.4;
-const SCENERY_PAD_RATIO = 0.95;
+const SKY_ZENITH = new THREE.Color(0x94b6b4);
+const SKY_HORIZON = new THREE.Color(0xadbba0);
+const SKY_BELOW = new THREE.Color(0x586e48);
+const FOG_COLOR = 0x92a58a;
+const GROUND_PAD_RATIO = 4.8;
 const PATH_TEXTURE_SCALE = 4.2;
 
 function seededRandom(seed: number): () => number {
@@ -40,27 +41,24 @@ function grassTexture(): THREE.CanvasTexture {
   const ctx = canvas.getContext('2d')!;
   const rand = seededRandom(91125);
 
-  ctx.fillStyle = '#2b3d1e';
-  ctx.fillRect(0, 0, size, size);
-
-  for (let i = 0; i < 190; i++) {
-    const x = rand() * size;
-    const y = rand() * size;
-    const radius = 4 + rand() * 20;
-    ctx.fillStyle = rand() < 0.52 ? 'rgba(91,116,52,0.09)' : 'rgba(9,18,8,0.10)';
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
+  const pixels = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = x / size * Math.PI * 2;
+    const v = y / size * Math.PI * 2;
+    const variation = Math.sin(u + Math.sin(v)) * 5 + Math.cos(v * 2 - u) * 3;
+    const i = (y * size + x) * 4;
+    pixels.data[i] = 77 + variation;
+    pixels.data[i + 1] = 103 + variation;
+    pixels.data[i + 2] = 46 + variation * 0.5;
+    pixels.data[i + 3] = 255;
   }
-
-  for (let i = 0; i < 2100; i++) {
+  ctx.putImageData(pixels, 0, 0);
+  ctx.strokeStyle = 'rgba(142,164,79,0.12)';
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < 500; i++) {
     const x = rand() * size;
     const y = rand() * size;
-    const radius = 0.45 + rand() * 1.5;
-    ctx.fillStyle = rand() < 0.5 ? 'rgba(102,126,60,0.26)' : 'rgba(21,31,14,0.35)';
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 1, y - 2); ctx.stroke();
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -70,36 +68,40 @@ function grassTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-function dirtTexture(): THREE.CanvasTexture {
-  const size = 256;
+/** Dallage peint: joints, eclats et mousse sans geometrie sur le passage. */
+function pavingTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = canvas.height = 512;
   const ctx = canvas.getContext('2d')!;
   const rand = seededRandom(0x0d17c0de);
-
-  ctx.fillStyle = '#896743';
-  ctx.fillRect(0, 0, size, size);
-  for (let i = 0; i < 260; i++) {
-    const x = rand() * size;
-    const y = rand() * size;
-    const rx = 2 + rand() * 9;
-    const ry = 1 + rand() * 4;
-    ctx.fillStyle = rand() > 0.45 ? 'rgba(151,116,72,0.10)' : 'rgba(61,43,29,0.12)';
-    ctx.beginPath();
-    ctx.ellipse(x, y, rx, ry, rand() * Math.PI, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.fillStyle = '#8f896d';
+  ctx.fillRect(0, 0, 512, 512);
+  for (let row = 0; row < 6; row++) {
+    const height = 512 / 6;
+    for (let col = -1; col < 5; col++) {
+      const x = col * 128 + (row % 2) * 64;
+      const y = row * height;
+      const light = Math.round(rand() * 14);
+      ctx.fillStyle = `rgb(${190 + light},${182 + light},${150 + light})`;
+      ctx.fillRect(x + 2, y + 2, 124, height - 4);
+      ctx.strokeStyle = 'rgba(244,232,192,0.55)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 4, y + 4, 120, height - 8);
+      if (rand() < 0.3) {
+        ctx.strokeStyle = 'rgba(95,97,66,0.45)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x + 2, y + 24); ctx.lineTo(x + 19, y + 31); ctx.lineTo(x + 25, y + 44); ctx.stroke();
+      }
+      if (rand() < 0.3) {
+        ctx.fillStyle = 'rgba(92,119,48,0.4)';
+        ctx.fillRect(x + 3, y + height - 4, 20 + rand() * 28, 3);
+      }
+    }
   }
-  for (let i = 0; i < 950; i++) {
-    const shade = rand() > 0.7 ? 'rgba(190,160,112,0.24)' : 'rgba(45,31,22,0.24)';
-    ctx.fillStyle = shade;
-    ctx.fillRect(rand() * size, rand() * size, 0.6 + rand() * 1.6, 0.5 + rand());
-  }
-
   const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.MirroredRepeatWrapping;
-  texture.wrapT = THREE.MirroredRepeatWrapping;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
   return texture;
 }
 
@@ -109,7 +111,7 @@ function buildGround(frame: Frame3D): THREE.Mesh {
   const width = frame.halfWidth * 2 + pad * 2;
   const height = frame.halfHeight * 2 + pad * 2;
   const texture = grassTexture();
-  texture.repeat.set(Math.max(6, Math.round(width / 6)), Math.max(6, Math.round(height / 6)));
+  texture.repeat.set(Math.max(6, Math.round(width / 18)), Math.max(6, Math.round(height / 18)));
 
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(width, height),
@@ -193,49 +195,6 @@ function buildPathLayer(
   return mesh;
 }
 
-function buildPathRuts(points: Point2[], pathWidth: number): THREE.Mesh {
-  const positions: number[] = [];
-  const uvs: number[] = [];
-  const rutWidth = Math.max(0.055, pathWidth * 0.035);
-  const offset = pathWidth * 0.18;
-
-  for (let i = 0; i < points.length - 1; i++) {
-    const [ax, az] = points[i]!;
-    const [bx, bz] = points[i + 1]!;
-    const dx = bx - ax;
-    const dz = bz - az;
-    const len = Math.hypot(dx, dz) || 1;
-    const nx = -dz / len;
-    const nz = dx / len;
-
-    for (const sign of [-1, 1]) {
-      const centerAx = ax + nx * offset * sign;
-      const centerAz = az + nz * offset * sign;
-      const centerBx = bx + nx * offset * sign;
-      const centerBz = bz + nz * offset * sign;
-      const hx = nx * rutWidth * 0.5;
-      const hz = nz * rutWidth * 0.5;
-      const aLeft: Point2 = [centerAx + hx, centerAz + hz];
-      const aRight: Point2 = [centerAx - hx, centerAz - hz];
-      const bLeft: Point2 = [centerBx + hx, centerBz + hz];
-      const bRight: Point2 = [centerBx - hx, centerBz - hz];
-      pushHorizontalTriangle(positions, uvs, aLeft, aRight, bRight, PATH_SURFACE_Y + 0.008);
-      pushHorizontalTriangle(positions, uvs, aLeft, bRight, bLeft, PATH_SURFACE_Y + 0.008);
-    }
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.computeVertexNormals();
-  const mesh = new THREE.Mesh(
-    geometry,
-    new THREE.MeshBasicMaterial({ color: 0x38281e, transparent: true, opacity: 0.26, depthWrite: false }),
-  );
-  mesh.name = 'pathRuts';
-  mesh.renderOrder = 2;
-  return mesh;
-}
-
 function buildPath(lane: Lane, frame: Frame3D): THREE.Group {
   const group = new THREE.Group();
   group.name = 'path';
@@ -246,17 +205,16 @@ function buildPath(lane: Lane, frame: Frame3D): THREE.Group {
     points,
     width * 1.23,
     PATH_SURFACE_Y - 0.003,
-    new THREE.MeshLambertMaterial({ color: 0x4a3525 }),
+    new THREE.MeshLambertMaterial({ color: 0x858369 }),
     'pathShoulder',
   ));
   group.add(buildPathLayer(
     points,
     width * 0.98,
     PATH_SURFACE_Y,
-    new THREE.MeshLambertMaterial({ map: dirtTexture(), color: 0xffffff }),
-    'dirtPath',
+    new THREE.MeshLambertMaterial({ map: pavingTexture(), color: 0xffffff }),
+    'pavedPath',
   ));
-  group.add(buildPathRuts(points, width));
   return group;
 }
 
@@ -289,162 +247,9 @@ function buildSkyDome(radius: number): THREE.Mesh {
   return sky;
 }
 
-function buildScenery(frame: Frame3D): THREE.Group {
-  const group = new THREE.Group();
-  group.name = 'scenery';
-  const span = Math.max(frame.halfWidth, frame.halfHeight);
-  const pad = span * SCENERY_PAD_RATIO;
-  const rand = seededRandom(0x5ce9e7);
-  const trees: Point2[] = [];
-
-  // Une lisiere au fond et sur les flancs : jamais sur le chemin ni sur un slot.
-  for (let i = 0; i < 14; i++) {
-    trees.push([
-      (rand() * 2 - 1) * (frame.halfWidth + pad * 0.62),
-      frame.halfHeight + pad * (0.28 + rand() * 0.48),
-    ]);
-  }
-  for (let i = 0; i < 22; i++) {
-    const side = i % 2 === 0 ? -1 : 1;
-    trees.push([
-      side * (frame.halfWidth + pad * (0.25 + rand() * 0.48)),
-      -frame.halfHeight * 0.28 + rand() * (frame.halfHeight * 1.35 + pad * 0.16),
-    ]);
-  }
-
-  const trunkGeometry = new THREE.CylinderGeometry(0.11, 0.17, 0.9, 6);
-  const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x5b3f27 });
-  const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, trees.length);
-  trunks.name = 'treeTrunks';
-  trunks.castShadow = true;
-
-  const crownGeometry = new THREE.ConeGeometry(0.66, 1.5, 7);
-  const crownMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  const crowns = new THREE.InstancedMesh(crownGeometry, crownMaterial, trees.length * 2);
-  crowns.name = 'treeCrowns';
-  crowns.castShadow = true;
-
-  const matrix = new THREE.Matrix4();
-  const quaternion = new THREE.Quaternion();
-  trees.forEach(([x, z], index) => {
-    const scale = 1.02 + rand() * 0.66;
-    const rotation = rand() * Math.PI * 2;
-    quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotation);
-    matrix.compose(new THREE.Vector3(x, 0.45 * scale, z), quaternion, new THREE.Vector3(scale, scale, scale));
-    trunks.setMatrixAt(index, matrix);
-
-    const lowerScale = new THREE.Vector3(scale, scale * 1.05, scale);
-    matrix.compose(new THREE.Vector3(x, 1.18 * scale, z), quaternion, lowerScale);
-    crowns.setMatrixAt(index * 2, matrix);
-    crowns.setColorAt(index * 2, new THREE.Color(index % 3 === 0 ? 0x304f27 : 0x3b5d2c));
-
-    const upperScale = new THREE.Vector3(scale * 0.72, scale * 0.82, scale * 0.72);
-    matrix.compose(new THREE.Vector3(x, 2.0 * scale, z), quaternion, upperScale);
-    crowns.setMatrixAt(index * 2 + 1, matrix);
-    crowns.setColorAt(index * 2 + 1, new THREE.Color(index % 4 === 0 ? 0x426832 : 0x35582a));
-  });
-  trunks.instanceMatrix.needsUpdate = true;
-  crowns.instanceMatrix.needsUpdate = true;
-  if (crowns.instanceColor) crowns.instanceColor.needsUpdate = true;
-  group.add(trunks, crowns);
-
-  const rockCount = 24;
-  const rocks = new THREE.InstancedMesh(
-    new THREE.DodecahedronGeometry(0.28, 0),
-    new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }),
-    rockCount,
-  );
-  rocks.name = 'boundaryRocks';
-  rocks.receiveShadow = true;
-  for (let i = 0; i < rockCount; i++) {
-    const side = i % 2 === 0 ? -1 : 1;
-    const x = side * (frame.halfWidth + pad * (0.12 + rand() * 0.58));
-    const z = -frame.halfHeight * 0.48 + rand() * (frame.halfHeight * 1.45 + pad * 0.35);
-    quaternion.setFromEuler(new THREE.Euler(rand() * 0.5, rand() * Math.PI * 2, rand() * 0.35));
-    const sx = 0.55 + rand() * 1.2;
-    const sy = 0.45 + rand() * 0.7;
-    const sz = 0.55 + rand() * 1.2;
-    matrix.compose(new THREE.Vector3(x, 0.12 * sy, z), quaternion, new THREE.Vector3(sx, sy, sz));
-    rocks.setMatrixAt(i, matrix);
-    rocks.setColorAt(i, new THREE.Color(i % 3 === 0 ? 0x716953 : 0x5e5a49));
-  }
-  rocks.instanceMatrix.needsUpdate = true;
-  if (rocks.instanceColor) rocks.instanceColor.needsUpdate = true;
-  group.add(rocks);
-  return group;
-}
-
-function buildGate(x: number, z: number, color: number, tangent: Point2, hostile = false): THREE.Group {
-  const group = new THREE.Group();
-  group.name = hostile ? 'exitGate' : 'spawnGate';
-  const tangentLength = Math.hypot(tangent[0], tangent[1]) || 1;
-  const nx = -tangent[1] / tangentLength;
-  const nz = tangent[0] / tangentLength;
-
-  const haloMaterial = new THREE.MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity: 0.5,
-    depthWrite: false,
-    side: THREE.FrontSide,
-  });
-  const halo = new THREE.Mesh(new THREE.RingGeometry(0.4, hostile ? 1.08 : 1.24, 32), haloMaterial);
-  halo.rotation.x = -Math.PI / 2;
-  halo.position.set(x, PATH_SURFACE_Y + 0.018, z);
-  halo.renderOrder = 3;
-  group.add(halo);
-
-  const pylonGeometry = new THREE.CylinderGeometry(0.16, 0.26, 1.65, 6);
-  const pylonMaterial = new THREE.MeshLambertMaterial({ color: hostile ? 0x493732 : 0x625b49, flatShading: true });
-  const pylons = new THREE.InstancedMesh(pylonGeometry, pylonMaterial, 2);
-  pylons.castShadow = true;
-  const matrix = new THREE.Matrix4();
-  for (let i = 0; i < 2; i++) {
-    const side = i === 0 ? -1 : 1;
-    matrix.makeTranslation(x + nx * 1.05 * side, 0.82, z + nz * 1.05 * side);
-    pylons.setMatrixAt(i, matrix);
-  }
-  pylons.instanceMatrix.needsUpdate = true;
-  group.add(pylons);
-
-  const crystals = new THREE.InstancedMesh(
-    new THREE.OctahedronGeometry(hostile ? 0.21 : 0.25, 0),
-    new THREE.MeshBasicMaterial({ color }),
-    2,
-  );
-  for (let i = 0; i < 2; i++) {
-    const side = i === 0 ? -1 : 1;
-    matrix.makeTranslation(x + nx * 1.05 * side, 1.78, z + nz * 1.05 * side);
-    crystals.setMatrixAt(i, matrix);
-  }
-  crystals.instanceMatrix.needsUpdate = true;
-  group.add(crystals);
-
-  const core = new THREE.Mesh(
-    new THREE.OctahedronGeometry(hostile ? 0.36 : 0.3, 0),
-    new THREE.MeshBasicMaterial({ color }),
-  );
-  core.position.set(x, hostile ? 0.4 : 0.34, z);
-  core.rotation.y = Math.PI * 0.25;
-  group.add(core);
-  return group;
-}
-
-/**
- * Cadrage de depart. Releve a la souris puis fige tel quel (voir
- * `__dev.camera()` dans dev.ts, qui imprime ces deux lignes) plutot que
- * calcule : reconstituer un cadrage depuis une capture d'ecran ne donne qu'une
- * approximation, et le choix est esthetique, pas geometrique.
- *
- * Ce qu'il vaut, pour qui voudrait l'ajuster : distance 39.5 a la cible, angle
- * polaire 53.1 degres (identique au cadrage precedent), cible avancee a
- * z = -20.7 au lieu du centre de l'arene. C'est ce rapprochement de la cible
- * qui remonte le couloir dans le cadre et degage le bas du U de derriere la
- * barre de commandes, que le cadrage precedent (distance 75, cible au centre)
- * laissait hors champ.
- */
-const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [-0.08, 22.72, -52.38];
-const INITIAL_CAMERA_TARGET: readonly [number, number, number] = [-0.21, -1, -20.74];
+/** Le cadrage initial inclut le U entier et son sanctuaire en arriere-plan. */
+const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [0, 26.18, -62.23];
+const INITIAL_CAMERA_TARGET: readonly [number, number, number] = [0, 0, -15];
 
 /** Cap (convention `aimTurret` : atan2(dx, dz), 0 = +Z) d'une tour vers la
  * camera initiale. Derive des constantes ci-dessus plutot qu'ecrit en dur :
@@ -525,7 +330,7 @@ function installPanBounds(controls: OrbitControls, camera: THREE.PerspectiveCame
   });
 }
 
-export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Frame3D): Scene3D {
+export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Frame3D, sceneryOptions: SanctuaryOptions = {}): Scene3D {
   const span = Math.max(frame.halfWidth, frame.halfHeight);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(FOG_COLOR);
@@ -551,14 +356,14 @@ export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Fram
   controls.maxPolarAngle = 1.15;
   controls.minDistance = 2;
   controls.maxDistance = span * 2.3;
-  camera.position.set(...INITIAL_CAMERA_POSITION);
-  controls.target.set(...INITIAL_CAMERA_TARGET);
+  camera.position.set(...INITIAL_CAMERA_POSITION).multiplyScalar(span / 34.125);
+  controls.target.set(...INITIAL_CAMERA_TARGET).multiplyScalar(span / 34.125);
   controls.update();
   installPanBounds(controls, camera, frame, span);
 
-  scene.add(new THREE.HemisphereLight(0x9eb7c7, 0x2a2619, 1.35));
-  scene.add(new THREE.AmbientLight(0x566052, 0.35));
-  const key = new THREE.DirectionalLight(0xffe2b8, 2.05);
+  scene.add(new THREE.HemisphereLight(0xc5d9da, 0x777953, 1.7));
+  scene.add(new THREE.AmbientLight(0x9ba68a, 0.45));
+  const key = new THREE.DirectionalLight(0xffe5b8, 2.5);
   const shadowSpan = span * 1.3;
   key.position.set(-shadowSpan * 0.45, shadowSpan * 1.05, -shadowSpan * 0.7);
   key.castShadow = true;
@@ -571,31 +376,16 @@ export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Fram
   key.shadow.bias = -0.00035;
   key.shadow.normalBias = 0.025;
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0x7898bc, 0.65);
+  const rim = new THREE.DirectionalLight(0xa0bec0, 0.55);
   rim.position.set(shadowSpan * 0.3, shadowSpan * 0.4, shadowSpan * 0.45);
   scene.add(rim);
 
   scene.add(buildGround(frame));
   scene.add(buildPath(lane, frame));
   scene.add(buildPlatforms(lane, frame));
-  scene.add(buildScenery(frame));
-
-  const pathPoints = [lane.spawn, ...lane.waypoints].map(([x, y]) => worldToScene(frame, x, y));
-  const spawn = pathPoints[0];
-  const spawnNext = pathPoints[1];
-  if (spawn && spawnNext) {
-    scene.add(buildGate(
-      spawn[0],
-      spawn[1],
-      0x63d9ff,
-      [spawnNext[0] - spawn[0], spawnNext[1] - spawn[1]],
-    ));
-  }
-  const end = pathPoints[pathPoints.length - 1];
-  const endPrev = pathPoints[pathPoints.length - 2];
-  if (end && endPrev) {
-    scene.add(buildGate(end[0], end[1], 0xff5c4a, [end[0] - endPrev[0], end[1] - endPrev[1]], true));
-  }
+  const sanctuary = createSanctuary(lane, frame, sceneryOptions);
+  sanctuary.setPlayer(lane.player);
+  scene.add(sanctuary.group);
 
   const towerLayer = new THREE.Group();
   towerLayer.name = 'towers';
@@ -604,7 +394,7 @@ export function createScene3D(canvas: HTMLCanvasElement, lane: Lane, frame: Fram
   creepLayer.name = 'creeps';
   scene.add(creepLayer);
 
-  return { scene, camera, renderer, controls, towerLayer, creepLayer };
+  return { scene, camera, renderer, controls, towerLayer, creepLayer, sanctuary };
 }
 
 export function resizeScene3D(s3d: Scene3D, width: number, height: number): void {
@@ -613,22 +403,28 @@ export function resizeScene3D(s3d: Scene3D, width: number, height: number): void
   s3d.renderer.setSize(width, height, false);
 }
 
-function disposeMaterial(material: THREE.Material): void {
-  for (const value of Object.values(material)) {
-    if (value instanceof THREE.Texture) value.dispose();
-  }
-  material.dispose();
-}
-
-/** Libere le renderer et toutes les ressources encore attachees a la scene. */
+/** Libere chaque ressource locale une fois, meme si plusieurs meshes la partagent. */
 export function disposeScene3D(s3d: Scene3D): void {
+  // Le module retire son groupe avant la traversee: ses ressources ont un seul proprietaire.
+  s3d.sanctuary.dispose();
+  const geometries = new Set<THREE.BufferGeometry>();
+  const materials = new Set<THREE.Material>();
+  const textures = new Set<THREE.Texture>();
   s3d.scene.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
-    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.geometry) geometries.add(mesh.geometry);
     const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
-    if (Array.isArray(material)) material.forEach(disposeMaterial);
-    else if (material) disposeMaterial(material);
+    if (Array.isArray(material)) material.forEach((entry) => materials.add(entry));
+    else if (material) materials.add(material);
+    if (obj instanceof THREE.InstancedMesh) obj.dispose();
+    if (obj instanceof THREE.DirectionalLight) obj.shadow.dispose();
   });
+  materials.forEach((material) => {
+    for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
+    material.dispose();
+  });
+  textures.forEach((texture) => texture.dispose());
+  geometries.forEach((geometry) => geometry.dispose());
   s3d.scene.clear();
   s3d.controls.dispose();
   s3d.renderer.dispose();

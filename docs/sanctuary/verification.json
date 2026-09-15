@@ -1,0 +1,716 @@
+{
+  "interface": {
+    "slots": [
+      {
+        "id": "interieur-r1-1",
+        "groupId": "interieur-r1",
+        "x": -4268,
+        "y": 2132,
+        "screen": {
+          "x": 929.1331068148581,
+          "y": 639.2477889935495,
+          "scene": [
+            -3.75,
+            1.2,
+            -22.75
+          ]
+        }
+      },
+      {
+        "id": "interieur-r1-4",
+        "groupId": "interieur-r1",
+        "x": -4028,
+        "y": 2132,
+        "screen": {
+          "x": 742.8668931851419,
+          "y": 639.2477889935495,
+          "scene": [
+            3.75,
+            1.2,
+            -22.75
+          ]
+        }
+      },
+      {
+        "id": "interieur-r2-1",
+        "groupId": "interieur-r2",
+        "x": -4268,
+        "y": 2212,
+        "screen": {
+          "x": 924.9624670809445,
+          "y": 607.4831064251633,
+          "scene": [
+            -3.75,
+            1.2,
+            -20.25
+          ]
+        }
+      },
+      {
+        "id": "interieur-r2-4",
+        "groupId": "interieur-r2",
+        "x": -4028,
+        "y": 2212,
+        "screen": {
+          "x": 747.0375329190555,
+          "y": 607.4831064251633,
+          "scene": [
+            3.75,
+            1.2,
+            -20.25
+          ]
+        }
+      }
+    ],
+    "afterBuild": {
+      "tick": 160,
+      "towers": [
+        {
+          "eid": 1,
+          "x": -4268,
+          "y": 2132,
+          "defId": "h000"
+        }
+      ],
+      "builder": {
+        "x": -4076.594910853088,
+        "y": 2122.0654824384665,
+        "facing": 0.2016566582135781,
+        "queue": [
+          {
+            "defId": "h000",
+            "slotId": "interieur-r1-4",
+            "x": -4028,
+            "y": 2132
+          },
+          {
+            "defId": "h000",
+            "slotId": "interieur-r2-1",
+            "x": -4268,
+            "y": 2212
+          },
+          {
+            "defId": "h000",
+            "slotId": "interieur-r2-4",
+            "x": -4028,
+            "y": 2212
+          }
+        ],
+        "mode": "building",
+        "buildTicksLeft": 11
+      },
+      "gold": 5020
+    },
+    "selection": {
+      "html": [
+        {
+          "id": "cmd-info-selected",
+          "hidden": false,
+          "text": "Tourelle (Balistique, palier 1)\nDégâts 46 · Portée 700 · Cadence 0.35s\nUpgrade -> Canon (60g)\nSell (+5g)"
+        },
+        {
+          "id": "selected-icon",
+          "hidden": false,
+          "text": ""
+        },
+        {
+          "id": "selected-name",
+          "hidden": false,
+          "text": "Tourelle (Balistique, palier 1)"
+        },
+        {
+          "id": "selected-info",
+          "hidden": false,
+          "text": "Dégâts 46 · Portée 700 · Cadence 0.35s"
+        }
+      ]
+    },
+    "teams": [
+      {
+        "player": 0,
+        "team": "c0392b",
+        "geometries": 152,
+        "textures": 4,
+        "groups": 1,
+        "observing": false
+      },
+      {
+        "player": 1,
+        "team": "4b8fe2",
+        "geometries": 165,
+        "textures": 4,
+        "groups": 1,
+        "observing": true
+      },
+      {
+        "player": 2,
+        "team": "4fbf4f",
+        "geometries": 166,
+        "textures": 4,
+        "groups": 1,
+        "observing": true
+      },
+      {
+        "player": 3,
+        "team": "a259d9",
+        "geometries": 167,
+        "textures": 4,
+        "groups": 1,
+        "observing": true
+      },
+      {
+        "player": 4,
+        "team": "e26fc0",
+        "geometries": 168,
+        "textures": 4,
+        "groups": 1,
+        "observing": true
+      },
+      {
+        "player": 5,
+        "team": "e2903f",
+        "geometries": 169,
+        "textures": 4,
+        "groups": 1,
+        "observing": true
+      }
+    ],
+    "creepHistory": [
+      {
+        "tick": 178,
+        "creeps": [],
+        "towers": 2
+      },
+      {
+        "tick": 194,
+        "creeps": [],
+        "towers": 2
+      },
+      {
+        "tick": 222,
+        "creeps": [],
+        "towers": 2
+      },
+      {
+        "tick": 238,
+        "creeps": [],
+        "towers": 2
+      },
+      {
+        "tick": 262,
+        "creeps": [],
+        "towers": 3
+      },
+      {
+        "tick": 279,
+        "creeps": [],
+        "towers": 3
+      },
+      {
+        "tick": 306,
+        "creeps": [],
+        "towers": 3
+      },
+      {
+        "tick": 330,
+        "creeps": [],
+        "towers": 4
+      },
+      {
+        "tick": 354,
+        "creeps": [],
+        "towers": 4
+      },
+      {
+        "tick": 378,
+        "creeps": [],
+        "towers": 4
+      },
+      {
+        "tick": 402,
+        "creeps": [],
+        "towers": 4
+      },
+      {
+        "tick": 419,
+        "creeps": [
+          {
+            "eid": 25,
+            "hp": 500,
+            "x": -4513,
+            "y": 3672
+          }
+        ],
+        "towers": 4
+      },
+      {
+        "tick": 443,
+        "creeps": [
+          {
+            "eid": 25,
+            "hp": 500,
+            "x": -4360,
+            "y": 3658
+          }
+        ],
+        "towers": 4
+      },
+      {
+        "tick": 467,
+        "creeps": [
+          {
+            "eid": 25,
+            "hp": 500,
+            "x": -4360,
+            "y": 3490
+          }
+        ],
+        "towers": 4
+      },
+      {
+        "tick": 491,
+        "creeps": [
+          {
+            "eid": 25,
+            "hp": 500,
+            "x": -4360,
+            "y": 3322
+          }
+        ],
+        "towers": 4
+      },
+      {
+        "tick": 523,
+        "creeps": [
+          {
+            "eid": 25,
+            "hp": 500,
+            "x": -4360,
+            "y": 3098
+          }
+        ],
+        "towers": 4
+      },
+      {
+        "tick": 547,
+        "creeps": [
+          {
+            "eid": 25,
+            "hp": 500,
+            "x": -4360,
+            "y": 2930
+          },
+          {
+            "eid": 34,
+            "hp": 500,
+            "x": -4436,
+            "y": 3672
+          },
+          {
+            "eid": 39,
+            "hp": 500,
+            "x": -4478,
+            "y": 3672
+          }
+        ],
+        "towers": 4
+      },
+      {
+        "tick": 571,
+        "creeps": [
+          {
+            "eid": 25,
+            "hp": 258.5,
+            "x": -4360,
+            "y": 2762
+          },
+          {
+            "eid": 34,
+            "hp": 500,
+            "x": -4360,
+            "y": 3581
+          },
+          {
+            "eid": 39,
+            "hp": 500,
+            "x": -4360,
+            "y": 3623
+          },
+          {
+            "eid": 44,
+            "hp": 500,
+            "x": -4576,
+            "y": 3672
+          }
+        ],
+        "towers": 4
+      },
+      {
+        "tick": 595,
+        "creeps": [
+          {
+            "eid": 34,
+            "hp": 500,
+            "x": -4360,
+            "y": 3413
+          },
+          {
+            "eid": 39,
+            "hp": 500,
+            "x": -4360,
+            "y": 3455
+          },
+          {
+            "eid": 44,
+            "hp": 500,
+            "x": -4408,
+            "y": 3672
+          }
+        ],
+        "towers": 4
+      },
+      {
+        "tick": 619,
+        "creeps": [
+          {
+            "eid": 34,
+            "hp": 500,
+            "x": -4360,
+            "y": 3245
+          },
+          {
+            "eid": 39,
+            "hp": 500,
+            "x": -4360,
+            "y": 3287
+          },
+          {
+            "eid": 44,
+            "hp": 500,
+            "x": -4360,
+            "y": 3553
+          }
+        ],
+        "towers": 4
+      }
+    ],
+    "loaded": {
+      "state": {
+        "tick": 619,
+        "towers": [
+          {
+            "eid": 1,
+            "x": -4268,
+            "y": 2132,
+            "defId": "h000"
+          },
+          {
+            "eid": 2,
+            "x": -4028,
+            "y": 2132,
+            "defId": "h000"
+          },
+          {
+            "eid": 10,
+            "x": -4268,
+            "y": 2212,
+            "defId": "h000"
+          },
+          {
+            "eid": 17,
+            "x": -4028,
+            "y": 2212,
+            "defId": "h000"
+          }
+        ],
+        "builder": {
+          "x": -4077.3126659850905,
+          "y": 2206.6688675271675,
+          "facing": 0.10769054126947081,
+          "queue": [],
+          "mode": "idle",
+          "buildTicksLeft": 0
+        },
+        "gold": 5021
+      },
+      "game": {
+        "viewedPlayer": 0,
+        "viewedCreeps": 3,
+        "viewedTowers": 4,
+        "viewedCreepsByType": {
+          "n000": 3
+        },
+        "allArenasCreeps": 15,
+        "allArenasTowers": 28,
+        "humanoidAnimating": 15,
+        "lightningArcsActive": 0,
+        "poisonBubblesActive": 0
+      },
+      "errors": []
+    }
+  },
+  "attaque": [
+    {
+      "tick": 635,
+      "creeps": [
+        {
+          "eid": 34,
+          "hp": 500,
+          "x": -4360,
+          "y": 3133
+        },
+        {
+          "eid": 39,
+          "hp": 500,
+          "x": -4360,
+          "y": 3175
+        },
+        {
+          "eid": 44,
+          "hp": 500,
+          "x": -4360,
+          "y": 3441
+        }
+      ],
+      "cooldowns": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gold": 5021
+    },
+    {
+      "tick": 659,
+      "creeps": [
+        {
+          "eid": 34,
+          "hp": 500,
+          "x": -4360,
+          "y": 2965
+        },
+        {
+          "eid": 39,
+          "hp": 500,
+          "x": -4360,
+          "y": 3007
+        },
+        {
+          "eid": 44,
+          "hp": 500,
+          "x": -4360,
+          "y": 3273
+        },
+        {
+          "eid": 49,
+          "hp": 500,
+          "x": -4471,
+          "y": 3672
+        },
+        {
+          "eid": 54,
+          "hp": 500,
+          "x": -4471,
+          "y": 3672
+        },
+        {
+          "eid": 59,
+          "hp": 500,
+          "x": -4471,
+          "y": 3672
+        },
+        {
+          "eid": 64,
+          "hp": 500,
+          "x": -4485,
+          "y": 3672
+        },
+        {
+          "eid": 69,
+          "hp": 500,
+          "x": -4485,
+          "y": 3672
+        },
+        {
+          "eid": 74,
+          "hp": 500,
+          "x": -4569,
+          "y": 3672
+        }
+      ],
+      "cooldowns": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gold": 5081
+    },
+    {
+      "tick": 675,
+      "creeps": [
+        {
+          "eid": 34,
+          "hp": 465.5,
+          "x": -4360,
+          "y": 2853
+        },
+        {
+          "eid": 39,
+          "hp": 500,
+          "x": -4360,
+          "y": 2895
+        },
+        {
+          "eid": 44,
+          "hp": 500,
+          "x": -4360,
+          "y": 3161
+        },
+        {
+          "eid": 49,
+          "hp": 500,
+          "x": -4360,
+          "y": 3672
+        },
+        {
+          "eid": 54,
+          "hp": 500,
+          "x": -4360,
+          "y": 3672
+        },
+        {
+          "eid": 59,
+          "hp": 500,
+          "x": -4360,
+          "y": 3672
+        },
+        {
+          "eid": 64,
+          "hp": 500,
+          "x": -4373,
+          "y": 3672
+        },
+        {
+          "eid": 69,
+          "hp": 500,
+          "x": -4373,
+          "y": 3672
+        },
+        {
+          "eid": 74,
+          "hp": 500,
+          "x": -4457,
+          "y": 3672
+        }
+      ],
+      "cooldowns": [
+        0,
+        0,
+        1,
+        0
+      ],
+      "gold": 5081
+    }
+  ],
+  "cycleDeVie": {
+    "cycles": [
+      {
+        "round": 0,
+        "geometries": 187,
+        "textures": 38,
+        "sameDecor": true
+      },
+      {
+        "round": 1,
+        "geometries": 187,
+        "textures": 38,
+        "sameDecor": true
+      },
+      {
+        "round": 2,
+        "geometries": 187,
+        "textures": 38,
+        "sameDecor": true
+      }
+    ],
+    "restarts": [
+      {
+        "sameDecor": true,
+        "groups": 1,
+        "team": "c0392b",
+        "expected": "c0392b",
+        "geometries": 153,
+        "textures": 4
+      },
+      {
+        "sameDecor": true,
+        "groups": 1,
+        "team": "c0392b",
+        "expected": "c0392b",
+        "geometries": 153,
+        "textures": 4
+      },
+      {
+        "sameDecor": true,
+        "groups": 1,
+        "team": "c0392b",
+        "expected": "c0392b",
+        "geometries": 153,
+        "textures": 4
+      }
+    ],
+    "errors": []
+  },
+  "camera": {
+    "before": {
+      "position": [
+        0,
+        26.18,
+        -62.23
+      ],
+      "target": [
+        0,
+        0,
+        -15
+      ]
+    },
+    "panned": {
+      "position": [
+        1.48,
+        26.61,
+        -61.99
+      ],
+      "target": [
+        1.48,
+        0.43,
+        -14.76
+      ]
+    },
+    "zoomed": {
+      "position": [
+        2.87,
+        25.08,
+        -58.27
+      ],
+      "target": [
+        2.87,
+        0.84,
+        -14.54
+      ]
+    },
+    "rotated": {
+      "position": [
+        9.07,
+        24.51,
+        -58.23
+      ],
+      "target": [
+        3.59,
+        1.05,
+        -14.42
+      ]
+    },
+    "errors": []
+  }
+}

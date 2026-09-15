@@ -2,6 +2,7 @@ import type { Command } from '@tower-defense/sim';
 
 export interface DevToolsDeps {
   pendingHuman: Command[];
+  setSceneryEnabled(enabled: boolean): void;
   getUnlockedTier: () => number;
   /** Camera et cible courantes, pour `camera()` ci-dessous. */
   getCamera: () => { position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } };
@@ -10,6 +11,7 @@ export interface DevToolsDeps {
 declare global {
   interface Window {
     __dev?: {
+      setSceneryEnabled(enabled: boolean): void;
       setGold(n: number): void;
       setLives(n: number): void;
       unlockTier(n: number): void;
@@ -29,6 +31,7 @@ declare global {
  * creep reste bloque si le palier de boutique n'est pas debloque). */
 export function installDevTools(deps: DevToolsDeps): void {
   window.__dev = {
+    setSceneryEnabled(enabled) { deps.setSceneryEnabled(enabled); },
     setGold(n) {
       deps.pendingHuman.push({ type: 'debugSetGold', player: 0, amount: n });
       console.log(`[dev] setGold(${n})`);
@@ -77,5 +80,5 @@ export function installDevTools(deps: DevToolsDeps): void {
       return out;
     },
   };
-  console.log('[dev] window.__dev ready: setGold(n), setLives(n), unlockTier(n), disableSendTimers(), camera()');
+  console.log('[dev] window.__dev ready: setGold(n), setLives(n), unlockTier(n), disableSendTimers(), camera(), setSceneryEnabled(bool)');
 }

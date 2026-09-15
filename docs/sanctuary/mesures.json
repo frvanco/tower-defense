@@ -1,0 +1,391 @@
+{
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+  "canvas": [
+    1672,
+    936
+  ],
+  "camera": {
+    "position": [
+      0,
+      26.18,
+      -62.23
+    ],
+    "target": [
+      0,
+      0,
+      -15
+    ]
+  },
+  "results": [
+    {
+      "enabled": true,
+      "start": 204.369,
+      "end": 215.86929999999703,
+      "sameScene": true,
+      "frames": 36,
+      "frameMsMean": 322.67222222222176,
+      "frameMsMedian": 316.69999999998254,
+      "frameMsP95": 333.4000000000233,
+      "cpuRenderMs": 3.581818180440953,
+      "gpuMs": 309.17025236363634,
+      "renderer": [
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        }
+      ],
+      "game": {
+        "viewedPlayer": 0,
+        "viewedCreeps": 9,
+        "viewedTowers": 4,
+        "viewedCreepsByType": {
+          "n000": 9
+        },
+        "allArenasCreeps": 34,
+        "allArenasTowers": 28,
+        "humanoidAnimating": 34,
+        "lightningArcsActive": 0,
+        "poisonBubblesActive": 0
+      }
+    },
+    {
+      "enabled": false,
+      "start": 218.3705,
+      "end": 229.8706000000015,
+      "sameScene": true,
+      "frames": 76,
+      "frameMsMean": 152.40657894736833,
+      "frameMsMedian": 150,
+      "frameMsP95": 166.70000000001164,
+      "cpuRenderMs": 2.991666666028045,
+      "gpuMs": 138.9984234142857,
+      "renderer": [
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 170,
+          "triangles": 104344,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        }
+      ],
+      "game": {
+        "viewedPlayer": 0,
+        "viewedCreeps": 9,
+        "viewedTowers": 4,
+        "viewedCreepsByType": {
+          "n000": 9
+        },
+        "allArenasCreeps": 34,
+        "allArenasTowers": 28,
+        "humanoidAnimating": 34,
+        "lightningArcsActive": 0,
+        "poisonBubblesActive": 0
+      }
+    },
+    {
+      "enabled": true,
+      "start": 232.37220000000298,
+      "end": 243.8725,
+      "sameScene": true,
+      "frames": 35,
+      "frameMsMean": 323.7971428571435,
+      "frameMsMedian": 316.70000000001164,
+      "frameMsP95": 333.3999999999942,
+      "cpuRenderMs": 3.576515151131334,
+      "gpuMs": 310.28046308333336,
+      "renderer": [
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        },
+        {
+          "calls": 237,
+          "triangles": 259780,
+          "lines": 0,
+          "points": 0,
+          "geometries": 151,
+          "textures": 13,
+          "programs": 18
+        }
+      ],
+      "game": {
+        "viewedPlayer": 0,
+        "viewedCreeps": 9,
+        "viewedTowers": 4,
+        "viewedCreepsByType": {
+          "n000": 9
+        },
+        "allArenasCreeps": 34,
+        "allArenasTowers": 28,
+        "humanoidAnimating": 34,
+        "lightningArcsActive": 0,
+        "poisonBubblesActive": 0
+      }
+    }
+  ],
+  "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+}

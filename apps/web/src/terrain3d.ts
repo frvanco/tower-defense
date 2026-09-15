@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { zoneFootprints, type Lane } from '@tower-defense/data';
 import { worldToScene, type Frame3D } from './world3d.js';
+import { createPlatformGrassTexture } from './terrainGrass.js';
 
 /** Niveau du chemin et du sol. Les couches decoratives se placent juste au-dessus. */
 export const PATH_SURFACE_Y = 0.008;
@@ -11,19 +12,17 @@ export const PATH_SURFACE_Y = 0.008;
  */
 export const PLATFORM_HEIGHT = 1.2;
 
-const AO_COLOR = 0x17110d;
-const AO_OPACITY = 0.58;
-const AO_WIDTH = 0.42;
+const AO_COLOR = 0x3b4328;
+const AO_OPACITY = 0.24;
+const AO_WIDTH = 0.24;
 const AO_Y = PATH_SURFACE_Y + 0.006;
-const EDGE_TRIM_WIDTH = 0.11;
-const TOP_TEXTURE_SCALE = 4.5;
+const TOP_TEXTURE_SCALE = 24;
 
 type Point2 = [number, number];
 
 interface TerrainMaterials {
   top: THREE.MeshLambertMaterial;
   wall: THREE.MeshLambertMaterial;
-  trim: THREE.MeshLambertMaterial;
   ao: THREE.MeshBasicMaterial;
 }
 
@@ -35,56 +34,10 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-/** Texture d'herbe peinte une fois sur Canvas, sans asset ni travail par frame. */
-function platformTexture(): THREE.CanvasTexture {
-  const size = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-  const rand = seededRandom(0x51a7f00d);
-
-  ctx.fillStyle = '#405a28';
-  ctx.fillRect(0, 0, size, size);
-
-  // Grandes nuances diffuses : cassent l'aplat sans produire de bruit haute frequence.
-  for (let i = 0; i < 170; i++) {
-    const x = rand() * size;
-    const y = rand() * size;
-    const radius = 5 + rand() * 18;
-    const light = rand() > 0.48;
-    ctx.fillStyle = light ? 'rgba(108,130,57,0.055)' : 'rgba(21,36,14,0.07)';
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Touffes courtes, orientees de facon deterministe.
-  ctx.lineWidth = 0.75;
-  for (let i = 0; i < 1250; i++) {
-    const x = rand() * size;
-    const y = rand() * size;
-    const len = 0.8 + rand() * 2.4;
-    const angle = -0.45 + rand() * 0.9;
-    ctx.strokeStyle = rand() > 0.5 ? 'rgba(139,154,77,0.17)' : 'rgba(24,42,15,0.22)';
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.sin(angle) * len, y - Math.cos(angle) * len);
-    ctx.stroke();
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
 function createTerrainMaterials(): TerrainMaterials {
   return {
-    top: new THREE.MeshLambertMaterial({ map: platformTexture(), color: 0xffffff }),
-    wall: new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
-    trim: new THREE.MeshLambertMaterial({ color: 0x718746, side: THREE.DoubleSide }),
+    top: new THREE.MeshLambertMaterial({ map: createPlatformGrassTexture(), color: 0xffffff }),
+    wall: new THREE.MeshLambertMaterial({ color: 0x958b6b }),
     ao: new THREE.MeshBasicMaterial({
       color: AO_COLOR,
       transparent: true,
@@ -201,64 +154,180 @@ function buildTop(scenePts: Point2[], material: THREE.Material): THREE.Mesh {
 
 function buildWalls(scenePts: Point2[], material: THREE.Material): THREE.Mesh {
   const positions: number[] = [];
-  const colors: number[] = [];
   const ccw = signedArea(scenePts) > 0;
-  const levels = [0, PLATFORM_HEIGHT * 0.34, PLATFORM_HEIGHT * 0.7, PLATFORM_HEIGHT];
-  const palette = [0x211711, 0x30231a, 0x443326, 0x51402b].map((hex) => new THREE.Color(hex));
-
-  const pushVertex = (x: number, y: number, z: number, color: THREE.Color): void => {
-    positions.push(x, y, z);
-    colors.push(color.r, color.g, color.b);
-  };
-
-  for (let edge = 0; edge < scenePts.length; edge++) {
-    const [ax, az] = scenePts[edge]!;
-    const [bx, bz] = scenePts[(edge + 1) % scenePts.length]!;
-    const variation = 0.9 + ((edge * 37) % 9) * 0.018;
-
-    for (let band = 0; band < levels.length - 1; band++) {
-      const y0 = levels[band]!;
-      const y1 = levels[band + 1]!;
-      const c0 = palette[band]!.clone().multiplyScalar(variation);
-      const c1 = palette[band + 1]!.clone().multiplyScalar(variation);
-
-      if (ccw) {
-        // A0 -> A1 -> B1 produit la normale droite de l'arete : l'exterieur d'un contour CCW.
-        pushVertex(ax, y0, az, c0); pushVertex(ax, y1, az, c1); pushVertex(bx, y1, bz, c1);
-        pushVertex(ax, y0, az, c0); pushVertex(bx, y1, bz, c1); pushVertex(bx, y0, bz, c0);
-      } else {
-        pushVertex(ax, y0, az, c0); pushVertex(bx, y0, bz, c0); pushVertex(bx, y1, bz, c1);
-        pushVertex(ax, y0, az, c0); pushVertex(bx, y1, bz, c1); pushVertex(ax, y1, az, c1);
-      }
+  // Le fond des joints reste en retrait; les blocs restent dans le contour d'origine.
+  const retrait = offsetPolygon(scenePts, -0.05);
+  for (let edge = 0; edge < retrait.length; edge++) {
+    const [ax, az] = retrait[edge]!;
+    const [bx, bz] = retrait[(edge + 1) % retrait.length]!;
+    if (ccw) {
+      positions.push(
+        ax, 0, az, ax, PLATFORM_HEIGHT, az, bx, PLATFORM_HEIGHT, bz,
+        ax, 0, az, bx, PLATFORM_HEIGHT, bz, bx, 0, bz,
+      );
+    } else {
+      positions.push(
+        ax, 0, az, bx, 0, bz, bx, PLATFORM_HEIGHT, bz,
+        ax, 0, az, bx, PLATFORM_HEIGHT, bz, ax, PLATFORM_HEIGHT, az,
+      );
     }
   }
-
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.name = 'stratifiedCliff';
+  mesh.name = 'jointsSoutenement';
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   return mesh;
 }
 
-function platformFromPolygon(points: Point2[], frame: Frame3D, materials: TerrainMaterials, name: string): THREE.Group {
+interface InstanceMur {
+  matrice: THREE.Matrix4;
+  couleur: number;
+}
+
+interface LotsMurs {
+  pierres: InstanceMur[];
+  plaques: InstanceMur[];
+  fixations: InstanceMur[];
+  fissures: InstanceMur[];
+  feuilles: InstanceMur[];
+}
+
+/** Une geometrie biseautee pour toutes les pierres, sans allocation par bloc. */
+function pierreBiseautee(): THREE.BufferGeometry {
+  const forme = new THREE.Shape();
+  forme.moveTo(-0.445, -0.445);
+  forme.lineTo(0.445, -0.445);
+  forme.lineTo(0.445, 0.445);
+  forme.lineTo(-0.445, 0.445);
+  forme.closePath();
+  const geometrie = new THREE.ExtrudeGeometry(forme, {
+    depth: 0.84,
+    steps: 1,
+    bevelEnabled: true,
+    bevelThickness: 0.08,
+    bevelSize: 0.055,
+    bevelSegments: 1,
+    curveSegments: 1,
+  });
+  geometrie.translate(0, 0, -0.42);
+  return geometrie;
+}
+
+function garnirMurs(contour: Point2[], lots: LotsMurs, graine: number): void {
+  const hasard = seededRandom(graine);
+  const ccw = signedArea(contour) > 0;
+  const objet = new THREE.Object3D();
+  const pierres = [0xc2b58d, 0xd1c5a3, 0xbbb18f, 0xd6caa7, 0xc7bc99];
+  const verts = [0x647e38, 0x789244, 0x516f31];
+  const niveaux = [0.025, 0.43, 0.9, PLATFORM_HEIGHT - 0.008];
+
+  for (let arete = 0; arete < contour.length; arete++) {
+    const a = contour[arete]!;
+    const b = contour[(arete + 1) % contour.length]!;
+    const longueur = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (longueur < 0.1) continue;
+    const tx = (b[0] - a[0]) / longueur;
+    const tz = (b[1] - a[1]) / longueur;
+    const [nx, nz] = edgeOutwardNormal(a, b, ccw);
+    const rotation = Math.atan2(nx, nz);
+    const ajouter = (
+      lot: InstanceMur[], position: number, hauteur: number, retrait: number,
+      largeur: number, epaisseur: number, profondeur: number, couleur: number, inclinaison = 0,
+    ): void => {
+      objet.position.set(a[0] + tx * position - nx * retrait, hauteur, a[1] + tz * position - nz * retrait);
+      objet.rotation.set(0, rotation, inclinaison, 'YXZ');
+      objet.scale.set(largeur, epaisseur, profondeur);
+      objet.updateMatrix();
+      lot.push({ matrice: objet.matrix.clone(), couleur });
+    };
+
+    for (let assise = 0; assise < niveaux.length - 1; assise++) {
+      const bas = niveaux[assise]!;
+      const haut = niveaux[assise + 1]!;
+      let debut = 0;
+      while (debut < longueur - 0.015) {
+        // Les assises commencent avec des largeurs differentes pour decaler les joints.
+        const cible = debut === 0 ? 0.75 + hasard() * 0.95 : 1.35 + hasard() * 0.7;
+        const fin = Math.min(longueur, debut + cible);
+        const largeur = fin - debut - 0.025;
+        if (largeur > 0.015) {
+          const profondeur = 0.20 + hasard() * 0.055;
+          ajouter(lots.pierres, (debut + fin) / 2, (bas + haut) / 2,
+            profondeur / 2 + 0.016, largeur, haut - bas - 0.018,
+            profondeur, pierres[Math.floor(hasard() * pierres.length)]!);
+
+          if (assise < 2 && hasard() < 0.13 && largeur > 0.5) {
+            const position = (debut + fin) / 2;
+            const hauteur = (bas + haut) / 2 + 0.08;
+            ajouter(lots.fissures, position, hauteur, 0.012,
+              0.012, 0.13, 0.007, 0x80765c, -0.34);
+            ajouter(lots.fissures, position + 0.027, hauteur - 0.11, 0.012,
+              0.011, 0.105, 0.007, 0x80765c, 0.2);
+          }
+        }
+        debut = fin;
+      }
+    }
+
+    for (let position = 2.1 + hasard() * 3; position < longueur - 0.5; position += 8 + hasard() * 7) {
+      const hauteur = 0.52 + hasard() * 0.19;
+      ajouter(lots.plaques, position, hauteur, 0.013, 0.56, 0.34, 0.020, 0xe5dfc5);
+      ajouter(lots.fixations, position, hauteur, 0.0045, 0.10, 0.40, 0.007, 0x555951);
+      for (const cote of [-1, 1]) {
+        ajouter(lots.fixations, position + cote * 0.205, hauteur + 0.10, 0.002,
+          0.042, 0.042, 0.003, 0x77796c);
+        ajouter(lots.fixations, position + cote * 0.205, hauteur - 0.10, 0.002,
+          0.042, 0.042, 0.003, 0x77796c);
+      }
+    }
+
+    for (let position = 0.8 + hasard() * 2; position < longueur - 0.45; position += 4 + hasard() * 5) {
+      const nombre = 3 + Math.floor(hasard() * 4);
+      for (let feuille = 0; feuille < nombre; feuille++) {
+        const hauteur = PLATFORM_HEIGHT - 0.15 - feuille * 0.135;
+        const cote = feuille % 2 === 0 ? -1 : 1;
+        // Le lierre reste sous le sommet et contre la face, meme dans les angles du U.
+        ajouter(lots.feuilles, position + cote * 0.075, hauteur, 0.014,
+          0.20, 0.24, 0.022, verts[Math.floor(hasard() * verts.length)]!, cote * 0.55);
+      }
+    }
+  }
+}
+
+function ajouterLot(
+  groupe: THREE.Group, nom: string, instances: InstanceMur[], geometrie: THREE.BufferGeometry,
+  materiau: THREE.MeshLambertMaterial,
+): void {
+  if (instances.length === 0) return;
+  const lot = new THREE.InstancedMesh(geometrie, materiau, instances.length);
+  const couleur = new THREE.Color();
+  for (let i = 0; i < instances.length; i++) {
+    const instance = instances[i]!;
+    lot.setMatrixAt(i, instance.matrice);
+    lot.setColorAt(i, couleur.set(instance.couleur));
+  }
+  lot.name = nom;
+  lot.instanceMatrix.needsUpdate = true;
+  if (lot.instanceColor) lot.instanceColor.needsUpdate = true;
+  lot.receiveShadow = true;
+  lot.computeBoundingBox();
+  lot.computeBoundingSphere();
+  groupe.add(lot);
+}
+
+function platformFromPolygon(
+  points: Point2[], frame: Frame3D, materials: TerrainMaterials, name: string, lots: LotsMurs, graine: number,
+): THREE.Group {
   const group = new THREE.Group();
   group.name = name;
   const scenePts = points.map(([x, y]) => worldToScene(frame, x, y));
-
   group.add(buildTop(scenePts, materials.top));
   group.add(buildWalls(scenePts, materials.wall));
-  group.add(buildHorizontalBand(
-    scenePts,
-    offsetPolygon(scenePts, -EDGE_TRIM_WIDTH),
-    PLATFORM_HEIGHT + 0.008,
-    materials.trim,
-    'mossTrim',
-  ));
   group.add(buildAmbientOcclusionSkirt(scenePts, materials.ao));
+  garnirMurs(scenePts, lots, graine);
   return group;
 }
 
@@ -266,9 +335,18 @@ export function buildPlatforms(lane: Lane, frame: Frame3D): THREE.Group {
   const group = new THREE.Group();
   group.name = 'platforms';
   const materials = createTerrainMaterials();
-
+  const lots: LotsMurs = { pierres: [], plaques: [], fixations: [], fissures: [], feuilles: [] };
+  let index = 0;
   for (const zone of zoneFootprints(lane)) {
-    group.add(platformFromPolygon(zone.points, frame, materials, `platform-${zone.id}`));
+    group.add(platformFromPolygon(zone.points, frame, materials, `platform-${zone.id}`, lots, 711 + index++));
   }
+  // Cinq lots pour l'ensemble des deux plateaux; toutes les ressources vivent dans ce groupe.
+  const bloc = new THREE.BoxGeometry(1, 1, 1);
+  const materiau = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
+  ajouterLot(group, 'pierresSoutenement', lots.pierres, pierreBiseautee(), materiau);
+  ajouterLot(group, 'plaquesSoutenement', lots.plaques, bloc, materiau);
+  ajouterLot(group, 'fixationsSoutenement', lots.fixations, bloc, materiau);
+  ajouterLot(group, 'fissuresSoutenement', lots.fissures, bloc, materiau);
+  ajouterLot(group, 'lierreSoutenement', lots.feuilles, new THREE.IcosahedronGeometry(0.5, 0), materiau);
   return group;
 }

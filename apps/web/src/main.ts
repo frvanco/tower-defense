@@ -146,7 +146,9 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
 
   const canvasWrap = byId<HTMLDivElement>('canvas-wrap');
   const canvas = byId<HTMLCanvasElement>('game-canvas');
-  const s3d: Scene3D = createScene3D(canvas, lane0, frame);
+  const s3d: Scene3D = createScene3D(canvas, lane0, frame, {
+    enabled: !(import.meta.env.DEV && isDevRequested() && new URLSearchParams(location.search).get('decor') === '0'),
+  });
 
   // Instrumentation perf, opt-in via ?perf=1 — jamais active par defaut (voir
   // perfMonitor.ts). Expose window.__perf.getReport() pour recuperer le
@@ -483,6 +485,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
         pendingHuman,
         getUnlockedTier: () => state.arenas[0]?.unlockedShopTier ?? 0,
         getCamera: () => ({ position: s3d.camera.position, target: s3d.controls.target }),
+        setSceneryEnabled: (enabled) => s3d.sanctuary.setEnabled(enabled),
       }),
     );
     // Pause/1x/2x/4x : outil de test (regarder une vague au ralenti, avaler
@@ -523,6 +526,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     towerGroups[viewedPlayer]!.visible = false;
     creepGroups[viewedPlayer]!.visible = false;
     viewedPlayer = player;
+    s3d.sanctuary.setPlayer(player);
     towerGroups[viewedPlayer]!.visible = true;
     creepGroups[viewedPlayer]!.visible = true;
     builderEntity.setPlayer(new THREE.Color(toHexNumber(playerColor(viewedPlayer))));
@@ -634,6 +638,7 @@ export function startGame(callbacks: GameCallbacks, difficulty: Difficulty): () 
     for (const g of towerGroups) g.visible = false;
     for (const g of creepGroups) g.visible = false;
     viewedPlayer = 0;
+    s3d.sanctuary.setPlayer(0);
     towerGroups[0]!.visible = true;
     creepGroups[0]!.visible = true;
     commandBarEl.classList.remove('observing');
