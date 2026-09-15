@@ -15,7 +15,24 @@ export interface SlotMarkers {
   update(arena: Arena, hoveredSlotId: string | null, active: boolean): void;
 }
 
-const FREE_COLOR = 0xc9a227;
+/**
+ * Ivoire et non dore : les plateaux sont une pelouse vert vif, et jaune sur
+ * vert est l'une des paires les moins contrastees qui soient — les anneaux
+ * d'origine (dore a 0.16, cales sur l'ancien terrain brun sombre)
+ * disparaissaient purement et simplement sur le nouveau decor. L'ivoire fait
+ * en plus echo aux dalles de pierre du chemin plutot que de jurer avec.
+ *
+ * Un anneau SOMBRE contraste encore mieux, mais 236 cercles fonces quadrillent
+ * lourdement la pelouse ; ces marqueurs sont censes rester discrets. Si la
+ * lisibilite prime un jour sur la discretion, 0x14200f a 0.34 est le reglage
+ * essaye et retenu comme solution de repli.
+ */
+const FREE_COLOR = 0xf2f5e6;
+const FREE_OPACITY = 0.38;
+
+/** Survol : jaune sature, la couleur de signalement du projet. Il reste lisible
+ * a cette opacite, et son anneau depasse du fantome de pose (dont le rayon est
+ * plus petit) — c'est ce liseré qui se voit, pas le disque. */
 const HOVER_COLOR = 0xf2d24b;
 const OCCUPIED_COLOR = 0xd0503c;
 
@@ -31,7 +48,7 @@ export function createSlotMarkers(frame: Frame3D): SlotMarkers {
   const material = new THREE.MeshBasicMaterial({
     color: FREE_COLOR,
     transparent: true,
-    opacity: 0.16,
+    opacity: FREE_OPACITY,
     depthWrite: false,
     side: THREE.FrontSide,
   });
