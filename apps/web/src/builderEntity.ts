@@ -3,6 +3,7 @@ import type { Arena, BuilderMode } from '@tower-defense/sim';
 import { worldToScene, type Frame3D } from './world3d.js';
 import { PLATFORM_HEIGHT } from './terrain3d.js';
 import { loadBuilderModel, tintTeam, type BuilderModel } from './builderModel.js';
+import { loadStoredBuilder, type BuilderDef } from './builders.js';
 
 /**
  * L'ouvrier a l'ecran. UN SEUL objet pour toute la partie : on n'observe
@@ -54,9 +55,14 @@ export class BuilderEntity {
   private color = new THREE.Color(0xffffff);
   private disposed = false;
 
-  constructor() {
+  /**
+   * @param def Ouvrier a afficher. Par defaut celui choisi par le joueur a
+   * l'accueil (builders.ts) — la preference est relue a chaque partie, changer
+   * d'ouvrier prend effet au lancement de la suivante.
+   */
+  constructor(private def: BuilderDef = loadStoredBuilder()) {
     this.group.visible = false;
-    void loadBuilderModel().then((model) => {
+    void loadBuilderModel(def).then((model) => {
       if (!model || this.disposed) return;
       this.model = model;
       // `clone(true)` suffit : ce modele n'a aucun skin (SkeletonUtils serait
@@ -86,7 +92,7 @@ export class BuilderEntity {
         else if (name === this.transient) this.transient = null;
       });
 
-      tintTeam(instance, this.color);
+      tintTeam(instance, this.color, model.teamMaterials);
     });
   }
 
@@ -94,7 +100,7 @@ export class BuilderEntity {
    * change de camp au lieu qu'un second soit cree. */
   setPlayer(color: THREE.Color): void {
     this.color.copy(color);
-    if (this.instance) tintTeam(this.instance, this.color);
+    if (this.instance && this.model) tintTeam(this.instance, this.color, this.model.teamMaterials);
     // On saute d'une arene a l'autre : aucune trajectoire continue a lisser.
     this.altitude = 0;
     this.phase = 'ground';

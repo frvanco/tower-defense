@@ -1489,6 +1489,50 @@ button {
   filter: brightness(1.08);
 }
 
+/* Bouton principal en grand — action de conclusion d'un panneau (Valider).
+   Reprend l'identite de .launcher-play (chanfrein, or, capitales espacees) et
+   la pousse : pleine largeur, degrade a quatre arrets pour un vrai galbe, et
+   un liseré clair sur l'arete haute.
+
+   Le relief passe par `drop-shadow` et non `box-shadow` : le clip-path
+   ci-dessus decoupe la boite, donc une box-shadow serait rognee avec elle.
+   `drop-shadow` s'applique au resultat DEJA decoupe et epouse le chanfrein.
+   Consequence : chaque etat doit reposer le drop-shadow en meme temps que sa
+   brightness, un `filter` remplace le precedent, il ne s'y ajoute pas.
+
+   Selecteur double (.launcher-play.launcher-play--large) et non modificateur
+   seul : `.launcher-form button` vaut 0,1,1 et l'emporterait sinon sur un
+   simple 0,1,0 — la police restait a 13px. Doubler la classe donne 0,2,0, qui
+   gagne sans dependre de l'ordre des regles. */
+.launcher-play.launcher-play--large {
+  width: 100%;
+  margin-top: 14px;
+  padding: 18px 26px;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 240, 0.55) 0 2px, transparent 2px),
+    linear-gradient(180deg, #f4e3b9 0%, #dcc389 44%, #ab8942 58%, #876a29 100%);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+  transition: filter 140ms ease, transform 140ms ease;
+}
+
+.launcher-play.launcher-play--large:hover {
+  filter: brightness(1.09) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+}
+
+/* Enfoncement : l'ombre se resserre en meme temps que le bouton descend,
+   sinon il a l'air de flotter au moment ou on appuie. */
+.launcher-play.launcher-play--large:active {
+  transform: translateY(1px);
+  filter: brightness(0.97) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+}
+
+.launcher-play.launcher-play--large:focus-visible {
+  outline: 2px solid #f2d24b;
+  outline-offset: 3px;
+}
+
 .launcher-screen a {
   text-align: center;
   font-size: 12.5px;
@@ -1514,15 +1558,27 @@ button {
   margin-top: 4px;
 }
 
-/* ---------- panneau de choix de difficulte ---------- */
+/* ---------- panneaux de choix du launcher ----------
+   Partages par le choix de difficulte ET celui de l'ouvrier : meme forme
+   (une liste de radios decrites d'une ligne), donc un seul jeu de regles
+   plutot qu'un par panneau. Nommees `choice-*` et non `difficulty-*` pour
+   cette raison. */
 
-.difficulty-options {
+/* Une ligne d'introduction au-dessus d'un panneau de choix. */
+.launcher-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: #b39a68;
+}
+
+.choice-options {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.difficulty-option {
+.choice-option {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -1533,29 +1589,41 @@ button {
   cursor: pointer;
 }
 
-.difficulty-option:has(input:checked) {
+.choice-option:has(input:checked) {
   border-color: #cdb27a;
   background: #201a12;
 }
 
-.difficulty-option input {
+.choice-option input {
   margin-top: 3px;
   accent-color: #c9a227;
   flex-shrink: 0;
 }
 
-.difficulty-option-body {
+/* Vignette d'ouvrier. Absente du panneau de difficulte, qui partage ces
+   regles : une option sans <img> se met simplement en page sans elle. Le fond
+   sombre fait ressortir le PNG, livre a fond transparent. */
+.choice-option-icon {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 4px;
+  background: #0f0c08;
+  box-shadow: inset 0 0 0 1px rgba(179, 154, 104, 0.25);
+}
+
+.choice-option-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.difficulty-option-title {
+.choice-option-title {
   font-weight: 600;
   color: #f1e6c8;
 }
 
-.difficulty-option-desc {
+.choice-option-desc {
   font-size: 12px;
   color: #b39a68;
   line-height: 1.35;
@@ -1813,4 +1881,16 @@ button {
 .launcher-secondary:hover {
   background: #3a2c20;
   color: #f0dfae;
+}
+
+/* Bouton d'ouvrier de l'accueil : seul .launcher-secondary hors du rang de
+   .launcher-lobby-actions, donc le `flex: 1` herite ne s'applique a rien —
+   il occupe toute la largeur du panneau. Le nom choisi y est mis en avant. */
+.launcher-builder {
+  width: 100%;
+}
+
+.launcher-builder strong {
+  color: #f1e6c8;
+  font-weight: 600;
 }

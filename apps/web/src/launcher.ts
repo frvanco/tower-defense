@@ -12,6 +12,7 @@ import {
   loadStoredDifficulty,
   storeDifficulty,
 } from './difficulty.js';
+import { BUILDERS, loadStoredBuilder, storeBuilder } from './builders.js';
 
 type Screen =
   | 'chargement'
@@ -20,6 +21,7 @@ type Screen =
   | 'menu'
   | 'menu-claim'
   | 'difficulte'
+  | 'ouvrier'
   | 'salon-rejoindre'
   | 'salon'
   | 'partie';
@@ -71,6 +73,7 @@ function render(screen: Screen, error?: string): void {
   if (screen === 'pseudo') renderPseudoScreen(error);
   else if (screen === 'pseudo-login') renderLoginScreen(error);
   else if (screen === 'menu') renderMenuScreen();
+  else if (screen === 'ouvrier') renderBuilderScreen();
   else if (screen === 'menu-claim') renderClaimScreen(error);
   else if (screen === 'difficulte') renderDifficultyScreen();
   else if (screen === 'salon-rejoindre') renderJoinLobbyScreen(error);
@@ -158,6 +161,12 @@ function renderMenuScreen(): void {
         <button id="create-lobby-btn" class="launcher-secondary">Créer un salon</button>
         <button id="join-lobby-btn" class="launcher-secondary">Rejoindre</button>
       </div>
+      <!-- L'ouvrier choisi est affiche ICI plutot que derriere le bouton :
+           c'est une preference qui vaut pour toutes les parties, on doit
+           pouvoir la lire sans ouvrir le panneau. -->
+      <button id="builder-btn" class="launcher-secondary launcher-builder">
+        Ouvrier&nbsp;: <strong>${escapeHtml(loadStoredBuilder().name)}</strong>
+      </button>
       ${u.isGuest ? `<a href="#" id="save-account" class="launcher-save">Sauvegarder mon compte</a>` : ''}
       <a href="#" id="logout-link" class="launcher-logout">Se déconnecter</a>
     </div>
@@ -173,6 +182,9 @@ function renderMenuScreen(): void {
   root!.querySelector<HTMLButtonElement>('#join-lobby-btn')!.addEventListener('click', () => {
     render('salon-rejoindre');
   });
+  root!.querySelector<HTMLButtonElement>('#builder-btn')!.addEventListener('click', () => {
+    render('ouvrier');
+  });
   root!.querySelector<HTMLAnchorElement>('#save-account')?.addEventListener('click', (ev) => {
     ev.preventDefault();
     render('menu-claim');
@@ -183,6 +195,52 @@ function renderMenuScreen(): void {
       user = null;
       render('pseudo');
     });
+  });
+}
+
+/**
+ * Choix de l'ouvrier. Panneau a part et non liste posee sur l'accueil : le
+ * catalogue est fait pour grandir (builders.ts), et une liste qui s'allonge
+ * repousserait le bouton "Jouer" hors de l'ecran. L'accueil affiche le choix
+ * courant, ce panneau le change.
+ *
+ * Contrairement a la difficulte, choisie a chaque partie, l'ouvrier est une
+ * preference qui vaut pour toutes. Elle est enregistree a la VALIDATION et
+ * non au clic sur une option : le bouton est la seule sortie du panneau, donc
+ * cocher puis valider est le seul chemin possible — autant que le bouton
+ * veuille dire ce qu'il dit.
+ */
+function renderBuilderScreen(): void {
+  const selected = loadStoredBuilder();
+  root!.innerHTML = `
+    <div class="launcher-screen">
+      <h1>Choisis ton ouvrier</h1>
+      ${DIVIDER}
+      <p class="launcher-hint">Il construit tes tours, partie après partie.</p>
+      <form id="builder-form" class="launcher-form">
+        <div class="choice-options">
+          ${BUILDERS.map(
+            (b) => `
+            <label class="choice-option">
+              <input type="radio" name="builder" value="${b.id}" ${b.id === selected.id ? 'checked' : ''} />
+              <img class="choice-option-icon" src="${b.iconUrl}" alt="" />
+              <span class="choice-option-body">
+                <span class="choice-option-title">${escapeHtml(b.name)}</span>
+                <span class="choice-option-desc">${escapeHtml(b.description)}</span>
+              </span>
+            </label>
+          `,
+          ).join('')}
+        </div>
+        <button type="submit" class="launcher-play launcher-play--large">Valider</button>
+      </form>
+    </div>
+  `;
+  root!.querySelector<HTMLFormElement>('#builder-form')!.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const checked = root!.querySelector<HTMLInputElement>('input[name="builder"]:checked');
+    storeBuilder(checked?.value ?? selected.id);
+    render('menu');
   });
 }
 
@@ -198,14 +256,14 @@ function renderDifficultyScreen(): void {
       <h1>Choisis un niveau</h1>
       ${DIVIDER}
       <form id="difficulty-form" class="launcher-form">
-        <div class="difficulty-options">
+        <div class="choice-options">
           ${DIFFICULTY_ORDER.map(
             (d) => `
-            <label class="difficulty-option">
+            <label class="choice-option">
               <input type="radio" name="difficulty" value="${d}" ${d === selected ? 'checked' : ''} />
-              <span class="difficulty-option-body">
-                <span class="difficulty-option-title">${DIFFICULTY_LABELS[d]}</span>
-                <span class="difficulty-option-desc">${DIFFICULTY_DESCRIPTIONS[d]}</span>
+              <span class="choice-option-body">
+                <span class="choice-option-title">${DIFFICULTY_LABELS[d]}</span>
+                <span class="choice-option-desc">${DIFFICULTY_DESCRIPTIONS[d]}</span>
               </span>
             </label>
           `,
